@@ -104,8 +104,75 @@ const relationshipSchema = new Schema({
   },
   relationshipType: {
     type: String,
-    enum: ['Family', 'Friend', 'Romantic', 'Professional', 'Acquaintance', 'Other'],
+    enum: ['Family',
+      'Friend',
+      'Partner',
+      'Colleague',
+      'Mentor',
+      'Mentee',
+      'Acquaintance',
+      'Other'],
     required: true
+  },
+  
+  photo: {
+    type: String,
+    default: null
+  },
+
+  contactInfo: {
+    type: String,
+    trim: true
+  },
+  // Add new fields for enhanced relationship data
+  loveLanguage: {
+    type: String
+  },
+  interactionFrequency: {
+    type: String
+  },
+  // Their information - expanded
+  theirValues: {
+    type: [String],
+    default: []
+  },
+  theirInterests: {
+    type: [String],
+    default: []
+  },
+  theirCommunicationPreferences: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
+  importantDates: {
+    type: [mongoose.Schema.Types.Mixed],
+    default: []
+  },
+  events: {
+    type: [mongoose.Schema.Types.Mixed],
+    default: []
+  },
+  tags: {
+    type: [String],
+    default: []
+  },
+  // Communication style - can be string or object
+    communicationStyle: {
+      type: mongoose.Schema.Types.Mixed
+    },
+  interactionFrequency: {
+    type: String,
+    enum: [ 'Daily',
+      'Several times a week',
+      'Weekly',
+      'Monthly',
+      'Occasionally',
+      'Rarely'],
+    default: 'Not specified'
+  },
+  howWeMet: {
+    type: String,
+    trim: true
   },
   timeKnown: {
     type: String,
@@ -118,6 +185,10 @@ const relationshipSchema = new Schema({
   insights: [insightSchema],
   growthAreas: [growthAreaSchema],
   topicDistribution: [topicDistributionSchema],
+  sessions: [{                    // Add this field
+    type: Schema.Types.ObjectId,
+    ref: 'Conversation'
+  }],
   lastInteraction: {
     type: Date
   },
@@ -128,7 +199,53 @@ const relationshipSchema = new Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  // Add these new fields
+  connectionScore: {
+    type: Number,
+    min: 1,
+    max: 100,
+    default: 50
+  },
+  trustLevel: {
+    type: Number,
+    min: 1,
+    max: 10,
+    default: 5
+  },
+  positiveMemories: [{
+    type: String,
+    trim: true
+  }],
+  challengeAreas: [{
+    type: String,
+    trim: true
+  }],
+  messageCount: {
+    type: Number,
+    default: 0
+  },
+  culturalContext: {
+    type: String,
+    trim: true
+  },
+  relationshipLevel: {
+    type: Number,
+    min: 1,
+    max: 10,
+    default: 1
+  },
+  challengesBadges: [{
+    type: String,
+    trim: true
+  }],
+  nextMilestone: {
+    type: String,
+    trim: true
   }
+
+
+
 },
 {
   toJSON: { virtuals: true },

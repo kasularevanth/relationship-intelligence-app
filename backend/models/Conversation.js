@@ -5,7 +5,7 @@ const Schema = mongoose.Schema;
 const messageSchema = new Schema({
   role: {
     type: String,
-    enum: ['user', 'assistant'],
+    enum: ['user', 'ai'],
     required: true
   },
   content: {
@@ -81,11 +81,7 @@ const messageSchema = new Schema({
       default: 0
     }
   },
-  phase: {
-    type: String,
-    enum: ['onboarding', 'emotional_mapping', 'dynamics_tensions', 'dual_lens_reflection'],
-    default: 'onboarding'
-  }
+  // Remove the conflicting phase field from messageSchema
 });
 
 const conversationSchema = new Schema({
@@ -105,55 +101,27 @@ const conversationSchema = new Schema({
       return `Conversation on ${new Date().toLocaleDateString()}`;
     }
   },
-  messages: [messageSchema],
-  summary: {
-    text: {
-      type: String
-    },
-    insights: [{
-      type: {
-        type: String
-      },
-      category: {
-        type: String
-      },
-      text: {
-        type: String
-      }
-    }],
-    emotionalTone: {
-      type: String
-    },
-    sentimentScore: {
-      type: Number
-    },
-    topics: [{
-      name: {
-        type: String
-      },
-      strength: {
-        type: Number
-      }
-    }],
-    memories: [{
-      content: {
-        type: String
-      },
-      type: {
-        type: String
-      },
-      emotion: {
-        type: String
-      }
-    }],
-    nextSteps: {
-      type: String
-    }
+  contactName: {
+    type: String,
+    required: true
   },
+  // Use a single phase field with string values
+  phase: {
+    type: String,
+    enum: ['onboarding', 'emotionalMapping', 'dynamics', 'dualLens', 'completed', 'processing'],
+    default: 'onboarding'
+  },
+  messages: [messageSchema],
+  
+  summary: {
+    keyInsights: [String],
+    emotionalDynamics: [String],
+    areasForGrowth: [String]
+  },
+  askedQuestions: [String],
   status: {
     type: String,
-    enum: ['active', 'completed', 'abandoned'],
-    default: 'active'
+    enum: ['active', 'completed', 'abandoned', 'importing','analyzed']
   },
   startTime: {
     type: Date,
@@ -205,6 +173,7 @@ conversationSchema.pre('save', function(next) {
     this.duration = Math.floor((this.endTime - this.startTime) / 1000);
   }
   
+  
   next();
 });
 
@@ -215,7 +184,7 @@ conversationSchema.methods.addMessage = async function(messageData) {
   
   // Update conversation status if needed
   if (this.messages.length >= 20 || 
-     (this.messages.length > 0 && this.messages[this.messages.length - 1].phase === 'dual_lens_reflection')) {
+     (this.messages.length > 0 && this.phase === 'completed')) {
     this.status = 'completed';
     this.endTime = Date.now();
     this.duration = Math.floor((this.endTime - this.startTime) / 1000);

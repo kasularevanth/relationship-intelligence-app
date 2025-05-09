@@ -9,7 +9,7 @@ const sentimentAnalysis = require('./sentimentAnalysis');
 
 // Initialize OpenAI
 const openai = new OpenAI({
-  apiKey: config.OPENAI_API_KEY,
+  apiKey: config.openaiApiKey,
 });
 
 /**
@@ -131,7 +131,7 @@ class AIEngine {
     const { messages = [] } = conversation;
     
     // Count AI messages to determine progression
-    const aiMessageCount = messages.filter(m => m.role === 'assistant').length;
+    const aiMessageCount = messages.filter(m => m.role === 'ai').length;
     
     // Logic to determine phase based on message count and content
     if (aiMessageCount < 3) {
@@ -171,7 +171,7 @@ class AIEngine {
     const recentMessages = (conversation.messages || []).slice(-10);
     recentMessages.forEach(msg => {
       messages.push({
-        role: msg.role, // 'user' or 'assistant'
+        role: msg.role, // 'user' or 'ai'
         content: msg.content
       });
     });

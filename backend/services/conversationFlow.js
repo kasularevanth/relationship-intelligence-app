@@ -7,29 +7,59 @@ exports.getInitialMessage = async (contactName) => {
   const template = promptTemplates.getPhaseTemplate('onboarding', contactName);
   
   // Return an initial greeting message
-  return `Hi there! I'd love to help you reflect on your relationship with ${contactName}. Let's start with something simple - how did you and ${contactName} meet?`;
+  return `Hi there! I'd love to help you reflect on your relationship with ${contactName}. Let's start with something simple - Hi How are you?`;
 };
 
 exports.getNextQuestion = async (phase, contactName, previousMessages) => {
+  // Ensure contactName is defined
+  if (!contactName) {
+    console.error('Missing contactName in getNextQuestion');
+    contactName = 'your contact';
+  }
+  
   const questions = getPhaseQuestions(phase, contactName);
+  console.log(`Questions for phase ${phase}:`, questions);
   
-  // Check which questions have already been asked (simple implementation)
-  const askedQuestions = previousMessages
-    .filter(msg => msg.role === 'ai')
-    .map(msg => msg.content)
-    .join(' ');
+  // More sophisticated question tracking
+  const aiMessages = previousMessages.filter(msg => msg.role === 'ai');
+  console.log(`AI messages in phase ${phase}:`, aiMessages.length);
+  const askedQuestions = new Set(); // Use a Set for better tracking
   
-  // Find the first question that hasn't been asked yet
-  for (const question of questions) {
-    // Simple heuristic - if the AI message doesn't contain the exact question text
-    if (!askedQuestions.includes(question)) {
-      return question;
-    }
+  // Track questions that have been asked
+  aiMessages.forEach(msg => {
+    questions.forEach(question => {
+      if (msg.content === question) {
+        askedQuestions.add(question);
+      }
+    });
+  });
+
+
+  console.log("Already asked questions:", Array.from(askedQuestions));
+
+  const remainingQuestions = questions.filter(q => !askedQuestions.has(q));
+  if (remainingQuestions.length > 0) {
+    // Choose a random question from the remaining questions for variety
+    const randomIndex = Math.floor(Math.random() * remainingQuestions.length);
+    return remainingQuestions[randomIndex];
   }
   
   // If all questions have been asked, return a generic follow-up
-  return getGenericFollowUp(phase, contactName);
+  // If all questions have been asked, return a generic follow-up that's not been used
+  const genericFollowUp = getGenericFollowUp(phase, contactName);
+  
+  // Check if this follow-up has been asked before
+  const followUpAsked = aiMessages.some(msg => msg.content === genericFollowUp);
+  
+  if (!followUpAsked) {
+    // If the follow-up hasn't been asked yet, use it once
+    return genericFollowUp;
+  }
+  
+  // Last resort - create a unique follow-up
+  return `Tell me more about your relationship with ${contactName}. What aspects would you like to explore further?`;
 };
+
 
 function getPhaseQuestions(phase, contactName) {
   // Return predefined questions for each phase
@@ -85,27 +115,56 @@ function getGenericFollowUp(phase, contactName) {
   }
 }
 
-exports.determineNextPhase = (currentPhase, messageCount, conversationData) => {
-  // Logic to determine when to move to the next phase
-  // This is a simple implementation based on message count
-  // In a real system, this would be more sophisticated based on content analysis
+// Update determineNextPhase function in conversationFlow.js
+exports.determineNextPhase = (phase, messageCount, conversationData) => {
+
   
-  const phaseSequence = ['onboarding', 'emotionalMapping', 'dynamics', 'dualLens', 'completed'];
-  const currentIndex = phaseSequence.indexOf(currentPhase);
-  
-  // Stay in current phase if it's the last one
-  if (currentIndex === phaseSequence.length - 1) {
-    return currentPhase;
+
+  console.log("determineNextPhase called with:", { phase, messageCount, conversationData });
+
+  if (!phase) {
+    console.warn("Phase is undefined, defaulting to onboarding");
+    phase = 'onboarding';
   }
-  
-  // Check if we've covered all the core questions for this phase
-  const phaseQuestions = getPhaseQuestions(currentPhase, conversationData.contactName);
-  const minimumQuestionsAnswered = phaseQuestions.length;
-  
-  // Check if we've had at least the minimum number of exchanges
-  if (messageCount >= minimumQuestionsAnswered * 2) {
-    return phaseSequence[currentIndex + 1];
+  // Validate the conversationData has contactName
+  if (!conversationData || !conversationData.contactName) {
+    console.error('Missing contactName in determineNextPhase:', conversationData);
+    // Provide a fallback
+    conversationData = conversationData || {};
+    conversationData.contactName = conversationData.contactName || 'your contact';
   }
+
+  // Define phase sequence for consistent reference
+  const phases = ['onboarding', 'emotionalMapping', 'dynamics', 'dualLens', 'completed'];
   
-  return currentPhase;
+   // Find the current phase index
+   let currentPhaseIndex = phases.indexOf(phase);
+   if (currentPhaseIndex === -1) {
+     console.warn(`Unknown phase "${phase}", defaulting to onboarding`);
+     currentPhaseIndex = 0;
+   }
+   
+  //  // Stay in current phase if it's the last one
+  //  if (currentPhaseIndex >= phases.length - 1) {
+  //    return phases[currentPhaseIndex];
+  //  }
+
+   // Determine message threshold for phase advancement
+  // Each phase requires progressively more messages before advancing
+  const phaseThresholds = {
+    'onboarding': 6,          // 3 questions + 3 answers
+    'emotionalMapping': 10,   // 5 questions + 5 answers
+    'dynamics': 14,           // 7 questions + 7 answers
+    'dualLens': 18            // 9 questions + 9 answers
+  };
+
+  if (messageCount >= phaseThresholds[phase]) {
+    const nextPhase = phases[currentPhaseIndex + 1];
+    console.log(`Moving from ${phase} to ${nextPhase} based on message count ${messageCount}`);
+    return nextPhase;
+  }
+
+  console.log(`Phase decision: ${phase} → ${phases[currentPhaseIndex + 1] || phase}`);
+  
+  return phase;
 };
