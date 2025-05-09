@@ -1,0 +1,85 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+
+
+
+
+
+
+/* Add these styles to your index.css file */
+:root {
+  --background-color: #f5f5f5;
+  --text-color: #212121;
+  --paper-color: #ffffff;
+  --border-color: #e0e0e0;
+}
+
+[data-theme="dark"] {
+  --background-color: #121212;
+  --text-color: #ffffff;
+  --paper-color: #1e1e1e;
+  --border-color: #333333;
+}
+
+body {
+  margin: 0;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.dark-mode {
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Fix spacing in home page */
+.home-container {
+  padding: 60px 20px !important;
+}
+
+.home-hero {
+  margin-bottom: 60px !important;
+}
+
+.home-title {
+  margin-bottom: 24px !important;
+}
+
+.home-subtitle {
+  max-width: 800px;
+  margin: 0 auto 40px auto !important;
+  line-height: 1.6 !important;
+}
+
+.home-buttons {
+  margin-top: 40px !important;
+  gap: 16px !important;
+}
+
+/* Dashboard specific styles */
+.relationship-card {
+  background-color: var(--paper-color) !important;
+  border: 1px solid var(--border-color);
+}
+
+/* Fix for avatar and text alignment */
+.user-info {
+  display: flex;
+  align-items: center;
+}
+
+.user-info .MuiAvatar-root {
+  margin-right: 8px;
+}
