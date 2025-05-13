@@ -41,9 +41,9 @@ const AuthLayout = () => {
             alignItems: 'center',
           }}
         >
-          <Typography component="h1" variant="h4" sx={{ mb: 4 }}>
+          {/* <Typography component="h1" variant="h4" sx={{ mb: 4 }}>
             Relationship Intelligence
-          </Typography>
+          </Typography> */}
           <Outlet />
         </Paper>
       </Container>
