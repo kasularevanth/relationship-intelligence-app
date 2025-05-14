@@ -1,6 +1,8 @@
-// backend/models/Relationship.js
+// backend/models/Relationship.js - UPDATED
+
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const { modelEvents } = require('../utils/eventEmitter');
 
 const growthAreaSchema = new Schema({
   title: {
@@ -243,9 +245,6 @@ const relationshipSchema = new Schema({
     type: String,
     trim: true
   }
-
-
-
 },
 {
   toJSON: { virtuals: true },
@@ -362,5 +361,32 @@ relationshipSchema.methods.updateTopicDistribution = async function(topics) {
   
   return this.save();
 };
+
+// NEW - Add Firebase sync hooks
+
+
+relationshipSchema.post('save',  function(doc) {
+  try {
+    // Only sync to Firebase in production to avoid unnecessary operations in development
+    if (process.env.NODE_ENV === 'production') {
+      modelEvents.emit('syncRelationshipToFirebase',(doc._id));
+    }
+  } catch (error) {
+    console.error('Error in post-save Firebase sync for relationship:', error);
+  }
+});
+
+relationshipSchema.post('findOneAndUpdate',  function(doc) {
+  if (doc) {
+    try {
+      // Only sync to Firebase in production
+      if (process.env.NODE_ENV === 'production') {
+        modelEvents.emit('syncRelationshipToFirebase',(doc._id));
+      }
+    } catch (error) {
+      console.error('Error in post-update Firebase sync for relationship:', error);
+    }
+  }
+});
 
 module.exports = mongoose.model('Relationship', relationshipSchema);

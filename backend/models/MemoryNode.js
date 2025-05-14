@@ -1,6 +1,7 @@
-// backend/models/MemoryNode.js
+// backend/models/MemoryNode.js - UPDATED
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const { modelEvents } = require('../utils/eventEmitter');
 
 const memoryNodeSchema = new Schema({
   user: {
@@ -90,6 +91,32 @@ memoryNodeSchema.methods.getCurrentRelevance = function() {
   const decayedWeight = this.weight * Math.exp(-this.decayFactor * daysSinceCreation);
   return Math.max(0, decayedWeight);
 };
+
+
+
+memoryNodeSchema.post('save',  function(doc) {
+  try {
+    // Only sync to Firebase in production
+    if (process.env.NODE_ENV === 'production') {
+      modelEvents.emit('syncMemoryNodeToFirebase',(doc._id));
+    }
+  } catch (error) {
+    console.error('Error in post-save Firebase sync for memory node:', error);
+  }
+});
+
+memoryNodeSchema.post('findOneAndUpdate',  function(doc) {
+  if (doc) {
+    try {
+      // Only sync to Firebase in production
+      if (process.env.NODE_ENV === 'production') {
+        modelEvents.emit('syncMemoryNodeToFirebase',(doc._id));
+      }
+    } catch (error) {
+      console.error('Error in post-update Firebase sync for memory node:', error);
+    }
+  }
+});
 
 const MemoryNode = mongoose.model('MemoryNode', memoryNodeSchema);
 

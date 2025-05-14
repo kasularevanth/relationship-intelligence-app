@@ -1,6 +1,7 @@
-// backend/models/Conversation.js
+// backend/models/Conversation.js - UPDATED
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const { modelEvents } = require('../utils/eventEmitter');
 
 const messageSchema = new Schema({
   role: {
@@ -229,5 +230,31 @@ conversationSchema.methods.generateSummary = async function(aiEngine) {
     return null;
   }
 };
+
+
+
+conversationSchema.post('save',  function(doc) {
+  try {
+    // Only sync to Firebase in production
+    if (process.env.NODE_ENV === 'production') {
+      modelEvents.emit(' syncConversationToFirebase',(doc._id));
+    }
+  } catch (error) {
+    console.error('Error in post-save Firebase sync for conversation:', error);
+  }
+});
+
+conversationSchema.post('findOneAndUpdate',  function(doc) {
+  if (doc) {
+    try {
+      // Only sync to Firebase in production
+      if (process.env.NODE_ENV === 'production') {
+        modelEvents.emit(' syncConversationToFirebase',(doc._id));
+      }
+    } catch (error) {
+      console.error('Error in post-update Firebase sync for conversation:', error);
+    }
+  }
+});
 
 module.exports = mongoose.model('Conversation', conversationSchema);

@@ -1,15 +1,20 @@
-// backend/server.js
+// backend/server.js - UPDATED
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const passport = require('./config/passport');
 const session = require('express-session');
 const bodyParser = require('body-parser');
-const path = require('path'); // Added missing path import
+const path = require('path');
 require('dotenv').config();
 
 const apiRoutes = require('./routes/api');
 const authRoutes = require('./routes/auth');
+// NEW Firebase routes
+const firebaseApiRoutes = require('./routes/firebaseApiRoutes');
+const webhookRoutes = require('./routes/webhookRoutes');
+// NEW Setup Firebase listeners
+
 
 const app = express();
 
@@ -45,18 +50,27 @@ app.use(session({
 // Initialize Passport
 app.use(passport.initialize());
 
-// Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api', require('./routes/api'));
-
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('Could not connect to MongoDB', err));
 
+
+
+// After MongoDB connection is established
+const { setupModelEventListeners, setupFirebaseListeners } = require('./services/syncService');
+setupModelEventListeners(); // Set up model event listeners
+setupFirebaseListeners();   // Set up Firebase listeners
+
 // Routes
 app.use('/api', apiRoutes);
 app.use('/api/auth', authRoutes);
+// NEW Firebase routes
+app.use('/api/firebase', firebaseApiRoutes);
+app.use('/webhooks', webhookRoutes);
+
+// Initialize Firebase listeners in production only to avoid duplicates in development
+
 
 // Error handling middleware
 app.use((err, req, res, next) => {

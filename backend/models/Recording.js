@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { modelEvents } = require('../utils/eventEmitter');
 
 const RecordingSchema = new mongoose.Schema({
   user: {
@@ -51,5 +52,34 @@ const RecordingSchema = new mongoose.Schema({
     type: String
   }
 }, { timestamps: true });
+
+
+
+// NEW - Add Firebase sync hooks
+const { syncQuestionToFirebase } = require('../services/syncService');
+
+RecordingSchema.post('save',  function(doc) {
+  try {
+    // Only sync to Firebase in production
+    if (process.env.NODE_ENV === 'production') {
+      modelEvents.emit('syncQuestionToFirebase',(doc._id));
+    }
+  } catch (error) {
+    console.error('Error in post-save Firebase sync for relationship question:', error);
+  }
+});
+
+RecordingSchema.post('findOneAndUpdate',  function(doc) {
+  if (doc) {
+    try {
+      // Only sync to Firebase in production
+      if (process.env.NODE_ENV === 'production') {
+        modelEvents.emit('syncQuestionToFirebase',(doc._id));
+      }
+    } catch (error) {
+      console.error('Error in post-update Firebase sync for relationship question:', error);
+    }
+  }
+});
 
 module.exports = mongoose.model('Recording', RecordingSchema);

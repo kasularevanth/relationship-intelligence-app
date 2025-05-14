@@ -3,11 +3,13 @@ import axios from 'axios';
 
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+  baseURL: process.env.NODE_ENV === 'production' 
+    ? '/api' 
+    : (process.env.REACT_APP_API_URL || 'http://localhost:5000/api'),
   headers: {
     'Content-Type': 'application/json',
   },
-});
+});;
 
 
 // Create a function to handle refresh token
@@ -16,9 +18,11 @@ const refreshTokenRequest = async () => {
     const refreshToken = localStorage.getItem('refreshToken');
     if (!refreshToken) throw new Error('No refresh token available');
     
-    const response = await axios.post('http://localhost:5000/api/auth/refresh-token', 
-      { refreshToken },
-      { baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api' }
+    const response = await axios.post(
+      process.env.NODE_ENV === 'production' 
+        ? '/api/auth/refresh-token'
+        : (process.env.REACT_APP_API_URL || 'http://localhost:5000/api/auth/refresh-token'), 
+      { refreshToken }
     );
     
     const { token } = response.data;
