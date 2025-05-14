@@ -34,12 +34,13 @@ if (process.env.NODE_ENV === 'production') {
 if (!admin.apps.length) {
   try {
     admin.initializeApp({
-      credential: admin.credential.cert(require(serviceAccountPath)),
-      databaseURL: config.firebaseConfig.databaseURL || "https://your-project-id.firebaseio.com"
+      credential: admin.credential.cert(serviceAccount),
+      databaseURL: process.env.FIREBASE_DATABASE_URL || config.firebaseConfig?.databaseURL || "https://your-project-id.firebaseio.com"
     });
     console.log('Firebase Admin SDK initialized successfully');
   } catch (error) {
     console.error('Error initializing Firebase Admin SDK:', error);
+    throw error; // Re-throw to ensure server doesn't start with invalid Firebase config
   }
 }
 
