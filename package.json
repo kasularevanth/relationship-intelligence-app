@@ -1,0 +1,21 @@
+{
+  "name": "relationship-intelligence-app",
+  "version": "1.0.0",
+  "description": "Relationship Intelligence MERN Application",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "build": "cd frontend && npm install && npm run build",
+    "dev:server": "nodemon backend/server.js",
+    "dev:client": "cd frontend && npm start",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install"
+  },
+  "dependencies": {
+    "concurrently": "^7.6.0",
+    "nodemon": "^2.0.22"
+  },
+  "engines": {
+    "node": "16.x"
+  }
+}
