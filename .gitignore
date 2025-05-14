@@ -30,7 +30,9 @@ logs
 /coverage
 /frontend/coverage
 
-
+# Firebase configuration
+firebase-service-account.json
+firebase-config.json
 
 # MongoDB data directories
 /data/

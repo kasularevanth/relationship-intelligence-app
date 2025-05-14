@@ -4,7 +4,42 @@ const path = require('path');
 const config = require('./index');
 
 // Path to service account file - you'll need to download this from Firebase console
-const serviceAccountPath = path.join(__dirname, './firebase-service-account.json');
+let serviceAccount;
+if (process.env.NODE_ENV === 'production') {
+  // In production, use environment variables
+  serviceAccount = {
+    "type": "service_account",
+    "project_id": process.env.FIREBASE_PROJECT_ID,
+    "private_key_id": process.env.FIREBASE_PRIVATE_KEY_ID,
+    "private_key": process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    "client_email": process.env.FIREBASE_CLIENT_EMAIL,
+    "client_id": process.env.FIREBASE_CLIENT_ID,
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": process.env.FIREBASE_CLIENT_CERT_URL
+  };
+} else {
+  // In development, use the local file
+  try {
+    serviceAccount = require('./firebase-service-account.json');
+  } catch (error) {
+    console.error("Error loading Firebase service account file:", error);
+    // Fallback to environment variables even in development if file doesn't exist
+    serviceAccount = {
+    "type": "service_account",
+    "project_id": process.env.FIREBASE_PROJECT_ID,
+    "private_key_id": process.env.FIREBASE_PRIVATE_KEY_ID,
+    "private_key": process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    "client_email": process.env.FIREBASE_CLIENT_EMAIL,
+    "client_id": process.env.FIREBASE_CLIENT_ID,
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": process.env.FIREBASE_CLIENT_CERT_URL
+  };
+  }
+}
 
 // Initialize Firebase Admin SDK if not already initialized
 if (!admin.apps.length) {
