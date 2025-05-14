@@ -32,8 +32,10 @@ if (!googleClientID || !googleClientSecret) {
       {
         clientID: googleClientID,
         clientSecret: googleClientSecret,
-        callbackURL: "/api/auth/google/callback",
-        scope: ['profile', 'email']
+        callbackURL: process.env.NODE_ENV === 'production'
+        ? `https://relationship-intelligence-app.onrender.com/api/auth/google/callback`
+        : `http://localhost:5000/api/auth/google/callback`,
+              scope: ['profile', 'email']
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
