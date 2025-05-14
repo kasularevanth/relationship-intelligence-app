@@ -4,6 +4,8 @@ const RelationshipQuestion = require('../models/RelationshipQuestion');
 const Conversation = require('../models/Conversation');
 const OpenAI = require('openai');
 const config = require('../config');
+const fs = require('fs');
+const path = require('path');
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || config.openaiApiKey,
 });
@@ -191,8 +193,6 @@ exports.getQuestionHistory = async (req, res) => {
 };
 
 // Ask question via voice
-// Add this to your backend/controllers/questionController.js
-
 exports.askQuestionVoice = async (req, res) => {
   try {
     const { relationshipId } = req.params;
@@ -239,15 +239,98 @@ exports.askQuestionVoice = async (req, res) => {
     });
     
      // Prepare audio file for OpenAI API
-     
-     
-    
+    //  const audioBuffer = req.file.buffer;
+    //  const audioFile = new File(
+    //    [audioBuffer],
+    //    req.file.originalname || 'recording.webm',
+    //    { type: req.file.mimetype || 'audio/webm' }
+    //  );
+
     // Transcribe the audio
-    const transcription = await openai.audio.transcriptions.create({
-      file: req.file.buffer,
-      model: "whisper-1",
-      language: "en"
-    });
+    // const transcription = await openai.audio.transcriptions.create({
+    //   file: audioFile,
+    //   model: "whisper-1",
+    //   language: "en"
+    // });
+
+
+    const TEMP_DIR = process.env.TEMP_DIR || '/tmp';
+
+    let transcription;
+    
+    try {
+      // Using the FormData approach recommended by OpenAI
+      const FormData = require('form-data');
+      const formData = new FormData();
+      
+      // Add the audio file to form data
+      formData.append('file', req.file.buffer, {
+        filename: 'audio.webm',
+        contentType: req.file.mimetype || 'audio/webm'
+      });
+      formData.append('model', 'whisper-1');
+      formData.append('language', 'en');
+      
+      // Make a direct API call to OpenAI
+      const axios = require('axios');
+      const openaiResponse = await axios.post(
+        'https://api.openai.com/v1/audio/transcriptions',
+        formData,
+        {
+          headers: {
+            ...formData.getHeaders(),
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+          }
+        }
+      );
+      
+      transcription = { text: openaiResponse.data.text };
+      
+    } catch (apiError) {
+      console.error(`Error calling OpenAI API: ${apiError.message}`);
+      
+      // Try another approach as a fallback
+      try {
+        console.log("Trying fallback with direct file writing...");
+        
+    // Create a temporary file
+        const tempFilePath = path.join(TEMP_DIR, `voice-${Date.now()}.webm`);
+        fs.writeFileSync(tempFilePath, req.file.buffer);
+        
+        // Use the file path instead of the stream
+        const FormData = require('form-data');
+        const formData = new FormData();
+        formData.append('file', fs.createReadStream(tempFilePath));
+        formData.append('model', 'whisper-1');
+        formData.append('language', 'en');
+        
+        // Make direct API call
+        const axios = require('axios');
+        const openaiResponse = await axios.post(
+          'https://api.openai.com/v1/audio/transcriptions',
+          formData,
+          {
+            headers: {
+              ...formData.getHeaders(),
+              'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+            }
+          }
+        );
+        
+        // Clean up
+        fs.unlinkSync(tempFilePath);
+        
+        transcription = { text: openaiResponse.data.text };
+        
+      } catch (fallbackError) {
+        console.error(`Fallback approach failed: ${fallbackError.message}`);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to process audio file',
+          error: fallbackError.message
+        });
+      }
+    }
     
     const question = transcription.text;
     
@@ -353,5 +436,6 @@ exports.askQuestionVoice = async (req, res) => {
     });
   }
 };
+
 
 module.exports = exports;
