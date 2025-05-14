@@ -47,15 +47,7 @@ app.use(session({
   }
 }));
 
-if (process.env.NODE_ENV === 'production') {
-  // Serve the frontend's static files
-  app.use(express.static(path.join(__dirname, '../frontend/build')));
 
-  // For any request not matched by the API routes, send the React app's index.html
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
-  });
-}
 
 // Initialize Passport
 app.use(passport.initialize());
@@ -80,6 +72,15 @@ app.use('/api/firebase', firebaseApiRoutes);
 app.use('/webhooks', webhookRoutes);
 
 // Initialize Firebase listeners in production only to avoid duplicates in development
+if (process.env.NODE_ENV === 'production') {
+  // Serve the frontend's static files
+  app.use(express.static(path.join(__dirname, '../frontend/build')));
+
+  // For any request not matched by the API routes, send the React app's index.html
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
+  });
+}
 
 
 // Error handling middleware

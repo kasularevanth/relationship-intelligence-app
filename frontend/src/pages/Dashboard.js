@@ -160,6 +160,12 @@ const Dashboard = () => {
       try {
         const response = await relationshipService.getAll();
         console.log("Relationships data:", response.data);
+
+        if (!Array.isArray(response.data)) {
+          console.error('API returned non-array data:', response.data);
+          setRelationships([]);
+          return;
+        }
         
         // Process relationships to ensure we properly handle the photo URL
         const enhancedRelationships = response.data.map(relationship => {

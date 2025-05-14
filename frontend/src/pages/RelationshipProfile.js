@@ -1333,10 +1333,12 @@ const TopicChart = ({ distribution }) => {
   };
 
   // Filter conversations based on active tab
-  const filteredConversations = conversations.filter(conversation => {
-    if (activeTab === 'all') return true;
-    return conversation.status === activeTab;
-  });
+  const filteredConversations = Array.isArray(conversations) 
+  ? conversations.filter(conversation => {
+      if (activeTab === 'all') return true;
+      return conversation.status === activeTab;
+    })
+  : [];
 
   // Get first initial for avatar
   const getInitial = (name) => {
