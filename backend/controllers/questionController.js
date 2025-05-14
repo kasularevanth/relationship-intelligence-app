@@ -239,16 +239,12 @@ exports.askQuestionVoice = async (req, res) => {
     });
     
      // Prepare audio file for OpenAI API
-     const audioBuffer = req.file.buffer;
-     const audioFile = new File(
-       [audioBuffer],
-       req.file.originalname || 'recording.webm',
-       { type: req.file.mimetype || 'audio/webm' }
-     );
+     
+     
     
     // Transcribe the audio
     const transcription = await openai.audio.transcriptions.create({
-      file: audioFile,
+      file: req.file.buffer,
       model: "whisper-1",
       language: "en"
     });
