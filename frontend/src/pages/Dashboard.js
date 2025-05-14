@@ -164,7 +164,9 @@ const Dashboard = () => {
         // Process relationships to ensure we properly handle the photo URL
         const enhancedRelationships = response.data.map(relationship => {
           // Get the base API URL from environment or use default
-          const baseApiUrl = 'http://localhost:5000';
+          const baseApiUrl = process.env.NODE_ENV === 'production' 
+                              ? '' // Use empty string for relative URLs in production
+                              : 'http://localhost:5000';
           
           // Check if photo path exists and ensure it has the proper URL format
           if (relationship.photo) {
