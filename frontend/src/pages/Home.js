@@ -25,7 +25,7 @@ const Home = () => {
           ? 'linear-gradient(345deg, #1e1033 0%, #2c124d 100%)' 
           : 'linear-gradient(345deg, #2a1a5e 0%, #3d1e7a 100%)',
           color: 'primary.contrastText',
-          borderRadius: { xs: 0, md: 3 },
+          borderRadius: 4,
           py: { xs: 6, md: 8 },
           px: { xs: 2, md: 3 },
           mx: 'auto', 
@@ -352,6 +352,7 @@ const Home = () => {
           bgcolor: darkMode ? 'rgba(94, 53, 177, 0.1)' : '#f5f5f7', 
           py: { xs: 6, md: 8 }, 
           px: 2,
+          borderRadius: 4,
           textAlign: 'center',
           position: 'relative',
           overflow: 'hidden',
@@ -367,6 +368,7 @@ const Home = () => {
               mb: 3,
               fontSize: { xs: '1.75rem', md: '2.5rem' },
               background: 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)',
+              borderRadius: 4,
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
             }}
