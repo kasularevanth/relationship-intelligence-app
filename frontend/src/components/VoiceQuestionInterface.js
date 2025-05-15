@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, Typography, CircularProgress, Fade, Paper } from '@mui/material';
 import { styled } from '@mui/system';
-import SiriStyleVoiceAssistant from './SiriStyleVoiceAssistant';
+import LottieVoiceAssistant from './LottieVoiceAssistant';
 import { useTheme } from '../contexts/ThemeContext';
 
 const ProcessingIndicator = styled(Box)(({ theme }) => ({
@@ -50,6 +50,7 @@ const VoiceQuestionInterface = ({ relationshipId, onQuestionAnswered }) => {
   const speechSynthesisRef = useRef(window.speechSynthesis);
   const utteranceRef = useRef(null);
   const speechVisualizerRef = useRef(null);
+  const audioAnalysisRef = useRef(null);
 
 
   useEffect(() => {
@@ -86,6 +87,47 @@ const VoiceQuestionInterface = ({ relationshipId, onQuestionAnswered }) => {
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
+
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      
+      // Create a function to update animation based on audio levels
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      
+      const updateAnimation = () => {
+        if (status !== 'listening') return;
+        
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for(let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / bufferLength;
+        const normalizedValue = average / 256; // 0-1 range
+        
+        // Update animation based on audio level
+        if (speechVisualizerRef.current) {
+          speechVisualizerRef.current.simulateWordEmphasis(normalizedValue * 2);
+        }
+        
+        requestAnimationFrame(updateAnimation);
+      };
+      
+      const animationFrameId = requestAnimationFrame(updateAnimation);
+      
+      // Store this for cleanup
+      const audioAnalysis = {
+        audioContext,
+        animationFrameId,
+        cleanUp: () => {
+          cancelAnimationFrame(animationFrameId);
+          audioContext.close();
+        }
+      };
       
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -115,6 +157,9 @@ const VoiceQuestionInterface = ({ relationshipId, onQuestionAnswered }) => {
       
       // Stop all tracks in the stream
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      if (audioAnalysisRef.current) {
+      audioAnalysisRef.current.cleanUp();
+    }
     }
   };
   
@@ -268,7 +313,7 @@ const VoiceQuestionInterface = ({ relationshipId, onQuestionAnswered }) => {
           p: 2
         }}>
           {/* The 3D Voice Assistant */}
-          <SiriStyleVoiceAssistant 
+          <LottieVoiceAssistant 
             status={status}
             onActivate={handleActivateVoice}
             size={240}
