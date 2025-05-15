@@ -32,6 +32,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 import { useTheme } from '../contexts/ThemeContext';
+import SoulSyncLogo from '../components/SoulSyncLogo';
 
 const drawerWidth = 240;
 
@@ -47,6 +48,11 @@ const ProfileSection = styled(Box)(({ theme }) => ({
     '&:hover': {
       backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
+}));
+
+const AppBarStyled = styled(AppBar)(({ theme }) => ({
+  background: 'linear-gradient(90deg, #321b4a 0%, #241138 100%)',
+  boxShadow: '0 4px 10px rgba(0, 0, 0, 0.2)',
 }));
 
 const MainLayout = () => {
@@ -96,13 +102,11 @@ const MainLayout = () => {
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
-        bgcolor: darkMode ? 'background.paper' : undefined 
-      }}>
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          Relationship AI
-        </Typography>
-      </Box>
-      <Divider />
+        bgcolor: darkMode ? 'background.paper' : undefined,
+                borderBottom: `1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+              }}>
+                <SoulSyncLogo size="small" withText textSize="small" />
+              </Box>
       <List>
         {menuItems.map((item) => (
           (!item.protected || currentUser) && (
@@ -146,7 +150,7 @@ const MainLayout = () => {
       bgcolor: darkMode ? 'background.default' : undefined,
       color: darkMode ? 'text.primary' : undefined
     }}>
-      <AppBar position="static">
+      <AppBarStyled position="static" elevation={0}>
         <Toolbar>
           <IconButton
             size="large"
@@ -158,9 +162,37 @@ const MainLayout = () => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Relationship Intelligence
+          
+                    {/* Logo and App Name */}
+                    <Box 
+                      component={RouterLink} 
+                      to="/"
+                      sx={{ 
+                        display: 'flex',
+                        alignItems: 'center',
+                        textDecoration: 'none',
+                        color: 'inherit',
+                        flexGrow: 1 
+                      }}
+                    >
+                      <SoulSyncLogo size="xsmall" withText={false} />
+                      <Typography 
+                        variant="h6" 
+                        component="div"
+                        sx={{ 
+                          ml: 1,
+                          fontWeight: 700,
+                          background: 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          letterSpacing: '0.5px',
+                          display: { xs: 'none', sm: 'block' },
+                          fontSize: '1.5rem'
+                        }}
+                      >
+            SoulSync
           </Typography>
+        </Box>
           
           {/* Settings icon (Theme Toggle) */}
                     <IconButton 
@@ -228,14 +260,19 @@ const MainLayout = () => {
             </>
           ) : (
             <Button 
-              color="inherit" 
+              variant="contained"
               component={RouterLink} 
               to="/login"
               sx={{
-                borderRadius: 2,
+                borderRadius: 28,
                 px: 2,
+                py: 0.75,
+                fontWeight: 600,
+                textTransform: 'none',
+                background: 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)',
+                boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
                 '&:hover': {
-                  bgcolor: 'rgba(255, 255, 255, 0.1)'
+                  background: 'linear-gradient(90deg, #ff5c7f 0%, #2bc0b2 100%)',
                 }
               }}
             >
@@ -243,7 +280,7 @@ const MainLayout = () => {
             </Button>
           )}
         </Toolbar>
-      </AppBar>
+      </AppBarStyled>
       
             {/* Add the Drawer component */}
             <Drawer
