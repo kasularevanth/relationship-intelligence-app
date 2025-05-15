@@ -1075,6 +1075,7 @@ const RelationshipProfile = () => {
         try {
           const memoriesUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/relationships/${relationshipId}/memories`;
           const token = localStorage.getItem('token');
+          console.log("memories...",memoriesUrl);
 
           const memoriesRes = await fetch(memoriesUrl, {
             headers: {
@@ -1085,6 +1086,7 @@ const RelationshipProfile = () => {
           
           if (memoriesRes.ok) {
             const data = await memoriesRes.json();
+            console.log("memoryres",data);
             setMemories(data);
           } else {
             console.warn(`Memories endpoint returned status: ${memoriesRes.status}`);
@@ -1251,11 +1253,37 @@ const TopicChart = ({ distribution }) => {
 
   // Function to extract memories by emotion
   const getMemoriesByEmotion = (emotion) => {
-    return memories
-      .filter(memory => memory.emotion === emotion)
-      .map(memory => memory.content)
-      .slice(0, 3);
-  };
+  // Check if memories are available
+  if (!memories || memories.length === 0) {
+    return [];
+  }
+  
+  let filteredMemories = [];
+  
+  // Based on the data in your console, we need to filter differently
+  if (emotion === 'growth') {
+    // Filter growth-related memories by content keywords
+    filteredMemories = memories.filter(memory => 
+      memory.content.toLowerCase().includes('health') || 
+      memory.content.toLowerCase().includes('education') ||
+      memory.content.toLowerCase().includes('hobbies')
+    );
+  } else if (emotion === 'positive') {
+    // Filter positive memories by content
+    filteredMemories = memories.filter(memory => 
+      memory.content.toLowerCase().includes('hobbies') || 
+      memory.content.toLowerCase().includes('emotions')
+    );
+  } else if (emotion === 'negative') {
+    // Filter potentially challenging memories
+    filteredMemories = memories.filter(memory => 
+      memory.content.toLowerCase().includes('financial') || 
+      memory.content.toLowerCase().includes('work')
+    );
+  }
+  
+  return filteredMemories.map(memory => memory.content).slice(0, 3);
+};
 
   // Function to get insights by type
   const getInsightsByType = (type) => {

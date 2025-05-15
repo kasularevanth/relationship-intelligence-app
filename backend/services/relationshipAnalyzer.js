@@ -90,7 +90,7 @@ const getRelationshipInsights = async (conversationText, contactName) => {
 
     Based on the conversation above, provide a detailed analysis in JSON format with the following elements:
     1. keyInsights: List 3-5 most important insights about this relationship based on the conversation.
-    2. emotionalDynamics: Analyze the emotional patterns and connection between these two people.
+    2. emotionalDynamics: An object with keys: overall (string), user (string), contact (string), and trends (string).
     3. areasForGrowth: Identify 2-3 areas where the relationship could grow or improve.
     4. topTopics: Identify the 3-5 main topics discussed (as array of objects with 'name' and 'percentage' properties).
     5. overallTone: The general emotional tone (positive, negative, neutral, or mixed).

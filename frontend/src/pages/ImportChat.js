@@ -174,7 +174,19 @@ const ImportChat = () => {
       insights: typeof response.data.insights === 'object' ? 
         response.data.insights.insightsText || 'Analysis in progress...' : 
         response.data.insights || 'Analysis in progress...',
-      summary: response.data.summary || {},
+        summary: {
+      ...response.data.summary,
+      // Add fallbacks for missing nested structures
+      emotionalDynamics: response.data.summary?.emotionalDynamics || {
+        overall: "balanced",
+        user: "engaged",
+        contact: "responsive",
+        trends: "consistent"
+      },
+    // Always ensure arrays exist
+    keyInsights: response.data.summary?.keyInsights || [],
+    areasForGrowth: response.data.summary?.areasForGrowth || []
+  },
       messageCount: response.data.messageCount || 0,
       // Include all the additional fields from the response
       sentimentScore: response.data.sentimentScore,

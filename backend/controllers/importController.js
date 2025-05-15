@@ -672,7 +672,7 @@ const getImportAnalysis = async (req, res) => {
       sentimentLabel: insights.sentimentLabel,
       messageCount: insights.messageCount,
       primaryTopics: insights.primaryTopics,
-      dateRange: insights.dateRange
+      topicDistribution: insights.topicDistribution
     });
   } catch (error) {
     console.error('Error retrieving analysis:', error);
