@@ -19,7 +19,9 @@ import {
   Alert,
   CircularProgress,
   Divider,
-  LinearProgress
+  LinearProgress,
+  Grow,
+  Chip
 } from '@mui/material';
 import { 
   Upload, 
@@ -30,7 +32,8 @@ import {
   MessageCircle,
   Activity,
   Clock,
-  Star
+  Star,
+  FileType
 } from 'lucide-react';
 
 import { importService, relationshipService } from '../services/api';
@@ -41,9 +44,7 @@ const ImportChat = () => {
   const { darkMode } = useTheme(); // Add this line to get darkMode state
   const darkGradient = 'linear-gradient(222deg, #0009 0%, #1c345c 100%)';
   const { relationshipId } = useParams();
-  const navigate = useNavigate();
-  
-  
+  const navigate = useNavigate(); 
   
   const [activeStep, setActiveStep] = useState(0);
   const [chatSource, setChatSource] = useState('whatsapp');
@@ -59,10 +60,14 @@ const ImportChat = () => {
   const [importAnalysis, setImportAnalysis] = useState(null);
   const pollingIntervalRef = useRef(null); // Use ref for polling interval
   const [topicsProcessed, setTopicsProcessed] = useState(false);
+  const [updateNotification, setUpdateNotification] = useState(false);
 
-    const steps = ['Select Source', 'Upload File', 'Process Import', 'Review Analysis'];
+  const steps = ['Select Source', 'Upload File', 'Process Import', 'Review Analysis'];
 
-      // Clean up polling when component unmounts
+  // File types allowed - to display in the upload screen
+  const allowedFileTypes = ['.txt', '.csv', '.json', '.zip', '.html'];
+
+  // Clean up polling when component unmounts
       useEffect(() => {
         return () => {
           if (pollingIntervalRef.current) {
@@ -99,6 +104,13 @@ const ImportChat = () => {
       fetchImportAnalysis();
     }
   }, [importStatus, conversationId]);
+  
+  // Show update notification with animation when topics are processed
+  useEffect(() => {
+    if (topicsProcessed) {
+      setUpdateNotification(true);
+    }
+  }, [topicsProcessed]);
 
   const checkImportStatus = async () => {
     try {
@@ -481,6 +493,28 @@ const ImportChat = () => {
                 backgroundColor: darkMode ? 'rgba(0, 0, 0, 0.2)' : undefined
               }}
             >
+              {/* Allowed file types section */}
+              <Box mb={2}>
+                <Typography variant="subtitle2" sx={{ color: darkMode ? 'rgba(255, 255, 255, 0.7)' : 'text.secondary', mb: 1 }}>
+                  Supported file types:
+                </Typography>
+                <Box display="flex" justifyContent="center" flexWrap="wrap" gap={1}>
+                  {allowedFileTypes.map((type, index) => (
+                    <Chip 
+                      key={index}
+                      icon={<FileType size={16} />}
+                      label={type}
+                      variant="outlined"
+                      size="small"
+                      sx={{
+                        color: darkMode ? '#fff' : undefined,
+                        borderColor: darkMode ? 'rgba(255, 255, 255, 0.3)' : undefined
+                      }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+
               <input
                 accept=".txt,.csv,.json,.zip,.html"
                 style={{ display: 'none' }}
@@ -643,9 +677,29 @@ const ImportChat = () => {
                           {importAnalysis?.timeRange ? ` spanning ${importAnalysis.timeRange}` : ''}.
                         </Typography>
                         {topicsProcessed && (
-                          <Typography variant="body2" color="success.main" sx={{ mt: 1 }}>
-                            Relationship Page has been Updated!
-                          </Typography>
+                          <Grow in={updateNotification} timeout={800}>
+                            <Box 
+                              sx={{ 
+                                mt: 2, 
+                                p: 1, 
+                                bgcolor: darkMode ? 'rgba(74, 222, 128, 0.2)' : 'rgba(74, 222, 128, 0.1)', 
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: darkMode ? 'rgba(74, 222, 128, 0.3)' : 'rgba(74, 222, 128, 0.2)',
+                                display: 'inline-block'
+                              }}
+                            >
+                              <Typography 
+                                variant="body2" 
+                                color={darkMode ? '#4ade80' : 'success.main'} 
+                                fontWeight="medium"
+                                sx={{ display: 'flex', alignItems: 'center' }}
+                              >
+                                <CheckCircle size={16} style={{ marginRight: 8 }} />
+                                Relationship Page has been Updated!
+                              </Typography>
+                            </Box>
+                          </Grow>
                         )}
                       </Box>
                       
@@ -822,10 +876,11 @@ const ImportChat = () => {
                             </Typography>
                             <RelationshipAnalysisProgress 
                               relationshipId={relationshipId}
-                              conversationId={conversationId}
+                              conversationId={conversationId}   
                               onComplete={() => {
                                 console.log('Analysis completed in component');
                               }}
+                              hideCompletionText={true} // Add this prop to hide the completion text                  
                             />
                             
                             {/* Connection Score */}
@@ -1117,7 +1172,7 @@ const ImportChat = () => {
                                 
                                 <Box 
                                   display="grid" 
-                                  gridTemplateColumns={{ xs: '1fr 1fr', sm: 'repeat(3, 1fr)', md: 'repeat(4, 1fr)' }} 
+                                  gridTemplateColumns={{ xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(4, 1fr)' }} 
                                   gap={2} 
                                   mt={2}
                                 >
@@ -1125,7 +1180,7 @@ const ImportChat = () => {
                                     <Box 
                                       key={index} 
                                       sx={{
-                                        p: 2,
+                                        p: { xs: 1.5, sm: 2 },
                                         textAlign: 'center',
                                         borderRadius: 2,
                                         bgcolor: darkMode ? 'rgba(99, 102, 241, 0.1)' : 'rgba(63, 81, 181, 0.08)',
@@ -1137,22 +1192,29 @@ const ImportChat = () => {
                                       }}
                                     >
                                       {/* Render a different icon based on badge type/title */}
-                                      {badge.includes('Consistent') && <Clock size={28} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
-                                      {badge.includes('Balanced') && <Activity size={28} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
-                                      {badge.includes('Supportive') && <MessageCircle size={28} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
-                                      {badge.includes('Topic') && <BarChart size={28} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
-                                      {badge.includes('Deep') && <FileText size={28} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
-                                      {badge.includes('Fast') && <ArrowRight size={28} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
-                                      {badge.includes('Milestone') && <CheckCircle size={28} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
+                                      {badge.includes('Consistent') && <Clock size={24} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
+                                      {badge.includes('Balanced') && <Activity size={24} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
+                                      {badge.includes('Supportive') && <MessageCircle size={24} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
+                                      {badge.includes('Topic') && <BarChart size={24} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
+                                      {badge.includes('Deep') && <FileText size={24} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
+                                      {badge.includes('Fast') && <ArrowRight size={24} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
+                                      {badge.includes('Milestone') && <CheckCircle size={24} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
                                       {!badge.includes('Consistent') && 
                                       !badge.includes('Balanced') && 
                                       !badge.includes('Supportive') && 
                                       !badge.includes('Topic') && 
                                       !badge.includes('Deep') && 
                                       !badge.includes('Fast') && 
-                                      !badge.includes('Milestone') && <Star size={28} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
+                                      !badge.includes('Milestone') && <Star size={24} color={darkMode ? '#818cf8' : '#5c6bc0'} />}
                                       
-                                      <Typography variant="body2" fontWeight="500" sx={{ color: darkMode ? '#fff' : undefined }}>
+                                      <Typography 
+                                        variant="body2" 
+                                        fontWeight="500" 
+                                        sx={{ 
+                                          color: darkMode ? '#fff' : undefined,
+                                          fontSize: { xs: '0.7rem', sm: '0.875rem' }
+                                        }}
+                                      >
                                         {badge}
                                       </Typography>
                                     </Box>
@@ -1279,17 +1341,26 @@ const ImportChat = () => {
                             </Paper>
                           )}
                                                    
-                          <Box mt={4} display="flex" justifyContent="center" gap={2} flexWrap="wrap">
+                          <Box 
+                            mt={4} 
+                            display="flex" 
+                            flexDirection={{ xs: 'column', sm: 'row' }}
+                            justifyContent="center" 
+                            gap={2}
+                          >
                             <Button 
                               variant="contained" 
                               color="primary"
                               onClick={goToConversation}
                               startIcon={<MessageCircle />}
+                              fullWidth
                               sx={{
                                 bgcolor: darkMode ? '#6366f1' : undefined,
                                 '&:hover': {
                                   bgcolor: darkMode ? '#4f46e5' : undefined
-                                }
+                                },
+                                py: { xs: 1.5, sm: 1 },
+                                order: { xs: 1, sm: 1 }
                               }}                  
                             >
                               View Imported Conversation
@@ -1297,12 +1368,15 @@ const ImportChat = () => {
                             <Button
                               variant="outlined"
                               onClick={goToRelationship}
+                              fullWidth
                               sx={{
                                 color: darkMode ? '#fff' : undefined,
                                 borderColor: darkMode ? 'rgba(255, 255, 255, 0.3)' : undefined,
                                 '&:hover': {
                                   borderColor: darkMode ? 'rgba(255, 255, 255, 0.5)' : undefined
-                                }
+                                },
+                                py: { xs: 1.5, sm: 1 },
+                                order: { xs: 2, sm: 2 }
                               }}
                             >
                               Back to Relationship
@@ -1414,10 +1488,11 @@ const ImportChat = () => {
         }}>
           {renderStepContent(activeStep)}
         </Box>
-        
+
+        {activeStep !== 3 && (     
         <Box mt={4} display="flex" justifyContent="space-between">
           <Button
-            disabled={loading || (activeStep === 2 && importStatus === 'processing') || (activeStep === 3 && success)}
+            disabled={loading || (activeStep === 2 && importStatus === 'processing')}
             onClick={handleBack}
             sx={{
               color: darkMode ? 'rgba(255, 255, 255, 0.7)' : undefined,
@@ -1433,7 +1508,7 @@ const ImportChat = () => {
             variant="contained"
             color="primary"
             onClick={handleNext}
-            disabled={loading || (activeStep === 2 && importStatus === 'processing') || (activeStep === 3 && success)}
+            disabled={loading || (activeStep === 2 && importStatus === 'processing')}
             endIcon={activeStep < steps.length - 2 ? <ArrowRight /> : null}
             sx={{
               bgcolor: darkMode ? '#6366f1' : undefined,
@@ -1453,11 +1528,11 @@ const ImportChat = () => {
                 Processing...
               </>
            ) : (
-              activeStep === steps.length - 2 ? 'Import Chat' : 
-              activeStep === steps.length - 1 ? 'Finish' : 'Next'
+              activeStep === steps.length - 2 ? 'Import Chat' : 'Next'
             )}
           </Button>
         </Box>
+       )}
       </Paper>
     </Container>
   );
