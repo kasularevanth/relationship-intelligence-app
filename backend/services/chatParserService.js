@@ -429,6 +429,118 @@ const parseIMessage = (content, contactPhone = '') => {
   return messages;
 };
 
+
+/**
+ * Parse WhatsApp chat from iOS exports, which use a different format
+ * @param {string} fileContent - Raw text content from the export file
+ * @param {string} contactPhone - The contact's phone number to identify their messages (optional)
+ * @returns {Array} Array of parsed message objects
+ */
+const parseWhatsAppIOS = (fileContent, contactPhone = '') => {
+  console.log('Parsing iOS WhatsApp chat format');
+  
+  const lines = fileContent.split('\n');
+  const messages = [];
+  let contactName = null;
+  let currentMessage = null;
+  
+  // Updated regex to be more lenient and handle the specific format better
+  // The key change is making the message part optional with (.*) instead of (.+)
+  const messageRegex = /^\[(\d{2}\/\d{2}\/\d{2}),\s+(\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM|am|pm))\]\s+([^:]+):\s*(.*)/;
+  
+  let matchCount = 0;
+  let nonMatchCount = 0;
+  let sampleNonMatches = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue; // Skip empty lines
+    
+    const match = line.match(messageRegex);
+    
+    if (match) {
+      // Finalize previous message if exists
+      if (currentMessage) {
+        messages.push(currentMessage);
+        currentMessage = null;
+      }
+      
+      matchCount++;
+      const [, date, time, sender, text] = match;
+      
+      // Cleaned text - remove trailing \r and other special characters
+      const cleanedText = text.replace(/\\r$/, '').replace(/\r$/, '');
+      
+      // Skip system messages and media markers
+      if (cleanedText.includes("Messages and calls are end-to-end encrypted") || 
+          cleanedText.includes("‎document omitted") ||
+          cleanedText.includes("‎image omitted") ||
+          cleanedText.includes("‎Contact card omitted") ||
+          cleanedText.includes("You deleted this message")) {
+        continue;
+      }
+      
+      // Extract contact name if not already determined
+      if (!contactName && sender.trim() !== "You" && !sender.includes("You")) {
+        contactName = sender.trim();
+      }
+      
+      // Determine if the message is from the contact
+      const isFromContact = sender.trim() !== "You" && !sender.includes("You");
+      
+      // Parse timestamp - iOS format uses DD/MM/YY
+      const [day, month, year] = date.split('/');
+      const fullYear = parseInt(`20${year}`);
+      
+      // Parse time with AM/PM
+      let [timePart, period] = time.trim().split(/\s+/);
+      let [hours, minutes, seconds] = timePart.split(':');
+      
+      hours = parseInt(hours);
+      if (period && period.toUpperCase() === 'PM' && hours < 12) hours += 12;
+      if (period && period.toUpperCase() === 'AM' && hours === 12) hours = 0;
+      
+      const timestamp = new Date(
+        fullYear,
+        parseInt(month) - 1,
+        parseInt(day),
+        hours,
+        parseInt(minutes),
+        parseInt(seconds || 0)
+      );
+      
+      currentMessage = {
+        text: cleanedText,
+        sender: sender.trim(),
+        isFromContact,
+        timestamp
+      };
+    } else {
+      nonMatchCount++;
+      
+      // Store some non-matching lines for debugging
+      if (sampleNonMatches.length < 5) {
+        sampleNonMatches.push(line);
+      }
+      
+      if (currentMessage) {
+        // This is a continuation of the previous message
+        currentMessage.text += '\n' + line.replace(/\\r$/, '').replace(/\r$/, '');
+      }
+    }
+  }
+  
+  // Add the last message if it exists
+  if (currentMessage) {
+    messages.push(currentMessage);
+  }
+  
+  console.log(`Parsed ${messages.length} messages using iOS format (matched ${matchCount}, continuation lines ${nonMatchCount})`);
+  console.log('Sample non-matching lines:', sampleNonMatches);
+  
+  return messages;
+};
+
 /**
  * Analyze sentiment of a message
  * Basic implementation - can be replaced with more sophisticated NLP
@@ -464,20 +576,26 @@ const parseChat = (content, contactPhone = '') => {
   console.log(`Detected chat format: ${format}`);
   
   if (format === 'whatsapp') {
-    // Try both parsers and use the one that produces more messages
+    // Try all parsers and use the one that produces more messages
     const standardMessages = parseWhatsApp(content, contactPhone);
     const internationalMessages = parseWhatsAppInternational(content, contactPhone);
+    const sampleMessages = parseWhatsAppSample(content, contactPhone);
+    const iOSMessages = parseWhatsAppIOS(content, contactPhone); // Add this line
     
-    messages = standardMessages.length > internationalMessages.length ? 
-      standardMessages : internationalMessages;
+    // Use the parser that found the most messages
+    const results = [
+      { method: 'standard', messages: standardMessages },
+      { method: 'international', messages: internationalMessages },
+      { method: 'sample', messages: sampleMessages },
+      { method: 'iOS', messages: iOSMessages } // Add this line
+    ];
     
-    if (messages.length === 0) {
-      // If both failed, try one more format specifically for the sample data seen
-      const sampleMessages = parseWhatsAppSample(content, contactPhone);
-      if (sampleMessages.length > 0) {
-        messages = sampleMessages;
-      }
-    }
+    const bestResult = results.reduce((prev, current) => 
+      (prev.messages.length > current.messages.length) ? prev : current
+    );
+    
+    console.log(`Selected parsing method: ${bestResult.method} with ${bestResult.messages.length} messages`);
+    messages = bestResult.messages;
   } else if (format === 'imessage') {
     messages = parseIMessage(content, contactPhone);
   }
@@ -566,7 +684,12 @@ const detectChatFormat = (content) => {
   // First 1000 characters for format detection
   const sample = content.slice(0, 1000);
   
-  // Check for WhatsApp format patterns
+  // Check for iOS WhatsApp format with square brackets
+  if (sample.match(/\[\d{1,2}\/\d{1,2}\/\d{2},\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M\]/i)) {
+    return 'whatsapp';
+  }
+  
+  // Check for standard WhatsApp format patterns
   if (sample.match(/\d{1,2}\/\d{1,2}\/\d{2,4},\s+\d{1,2}:\d{2}\s+-/) ||
       sample.match(/\d{1,2}\/\d{1,2}\/\d{2,4},\s+\d{1,2}:\d{2}\s+[ap]m\s+-/i)) {
     return 'whatsapp';
@@ -584,6 +707,7 @@ module.exports = {
   parseWhatsApp,
   parseWhatsAppInternational,
   parseWhatsAppSample,
+  parseWhatsAppIOS, // Add this line
   parseIMessage,
   analyzeSentiment,
   detectChatFormat,

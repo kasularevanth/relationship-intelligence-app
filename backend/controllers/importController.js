@@ -181,20 +181,27 @@ const importChat = async (req, res) => {
       // Parse the file based on source
       let parsedMessages;
       
-      const { parseChat, parseWhatsApp, parseWhatsAppInternational, parseWhatsAppSample, parseIMessage } = require('../services/chatParserService');
-      
+      // At the top where you have your destructuring:
+      const { parseChat, parseWhatsApp, parseWhatsAppInternational, parseWhatsAppSample, parseWhatsAppIOS, parseIMessage } = require('../services/chatParserService');
+
+      // And in the parsing section:
       if (source === 'whatsapp') {
         // Try multiple parsing methods and use the best result
         const standardResult = parseWhatsApp(fileContent, phoneToUse);
         const internationalResult = parseWhatsAppInternational(fileContent, phoneToUse);
         const sampleResult = parseWhatsAppSample(fileContent, phoneToUse);
+        const iOSResult = parseWhatsAppIOS(fileContent, phoneToUse); // Make sure this is added
         
         // Use the parsing method that produced the most messages
         const results = [
           { method: 'standard', messages: standardResult }, 
           { method: 'international', messages: internationalResult },
-          { method: 'sample', messages: sampleResult }
+          { method: 'sample', messages: sampleResult },
+          { method: 'iOS', messages: iOSResult } // Make sure this is added
         ];
+        
+        // Add debug log to see which parser found the most messages
+        console.log(`Parsing results - Standard: ${standardResult.length}, International: ${internationalResult.length}, Sample: ${sampleResult.length}, iOS: ${iOSResult.length}`);
         
         const bestResult = results.reduce((prev, current) => 
           (prev.messages.length > current.messages.length) ? prev : current
