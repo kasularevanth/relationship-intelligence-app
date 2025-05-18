@@ -155,7 +155,7 @@ const RelationshipAnalysisProgress = ({ relationshipId, conversationId, onComple
         borderRadius: 2,
         border: `1px solid ${status === 'error' ? '#ffcccc' : status === 'completed' ? '#ccffcc' : '#e0e0e0'}`
       }}
-    >
+      >
       <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
         <Typography variant="h6" component="div">
           Relationship Analysis

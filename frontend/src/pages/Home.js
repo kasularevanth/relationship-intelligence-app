@@ -9,11 +9,16 @@ import AnalyticsIcon from '@mui/icons-material/Analytics';
 import ForumIcon from '@mui/icons-material/Forum';
 import SecurityIcon from '@mui/icons-material/Security';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext'; // Import the authentication context
 import SoulSyncLogo from '../components/SoulSyncLogo';
 import FeatureCarousel from '../components/FeatureCarousel';
 
 const Home = () => {
   const { darkMode } = useTheme();
+  const { currentUser } = useAuth(); // Get currentUser from auth context
+  
+  // Determine if user is authenticated based on currentUser
+  const isAuthenticated = currentUser !== null;
 
   return (
     <Box className="home-container" sx={{ py: { xs: 2, md: 4 } }}>
@@ -70,73 +75,153 @@ const Home = () => {
               sx={{
                 fontSize: { xs: '1rem', md: '1.2rem' },
                 lineHeight: 1.6,
-                mb: 4,
-                mt: 3,
-                mx: 'auto',
+                mb: 5, // Increased bottom margin for better spacing
+                mt: 5, // Increased top margin for better spacing
+                
                 maxWidth: '800px',
-                color: 'rgba(255, 255, 255, 0.9)',
+                color: 'rgba(255, 255, 255, 0.95)', // Slightly more opaque for better readability
+                fontWeight: 400, // Medium weight for emphasis
+                letterSpacing: '0.015em', // Subtle letter spacing improvement
               }}
-            >
-              Reflect on your closest relationships through conversations with an emotionally intelligent AI.
-              Gain insights, build awareness, and strengthen your connections.
+              >
+              {isAuthenticated ? (
+                <>
+                  <Box component="span" sx={{ 
+                        fontWeight: 600,
+                        fontSize: { xs: '1.35rem', sm: '1.5rem', md: '1.7rem' },
+                        display: 'block',
+                        mb: 2,
+                      }}>Welcome back, {currentUser.name || 'User'}!</Box> 
+                  <Box ssx={{ 
+                          fontSize: { xs: '1.15rem', sm: '1.25rem', md: '1.4rem' },
+                          opacity: 0.9,
+                          maxWidth: '700px',
+                          mx: 'auto',
+                        }}>
+                    Developing emotional intelligence takes practice. Let's continue exploring your relationship patterns together.
+                  </Box>
+                </>
+              ) : (
+                'Reflect on your closest relationships through conversations with an emotionally intelligent AI. Gain insights, build awareness, and strengthen your connections.'
+              )}
             </Typography>
             
-            <Stack
-              className="home-buttons"
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={{ xs: 2, sm: 3 }}
-              justifyContent="center"
-              alignItems="center"
-            >
-              <Button 
-                variant="contained" 
-                size="large"
-                component={RouterLink}
-                to="/register"
-                sx={{
-                  borderRadius: 30,
-                  px: 4,
-                  py: 1.5,
-                  fontWeight: 600,
-                  fontSize: '1rem',
-                  textTransform: 'none',
-                  width: { xs: '100%', sm: 'auto' },
-                  background: 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)',
-                  boxShadow: '0 8px 20px rgba(0, 0, 0, 0.3)',
-                  '&:hover': {
-                    background: 'linear-gradient(90deg, #ff5c7f 0%, #2bc0b2 100%)',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 12px 20px rgba(0, 0, 0, 0.4)',
-                  },
-                  transition: 'all 0.3s ease',
-                }}
+            {/* Show different buttons based on authentication status */}
+            {isAuthenticated ? (
+              <Stack
+                className="home-buttons"
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={{ xs: 2, sm: 3 }}
+                justifyContent="center"
+                alignItems="center"
               >
-                Get Started Free
-              </Button>
-              <Button 
-                variant="outlined" 
-                size="large"
-                component={RouterLink}
-                to="/login"
-                sx={{
-                  borderRadius: 30,
-                  px: 4,
-                  py: 1.5,
-                  fontWeight: 600,
-                  fontSize: '1rem',
-                  textTransform: 'none',
-                  width: { xs: '100%', sm: 'auto' },
-                  borderColor: 'rgba(255, 255, 255, 0.5)',
-                  color: '#ffffff',
-                  '&:hover': {
-                    borderColor: '#ffffff',
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  },
-                }}
+                <Button 
+                  variant="contained" 
+                  size="large"
+                  component={RouterLink}
+                  to="/dashboard"
+                  sx={{
+                    borderRadius: 30,
+                    px: 4,
+                    py: 1.5,
+                    fontWeight: 600,
+                    fontSize: '1rem',
+                    textTransform: 'none',
+                    width: { xs: '100%', sm: 'auto' },
+                    background: 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)',
+                    boxShadow: '0 8px 20px rgba(0, 0, 0, 0.3)',
+                    '&:hover': {
+                      background: 'linear-gradient(90deg, #ff5c7f 0%, #2bc0b2 100%)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 12px 20px rgba(0, 0, 0, 0.4)',
+                    },
+                    transition: 'all 0.3s ease',
+                  }}
+                >
+                  Go to Dashboard
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="large"
+                  component={RouterLink}
+                  to="/new-relationship"
+                  sx={{
+                    borderRadius: 30,
+                    px: 4,
+                    py: 1.5,
+                    fontWeight: 600,
+                    fontSize: '1rem',
+                    textTransform: 'none',
+                    width: { xs: '100%', sm: 'auto' },
+                    borderColor: 'rgba(255, 255, 255, 0.5)',
+                    color: '#ffffff',
+                    '&:hover': {
+                      borderColor: '#ffffff',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    },
+                  }}
+                >
+                  Add New Relationship
+                </Button>
+              </Stack>
+            ) : (
+              <Stack
+                className="home-buttons"
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={{ xs: 2, sm: 3 }}
+                justifyContent="center"
+                alignItems="center"
               >
-                Log In
-              </Button>
-            </Stack>
+                <Button 
+                  variant="contained" 
+                  size="large"
+                  component={RouterLink}
+                  to="/register"
+                  sx={{
+                    borderRadius: 30,
+                    px: 4,
+                    py: 1.5,
+                    fontWeight: 600,
+                    fontSize: '1rem',
+                    textTransform: 'none',
+                    width: { xs: '100%', sm: 'auto' },
+                    background: 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)',
+                    boxShadow: '0 8px 20px rgba(0, 0, 0, 0.3)',
+                    '&:hover': {
+                      background: 'linear-gradient(90deg, #ff5c7f 0%, #2bc0b2 100%)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 12px 20px rgba(0, 0, 0, 0.4)',
+                    },
+                    transition: 'all 0.3s ease',
+                  }}
+                >
+                  Get Started Free
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="large"
+                  component={RouterLink}
+                  to="/login"
+                  sx={{
+                    borderRadius: 30,
+                    px: 4,
+                    py: 1.5,
+                    fontWeight: 600,
+                    fontSize: '1rem',
+                    textTransform: 'none',
+                    width: { xs: '100%', sm: 'auto' },
+                    borderColor: 'rgba(255, 255, 255, 0.5)',
+                    color: '#ffffff',
+                    '&:hover': {
+                      borderColor: '#ffffff',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    },
+                  }}
+                >
+                  Log In
+                </Button>
+              </Stack>
+            )}
           </Box>
         </Container>
       </Box>
@@ -146,171 +231,175 @@ const Home = () => {
         <FeatureCarousel />
       </Box>
 
-      {/* Features Section - Desktop Version */}
-      <Container 
-        maxWidth="lg" 
-        sx={{ 
-          mb: { xs: 3, md: 5 }, 
-          mt: { md: 8 },
-          px: { xs: 2, sm: 3 },
-          display: { xs: 'none', md: 'block' }
-        }}
-      >
-        <Typography 
-          variant="h4" 
-          component="h2" 
-          align="center" 
+      {/* Features Section - Desktop Version - Only show for non-authenticated users */}
+      {!isAuthenticated && (
+        <Container 
+          maxWidth="lg" 
           sx={{ 
-            mb: 5,
-            fontWeight: 700,
-            fontSize: { md: '2.2rem' },
-            background: darkMode ? 
-              'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)' : 
-              'linear-gradient(90deg, #5e35b1 20%, #512da8 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
+            mb: { xs: 3, md: 5 }, 
+            mt: { md: 8 },
+            px: { xs: 2, sm: 3 },
+            display: { xs: 'none', md: 'block' }
           }}
         >
-          Transform Your Relationships with SoulSync
-        </Typography>
-        
-        <Grid container spacing={4}>
-          <Grid item xs={12} md={6} lg={3}>
-            <Card 
-              sx={{ 
-                height: '100%',
-                borderRadius: 4,
-                transition: 'transform 0.3s, box-shadow 0.3s',
-                overflow: 'hidden',
-                '&:hover': {
-                  transform: 'translateY(-8px)',
-                  boxShadow: '0 16px 30px rgba(0,0,0,0.15)'
-                },
-                bgcolor: darkMode ? 'rgba(255,255,255,0.05)' : 'background.paper',
-                border: darkMode ? '1px solid rgba(255,255,255,0.05)' : 'none',
-              }}
-            >
-              <Box sx={{ 
-                height: 8, 
-                width: '100%', 
-                background: '#ff6b8b',
-              }} />
-              <CardContent sx={{ textAlign: 'center', py: 4, px: 3 }}>
-                <PeopleIcon sx={{ fontSize: 60, color: '#ff6b8b', mb: 2 }} />
-                <Typography gutterBottom variant="h5" component="div" sx={{ fontWeight: 600, mb: 2, fontSize: '1.4rem' }}>
-                  Create Relationship Profiles
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, fontSize: '0.95rem' }}>
-                  Add the important people in your life and track your interactions, emotions, and experiences with them. Build a comprehensive view of each relationship.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+          <Typography 
+            variant="h4" 
+            component="h2" 
+            align="center" 
+            sx={{ 
+              mb: 5,
+              fontWeight: 700,
+              fontSize: { md: '2.2rem' },
+              background: darkMode ? 
+                'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)' : 
+                'linear-gradient(90deg, #5e35b1 20%, #512da8 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
+            Transform Your Relationships with SoulSync
+          </Typography>
           
-          <Grid item xs={12} md={6} lg={3}>
-            <Card 
-              sx={{ 
-                height: '100%',
-                borderRadius: 4,
-                transition: 'transform 0.3s, box-shadow 0.3s',
-                overflow: 'hidden',
-                '&:hover': {
-                  transform: 'translateY(-8px)',
-                  boxShadow: '0 16px 30px rgba(0,0,0,0.15)'
-                },
-                bgcolor: darkMode ? 'rgba(255,255,255,0.05)' : 'background.paper',
-                border: darkMode ? '1px solid rgba(255,255,255,0.05)' : 'none',
-              }}
-            >
-              <Box sx={{ 
-                height: 8, 
-                width: '100%', 
-                background: '#9966ff',
-              }} />
-              <CardContent sx={{ textAlign: 'center', py: 4, px: 3 }}>
-                <PsychologyIcon sx={{ fontSize: 60, color: '#9966ff', mb: 2 }} />
-                <Typography gutterBottom variant="h5" component="div" sx={{ fontWeight: 600, mb: 2, fontSize: '1.4rem' }}>
-                  AI-Guided Conversations
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, fontSize: '0.95rem' }}>
-                  Have natural conversations with our emotionally intelligent AI to process your thoughts and feelings about each relationship. Get insights in real-time.
-                </Typography>
-              </CardContent>
-            </Card>
+          <Grid container spacing={4}>
+            <Grid item xs={12} md={6} lg={3}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  borderRadius: 4,
+                  transition: 'transform 0.3s, box-shadow 0.3s',
+                  overflow: 'hidden',
+                  '&:hover': {
+                    transform: 'translateY(-8px)',
+                    boxShadow: '0 16px 30px rgba(0,0,0,0.15)'
+                  },
+                  bgcolor: darkMode ? 'rgba(255,255,255,0.05)' : 'background.paper',
+                  border: darkMode ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                }}
+              >
+                <Box sx={{ 
+                  height: 8, 
+                  width: '100%', 
+                  background: '#ff6b8b',
+                }} />
+                <CardContent sx={{ textAlign: 'center', py: 4, px: 3 }}>
+                  <PeopleIcon sx={{ fontSize: 60, color: '#ff6b8b', mb: 2 }} />
+                  <Typography gutterBottom variant="h5" component="div" sx={{ fontWeight: 600, mb: 2, fontSize: '1.4rem' }}>
+                    Create Relationship Profiles
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, fontSize: '0.95rem' }}>
+                    Add the important people in your life and track your interactions, emotions, and experiences with them. Build a comprehensive view of each relationship.
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} md={6} lg={3}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  borderRadius: 4,
+                  transition: 'transform 0.3s, box-shadow 0.3s',
+                  overflow: 'hidden',
+                  '&:hover': {
+                    transform: 'translateY(-8px)',
+                    boxShadow: '0 16px 30px rgba(0,0,0,0.15)'
+                  },
+                  bgcolor: darkMode ? 'rgba(255,255,255,0.05)' : 'background.paper',
+                  border: darkMode ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                }}
+              >
+                <Box sx={{ 
+                  height: 8, 
+                  width: '100%', 
+                  background: '#9966ff',
+                }} />
+                <CardContent sx={{ textAlign: 'center', py: 4, px: 3 }}>
+                  <PsychologyIcon sx={{ fontSize: 60, color: '#9966ff', mb: 2 }} />
+                  <Typography gutterBottom variant="h5" component="div" sx={{ fontWeight: 600, mb: 2, fontSize: '1.4rem' }}>
+                    AI-Guided Conversations
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, fontSize: '0.95rem' }}>
+                    Have natural conversations with our emotionally intelligent AI to process your thoughts and feelings about each relationship. Get insights in real-time.
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} md={6} lg={3}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  borderRadius: 4,
+                  transition: 'transform 0.3s, box-shadow 0.3s',
+                  overflow: 'hidden',
+                  '&:hover': {
+                    transform: 'translateY(-8px)',
+                    boxShadow: '0 16px 30px rgba(0,0,0,0.15)'
+                  },
+                  bgcolor: darkMode ? 'rgba(255,255,255,0.05)' : 'background.paper',
+                  border: darkMode ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                }}
+              >
+                <Box sx={{ 
+                  height: 8, 
+                  width: '100%', 
+                  background: '#33d2c3',
+                }} />
+                <CardContent sx={{ textAlign: 'center', py: 4, px: 3 }}>
+                  <InsightsIcon sx={{ fontSize: 60, color: '#33d2c3', mb: 2 }} />
+                  <Typography gutterBottom variant="h5" component="div" sx={{ fontWeight: 600, mb: 2, fontSize: '1.4rem' }}>
+                    Valuable Insights
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, fontSize: '0.95rem' }}>
+                    Discover patterns, improve self-awareness, and develop strategies for deeper connections with the people who matter most in your life.
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} md={6} lg={3}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  borderRadius: 4,
+                  transition: 'transform 0.3s, box-shadow 0.3s',
+                  overflow: 'hidden',
+                  '&:hover': {
+                    transform: 'translateY(-8px)',
+                    boxShadow: '0 16px 30px rgba(0,0,0,0.15)'
+                  },
+                  bgcolor: darkMode ? 'rgba(255,255,255,0.05)' : 'background.paper',
+                  border: darkMode ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                }}
+              >
+                <Box sx={{ 
+                  height: 8, 
+                  width: '100%', 
+                  background: '#0288d1',
+                }} />
+                <CardContent sx={{ textAlign: 'center', py: 4, px: 3 }}>
+                  <ForumIcon sx={{ fontSize: 60, color: '#0288d1', mb: 2 }} />
+                  <Typography gutterBottom variant="h5" component="div" sx={{ fontWeight: 600, mb: 2, fontSize: '1.4rem' }}>
+                    Analyze Chats
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, fontSize: '0.95rem' }}>
+                    Upload your WhatsApp conversations and let SoulSync decode tone, trends, and emotional cues in your relationships. Private and secure.
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
-          
-          <Grid item xs={12} md={6} lg={3}>
-            <Card 
-              sx={{ 
-                height: '100%',
-                borderRadius: 4,
-                transition: 'transform 0.3s, box-shadow 0.3s',
-                overflow: 'hidden',
-                '&:hover': {
-                  transform: 'translateY(-8px)',
-                  boxShadow: '0 16px 30px rgba(0,0,0,0.15)'
-                },
-                bgcolor: darkMode ? 'rgba(255,255,255,0.05)' : 'background.paper',
-                border: darkMode ? '1px solid rgba(255,255,255,0.05)' : 'none',
-              }}
-            >
-              <Box sx={{ 
-                height: 8, 
-                width: '100%', 
-                background: '#33d2c3',
-              }} />
-              <CardContent sx={{ textAlign: 'center', py: 4, px: 3 }}>
-                <InsightsIcon sx={{ fontSize: 60, color: '#33d2c3', mb: 2 }} />
-                <Typography gutterBottom variant="h5" component="div" sx={{ fontWeight: 600, mb: 2, fontSize: '1.4rem' }}>
-                  Valuable Insights
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, fontSize: '0.95rem' }}>
-                  Discover patterns, improve self-awareness, and develop strategies for deeper connections with the people who matter most in your life.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} md={6} lg={3}>
-            <Card 
-              sx={{ 
-                height: '100%',
-                borderRadius: 4,
-                transition: 'transform 0.3s, box-shadow 0.3s',
-                overflow: 'hidden',
-                '&:hover': {
-                  transform: 'translateY(-8px)',
-                  boxShadow: '0 16px 30px rgba(0,0,0,0.15)'
-                },
-                bgcolor: darkMode ? 'rgba(255,255,255,0.05)' : 'background.paper',
-                border: darkMode ? '1px solid rgba(255,255,255,0.05)' : 'none',
-              }}
-            >
-              <Box sx={{ 
-                height: 8, 
-                width: '100%', 
-                background: '#0288d1',
-              }} />
-              <CardContent sx={{ textAlign: 'center', py: 4, px: 3 }}>
-                <ForumIcon sx={{ fontSize: 60, color: '#0288d1', mb: 2 }} />
-                <Typography gutterBottom variant="h5" component="div" sx={{ fontWeight: 600, mb: 2, fontSize: '1.4rem' }}>
-                  Analyze Chats
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, fontSize: '0.95rem' }}>
-                  Upload your WhatsApp conversations and let SoulSync decode tone, trends, and emotional cues in your relationships. Private and secure.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      </Container>
+        </Container>
+      )}
 
-      {/* Desktop version of the feature carousel */}
-      <Box sx={{ display: { xs: 'none', md: 'block' }, mt: 5, mb: 5 }}>
-        <FeatureCarousel />
-      </Box>
+      {/* Desktop version of the feature carousel - only show for non-authenticated users */}
+      {!isAuthenticated && (
+        <Box sx={{ display: { xs: 'none', md: 'block' }, mt: 5, mb: 5 }}>
+          <FeatureCarousel />
+        </Box>
+      )}
 
-      {/* Security & Privacy Section */}
+      {/* Security & Privacy Section - show to everyone */}
       <Container maxWidth="md" sx={{ my: 8, px: { xs: 2, sm: 3 } }}>
         <Box 
           sx={{ 
@@ -346,86 +435,161 @@ const Home = () => {
         </Box>
       </Container>
 
-      {/* Call to Action */}
-      <Box 
-        sx={{ 
-          bgcolor: darkMode ? 'rgba(94, 53, 177, 0.1)' : '#f5f5f7', 
-          py: { xs: 6, md: 8 }, 
-          px: 2,
-          borderRadius: 4,
-          textAlign: 'center',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        <Container maxWidth="md">
-          <Typography 
-            variant="h4" 
-            component="h2" 
-            gutterBottom
-            sx={{
-              fontWeight: 700,
-              mb: 3,
-              fontSize: { xs: '1.75rem', md: '2.5rem' },
-              background: 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)',
-              borderRadius: 4,
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            Ready to transform your relationships?
-          </Typography>
-          
-          <Typography 
-            variant="body1"
-            sx={{
-              fontSize: { xs: '1rem', md: '1.25rem' },
-              maxWidth: 700,
-              mx: 'auto',
-              mb: 4,
-              color: darkMode ? 'text.primary' : 'text.secondary',
-            }}
-          >
-            Join thousands of people using SoulSync to gain insights, improve communication, and build stronger connections with the people who matter most.
-          </Typography>
-          
-          <Button 
-            variant="contained" 
-            size="large" 
-            sx={{ 
-              px: 5,
-              py: 1.5,
-              borderRadius: 30,
-              fontWeight: 600,
-              fontSize: '1.1rem',
-              textTransform: 'none',
-              background: 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)',
-              boxShadow: '0 8px 20px rgba(0, 0, 0, 0.2)',
-              '&:hover': {
-                background: 'linear-gradient(90deg, #ff5c7f 0%, #2bc0b2 100%)',
-                transform: 'translateY(-2px)',
-                boxShadow: '0 12px 20px rgba(0, 0, 0, 0.3)',
-              },
-              transition: 'all 0.3s ease',
-            }}
-            component={RouterLink}
-            to="/register"
-          >
-            Create Your Free Account
-          </Button>
-          
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              mt: 2,
-              opacity: 0.7,
-              fontSize: '0.875rem',
-            }}
-          >
-            No credit card required. Start for free today.
-          </Typography>
-        </Container>
-      </Box>
+      {/* Call to Action - Only show for non-authenticated users */}
+      {!isAuthenticated && (
+        <Box 
+          sx={{ 
+            bgcolor: darkMode ? 'rgba(94, 53, 177, 0.1)' : '#f5f5f7', 
+            py: { xs: 6, md: 8 }, 
+            px: 2,
+            borderRadius: 4,
+            textAlign: 'center',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <Container maxWidth="md">
+            <Typography 
+              variant="h4" 
+              component="h2" 
+              gutterBottom
+              sx={{
+                fontWeight: 700,
+                mb: 3,
+                fontSize: { xs: '1.75rem', md: '2.5rem' },
+                background: 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)',
+                borderRadius: 4,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              Ready to transform your relationships?
+            </Typography>
+            
+            <Typography 
+              variant="body1"
+              sx={{
+                fontSize: { xs: '1rem', md: '1.25rem' },
+                maxWidth: 700,
+                mx: 'auto',
+                mb: 4,
+                color: darkMode ? 'text.primary' : 'text.secondary',
+              }}
+            >
+              Join thousands of people using SoulSync to gain insights, improve communication, and build stronger connections with the people who matter most.
+            </Typography>
+            
+            <Button 
+              variant="contained" 
+              size="large" 
+              sx={{ 
+                px: 5,
+                py: 1.5,
+                borderRadius: 30,
+                fontWeight: 600,
+                fontSize: '1.1rem',
+                textTransform: 'none',
+                background: 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)',
+                boxShadow: '0 8px 20px rgba(0, 0, 0, 0.2)',
+                '&:hover': {
+                  background: 'linear-gradient(90deg, #ff5c7f 0%, #2bc0b2 100%)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 12px 20px rgba(0, 0, 0, 0.3)',
+                },
+                transition: 'all 0.3s ease',
+              }}
+              component={RouterLink}
+              to="/register"
+            >
+              Create Your Free Account
+            </Button>
+            
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                mt: 2,
+                opacity: 0.7,
+                fontSize: '0.875rem',
+              }}
+            >
+              No credit card required. Start for free today.
+            </Typography>
+          </Container>
+        </Box>
+      )}
+
+      {/* Show a different action section for authenticated users */}
+      {isAuthenticated && (
+        <Box 
+          sx={{ 
+            bgcolor: darkMode ? 'rgba(94, 53, 177, 0.1)' : '#f5f5f7', 
+            py: { xs: 6, md: 8 }, 
+            px: 2,
+            borderRadius: 4,
+            textAlign: 'center',
+            position: 'relative',
+            overflow: 'hidden',
+            mb: 4
+          }}
+        >
+          <Container maxWidth="md">
+            <Typography 
+              variant="h4" 
+              component="h2" 
+              gutterBottom
+              sx={{
+                fontWeight: 700,
+                mb: 3,
+                fontSize: { xs: '1.75rem', md: '2.5rem' },
+                background: 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)',
+                borderRadius: 4,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              Continue your relationship journey
+            </Typography>
+            
+            <Typography 
+              variant="body1"
+              sx={{
+                fontSize: { xs: '1rem', md: '1.25rem' },
+                maxWidth: 700,
+                mx: 'auto',
+                mb: 4,
+                color: darkMode ? 'text.primary' : 'text.secondary',
+              }}
+            >
+              Access your dashboard to view your relationships, start new conversations, or analyze your recent interactions.
+            </Typography>
+            
+            <Button 
+              variant="contained" 
+              size="large" 
+              sx={{ 
+                px: 5,
+                py: 1.5,
+                borderRadius: 30,
+                fontWeight: 600,
+                fontSize: '1.1rem',
+                textTransform: 'none',
+                background: 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)',
+                boxShadow: '0 8px 20px rgba(0, 0, 0, 0.2)',
+                '&:hover': {
+                  background: 'linear-gradient(90deg, #ff5c7f 0%, #2bc0b2 100%)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 12px 20px rgba(0, 0, 0, 0.3)',
+                },
+                transition: 'all 0.3s ease',
+              }}
+              component={RouterLink}
+              to="/dashboard"
+            >
+              Go to Dashboard
+            </Button>
+          </Container>
+        </Box>
+      )}
     </Box>
   );
 };
