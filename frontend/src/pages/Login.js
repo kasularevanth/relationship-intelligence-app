@@ -54,6 +54,23 @@ const Login = () => {
   const subtitleColor = darkMode ? '#aaaaaa' : '#757575';
   const inputTextColor = darkMode ? '#4aeabc' : '#333333';
 
+
+  // Add this in both Login.js and Register.js right at the start of the return statement
+useEffect(() => {
+  // Add a class to the body when on auth pages
+  if (isMobile && darkMode) {
+    document.body.classList.add('dark-mode-auth');
+    // Set page-specific data attribute
+    document.body.setAttribute('data-page-type', 'auth');
+  }
+  
+  return () => {
+    // Clean up when component unmounts
+    document.body.classList.remove('dark-mode-auth');
+    document.body.removeAttribute('data-page-type');
+  };
+}, [isMobile, darkMode]);
+
   // Toggle password visibility
   const handleTogglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -145,324 +162,336 @@ const Login = () => {
   };
 
   return (
-    <Box sx={{ 
-      width: '100%', 
-      minHeight: '100vh', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: darkMode ? '#000000' : '#f5f5f5',
-      position: 'relative'
+  <Box className="auth-page" sx={{ 
+    width: '100%', 
+    minHeight: '100vh', 
+    display: 'flex', 
+    flexDirection: 'column', 
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: darkMode ? '#000000' : '#f5f5f5',
+    // Critical fix: remove any horizontal padding or margin
+    m: 0,
+    p: 0,
+    overflow: 'hidden', // Prevent any overflow
+    position: 'relative'
+  }}>
+    {/* Main Container - no margin/padding/radius on mobile */}
+    <Box sx={{
+      width: isMobile ? '100vw' : '400px', // Use viewport width on mobile
+      maxWidth: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      borderRadius: isMobile ? 0 : 4, // No radius on mobile
+      overflow: 'hidden',
+      boxShadow: 'none', // No shadow on either mode
+      backgroundColor: darkMode ? '#121212' : '#ffffff',
+      // Set position to make sure it covers full width
+      position: isMobile ? 'absolute' : 'relative',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      right: 0,
+      height: isMobile ? '100%' : 'auto'
     }}>
-      {/* Main Container */}
+      {/* Header Section */}
       <Box sx={{
-        width: isMobile ? '100%' : '400px',
-        maxWidth: '100%',
+        width: '100%',
+        backgroundColor: darkMode ? '#121212' : '#ffffff',
+        pt: 6,
+        pb: 4,
         display: 'flex',
         flexDirection: 'column',
-        borderRadius: 4,
-        overflow: 'hidden',
-        boxShadow: darkMode ? 'none' : '0 4px 20px rgba(0,0,0,0.1)',
-        backgroundColor: bgColor
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center'
       }}>
-        {/* Header Section */}
-        <Box sx={{
-          width: '100%',
-          backgroundColor: headerBgColor,
-          pt: 6,
-          pb: 4,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          textAlign: 'center'
-        }}>
-          {/* Lock Icon */}
-          <LockOutlinedIcon 
-            sx={{ 
-              fontSize: 48, 
-              color: accentColor, 
-              mb: 2
-            }} 
-          />
-          
-          {/* Welcome Back Title */}
-          <Typography 
-            variant="h3" 
-            component="h1" 
-            sx={{ 
-              color: accentColor,
-              fontWeight: 'bold',
-              mb: 1,
-              fontSize: { xs: '2.5rem', sm: '3rem' },
-              lineHeight: 1.1,
-              textAlign: 'center'
-            }}
-          >
-            Welcome<br />Back!
-          </Typography>
-          
-          {/* Subtitle */}
-          <Typography 
-            variant="body1" 
-            sx={{ 
-              color: subtitleColor,
-              textAlign: 'center'
-            }}
-          >
-            Login to continue
-          </Typography>
-        </Box>
-
-        {/* Main Form Section */}
-        <Box sx={{
-          width: '100%',
-          backgroundColor: formBgColor,
-          p: 3,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center'
-        }}>
-          {error && (
-            <Alert 
-              severity="error" 
-              sx={{ 
-                width: '100%',
-                mb: 2,
-                backgroundColor: darkMode ? 'rgba(211, 47, 47, 0.2)' : undefined,
-                color: darkMode ? '#ff7777' : undefined
-              }}
-            >
-              {error}
-            </Alert>
-          )}
-          
-          <Box 
-            component="form" 
-            onSubmit={handleSubmit} 
-            noValidate
-            sx={{
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center'
-            }}
-          >
-            {/* Email Input */}
-            <Box 
-              sx={{
-                position: 'relative',
-                width: '100%',
-                height: 56,
-                mb: 2,
-                borderRadius: 28,
-                backgroundColor: inputBgColor,
-                display: 'flex',
-                alignItems: 'center',
-                px: 3,
-                border: focusedInput === 'email' 
-                  ? `1px solid ${accentColor}` 
-                  : errors.email 
-                    ? '1px solid #ff4444' 
-                    : `1px solid ${inputBorderColor}`
-              }}
-            >
-              <EmailOutlinedIcon 
-                sx={{ 
-                  color: accentColor, 
-                  mr: 2,
-                  fontSize: 20
-                }} 
-              />
-              <input
-                ref={emailInputRef}
-                id="email"
-                name="email"
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => handleChange(e, setEmail)}
-                onFocus={() => handleFocus('email')}
-                onBlur={handleBlur}
-                style={{
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  color: inputTextColor,
-                  width: '100%',
-                  height: '100%',
-                  fontSize: '16px',
-                  fontFamily: 'inherit'
-                }}
-              />
-            </Box>
-            
-            {/* Password Input */}
-            <Box 
-              sx={{
-                position: 'relative',
-                width: '100%',
-                height: 56,
-                mb: 3,
-                borderRadius: 28,
-                backgroundColor: inputBgColor,
-                display: 'flex',
-                alignItems: 'center',
-                px: 3,
-                border: focusedInput === 'password' 
-                  ? `1px solid ${accentColor}` 
-                  : errors.password 
-                    ? '1px solid #ff4444' 
-                    : `1px solid ${inputBorderColor}`
-              }}
-            >
-              <LockOutlinedIcon 
-                sx={{ 
-                  color: accentColor, 
-                  mr: 2,
-                  fontSize: 20
-                }} 
-              />
-              <input
-                ref={passwordInputRef}
-                id="password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => handleChange(e, setPassword)}
-                onFocus={() => handleFocus('password')}
-                onBlur={handleBlur}
-                style={{
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  color: inputTextColor,
-                  width: '100%',
-                  height: '100%',
-                  fontSize: '16px',
-                  fontFamily: 'inherit'
-                }}
-              />
-              <IconButton
-                onClick={handleTogglePasswordVisibility}
-                size="small"
-                sx={{ 
-                  color: '#aaaaaa',
-                  p: 0.5
-                }}
-              >
-                {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-              </IconButton>
-            </Box>
-            
-            {/* Login Button */}
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              disabled={loading}
-              sx={{
-                height: 56,
-                backgroundColor: accentColor,
-                color: '#ffffff', // White text for better contrast on darker green
-                borderRadius: 28,
-                fontWeight: 'bold',
-                fontSize: '1rem',
-                textTransform: 'none',
-                boxShadow: 'none',
-                mb: 2,
-                '&:hover': {
-                  backgroundColor: darkMode ? '#3dd9aa' : '#278f77', // Darker hover for light mode
-                  boxShadow: 'none'
-                },
-                '&:disabled': {
-                  backgroundColor: darkMode ? 'rgba(74, 234, 188, 0.7)' : 'rgba(48, 165, 139, 0.7)',
-                  color: '#ffffff',
-                }
-              }}
-            >
-              {loading ? <CircularProgress size={24} color="inherit" /> : 'Login'}
-            </Button>
-          </Box>
-        </Box>
+        {/* Lock Icon */}
+        <LockOutlinedIcon 
+          sx={{ 
+            fontSize: 48, 
+            color: accentColor, 
+            mb: 2
+          }} 
+        />
         
-        {/* Footer Section */}
-        <Box sx={{
-          width: '100%',
-          backgroundColor: footerBgColor,
-          p: 3,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center'
-        }}>
-          {/* Or login with text */}
-          <Typography 
-            variant="body2" 
+        {/* Welcome Back Title */}
+        <Typography 
+          variant="h3" 
+          component="h1" 
+          sx={{ 
+            color: accentColor,
+            fontWeight: 'bold',
+            mb: 1,
+            fontSize: { xs: '2.5rem', sm: '3rem' },
+            lineHeight: 1.1,
+            textAlign: 'center'
+          }}
+        >
+          Welcome<br />Back!
+        </Typography>
+        
+        {/* Subtitle */}
+        <Typography 
+          variant="body1" 
+          sx={{ 
+            color: subtitleColor,
+            textAlign: 'center'
+          }}
+        >
+          Login to continue
+        </Typography>
+      </Box>
+
+      {/* Main Form Section */}
+      <Box sx={{
+        width: '100%',
+        backgroundColor: darkMode ? '#121212' : '#ffffff',
+        p: 3,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center'
+      }}>
+        {error && (
+          <Alert 
+            severity="error" 
             sx={{ 
-              color: textColor,
+              width: '100%',
               mb: 2,
-              textAlign: 'center'
+              backgroundColor: darkMode ? 'rgba(211, 47, 47, 0.2)' : undefined,
+              color: darkMode ? '#ff7777' : undefined
             }}
           >
-            Or login with
-          </Typography>
-          
-          {/* Google Sign In Button */}
-          <Button
-            onClick={handleGoogleLogin}
-            variant="outlined"
+            {error}
+          </Alert>
+        )}
+        
+        <Box 
+          component="form" 
+          onSubmit={handleSubmit} 
+          noValidate
+          sx={{
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}
+        >
+          {/* Email Input */}
+          <Box 
             sx={{
-              width: '240px',
-              height: 48,
-              backgroundColor: 'white',
-              color: 'rgba(0, 0, 0, 0.54)',
-              border: '1px solid #ddd',
-              borderRadius: 24,
-              fontFamily: 'Roboto, sans-serif',
-              fontWeight: 500,
-              textTransform: 'none',
-              fontSize: '14px',
-              mb: 3,
-              boxShadow: 'none',
-              '&:hover': {
-                backgroundColor: '#f5f5f5',
-                boxShadow: 'none'
-              },
+              position: 'relative',
+              width: '100%',
+              height: 56,
+              mb: 2,
+              borderRadius: 28,
+              backgroundColor: darkMode ? '#1e1e1e' : inputBgColor,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              px: 3,
+              border: focusedInput === 'email' 
+                ? `1px solid ${accentColor}` 
+                : errors.email 
+                  ? '1px solid #ff4444' 
+                  : darkMode ? '1px solid #333' : `1px solid ${inputBorderColor}`
             }}
           >
-            <GoogleIcon sx={{ color: '#4285F4', mr: 1, fontSize: 20 }} />
-            Sign in with Google
-          </Button>
+            <EmailOutlinedIcon 
+              sx={{ 
+                color: accentColor, 
+                mr: 2,
+                fontSize: 20
+              }} 
+            />
+            <input
+              ref={emailInputRef}
+              id="email"
+              name="email"
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => handleChange(e, setEmail)}
+              onFocus={() => handleFocus('email')}
+              onBlur={handleBlur}
+              style={{
+                backgroundColor: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: darkMode ? '#ffffff' : inputTextColor,
+                width: '100%',
+                height: '100%',
+                fontSize: '16px',
+                fontFamily: 'inherit'
+              }}
+            />
+          </Box>
           
-          {/* Sign Up Link */}
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              color: textColor,
-              textAlign: 'center',
+          {/* Password Input */}
+          <Box 
+            sx={{
+              position: 'relative',
+              width: '100%',
+              height: 56,
+              mb: 3,
+              borderRadius: 28,
+              backgroundColor: darkMode ? '#1e1e1e' : inputBgColor,
+              display: 'flex',
+              alignItems: 'center',
+              px: 3,
+              border: focusedInput === 'password' 
+                ? `1px solid ${accentColor}` 
+                : errors.password 
+                  ? '1px solid #ff4444' 
+                  : darkMode ? '1px solid #333' : `1px solid ${inputBorderColor}`
             }}
           >
-            Don't have an account? {' '}
-            <RouterLink 
-              to="/register" 
-              style={{ 
-                color: textColor, 
-                textDecoration: 'none', 
-                fontWeight: 'bold' 
+            <LockOutlinedIcon 
+              sx={{ 
+                color: accentColor, 
+                mr: 2,
+                fontSize: 20
+              }} 
+            />
+            <input
+              ref={passwordInputRef}
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => handleChange(e, setPassword)}
+              onFocus={() => handleFocus('password')}
+              onBlur={handleBlur}
+              style={{
+                backgroundColor: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: darkMode ? '#ffffff' : inputTextColor,
+                width: '100%',
+                height: '100%',
+                fontSize: '16px',
+                fontFamily: 'inherit'
+              }}
+            />
+            <IconButton
+              onClick={handleTogglePasswordVisibility}
+              size="small"
+              sx={{ 
+                color: darkMode ? '#666' : '#aaaaaa',
+                p: 0.5
               }}
             >
-              Sign up
-            </RouterLink>
-          </Typography>
+              {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+            </IconButton>
+          </Box>
+          
+          {/* Login Button */}
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            disabled={loading}
+            sx={{
+              height: 56,
+              backgroundColor: accentColor,
+              color: '#ffffff', // White text for better contrast
+              borderRadius: 28,
+              fontWeight: 'bold',
+              fontSize: '1rem',
+              textTransform: 'none',
+              boxShadow: 'none',
+              mb: 2,
+              '&:hover': {
+                backgroundColor: darkMode ? '#3dd9aa' : '#278f77',
+                boxShadow: 'none'
+              },
+              '&:disabled': {
+                backgroundColor: darkMode ? 'rgba(74, 234, 188, 0.7)' : 'rgba(48, 165, 139, 0.7)',
+                color: '#ffffff',
+              }
+            }}
+          >
+            {loading ? <CircularProgress size={24} color="inherit" /> : 'Login'}
+          </Button>
         </Box>
       </Box>
+      
+      {/* Footer Section */}
+      <Box sx={{
+        width: '100%',
+        backgroundColor: darkMode ? '#121212' : '#ffffff',
+        p: 3,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center'
+      }}>
+        {/* Or login with text */}
+        <Typography 
+          variant="body2" 
+          sx={{ 
+            color: textColor,
+            mb: 2,
+            textAlign: 'center'
+          }}
+        >
+          Or login with
+        </Typography>
+        
+        {/* Google Sign In Button */}
+        <Button
+          onClick={handleGoogleLogin}
+          variant="outlined"
+          sx={{
+            width: '240px',
+            height: 48,
+            backgroundColor: darkMode ? '#1e1e1e' : 'white',
+            color: darkMode ? '#ffffff' : 'rgba(0, 0, 0, 0.54)',
+            border: darkMode ? '1px solid #333' : '1px solid #ddd',
+            borderRadius: 24,
+            fontFamily: 'Roboto, sans-serif',
+            fontWeight: 500,
+            textTransform: 'none',
+            fontSize: '14px',
+            mb: 3,
+            boxShadow: 'none',
+            '&:hover': {
+              backgroundColor: darkMode ? '#252525' : '#f5f5f5',
+              boxShadow: 'none'
+            },
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <GoogleIcon sx={{ color: '#4285F4', mr: 1, fontSize: 20 }} />
+          Sign in with Google
+        </Button>
+        
+        {/* Sign Up Link */}
+        <Typography 
+          variant="body2" 
+          sx={{ 
+            color: textColor,
+            textAlign: 'center',
+            pb: 2
+          }}
+        >
+          Don't have an account? {' '}
+          <RouterLink 
+            to="/register" 
+            style={{ 
+              color: textColor, 
+              textDecoration: 'none', 
+              fontWeight: 'bold' 
+            }}
+          >
+            Sign up
+          </RouterLink>
+        </Typography>
+      </Box>
     </Box>
-  );
+  </Box>
+);
 };
 
 export default Login;

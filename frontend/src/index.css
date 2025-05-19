@@ -1,19 +1,13 @@
+/* Base styles */
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-
-
-
-
-
-
-/* Add these styles to your index.css file */
+/* Theme variables */
 :root {
   --background-color: #f5f5f5;
   --text-color: #212121;
@@ -24,7 +18,7 @@ body {
 [data-theme="dark"] {
   --background-color: #121212;
   --text-color: #ffffff;
-  --paper-color: #1e1e1e;
+  --paper-color: #000;
   --border-color: #333333;
 }
 
@@ -44,7 +38,7 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
-/* Fix spacing in home page */
+/* Home page styles */
 .home-container {
   padding: 60px 20px !important;
 }
@@ -68,13 +62,12 @@ body {
   gap: 16px !important;
 }
 
-/* Dashboard specific styles */
+/* Dashboard styles */
 .relationship-card {
   background-color: var(--paper-color) !important;
   border: 1px solid var(--border-color);
 }
 
-/* Fix for avatar and text alignment */
 .user-info {
   display: flex;
   align-items: center;
@@ -82,4 +75,237 @@ body {
 
 .user-info .MuiAvatar-root {
   margin-right: 8px;
+}
+
+/* Auth pages global styles */
+.dark-mode-auth {
+  background-color: #000 !important;
+}
+
+.auth-page {
+  color: #fff !important;
+}
+
+/* Full viewport coverage for auth pages */
+html.dark-mode body,
+body.dark-mode,
+body.dark-mode-auth {
+  background-color: #000 !important;
+  min-height: 100vh !important;
+  overflow-x: hidden !important;
+  width: 100vw !important;
+}
+
+/* Dark mode specific styles */
+.dark-mode input::placeholder {
+  color: #aaa !important;
+  opacity: 0.7 !important;
+}
+
+.dark-mode input {
+  color: #fff !important;
+}
+
+.dark-mode .MuiOutlinedInput-root {
+  background-color: #000 !important;
+}
+
+.dark-mode .MuiOutlinedInput-root fieldset {
+  border-color: #333 !important;
+}
+
+.dark-mode .MuiTypography-root {
+  color: #fff !important;
+}
+
+/* Direct selector for auth pages in dark mode */
+.dark-mode .auth-page > *,
+[data-theme="dark"] .auth-page > * {
+  background-color: #000 !important;
+}
+
+/* ---------------------------------------- */
+/* ALL MEDIA QUERIES CONSOLIDATED BELOW */
+/* ---------------------------------------- */
+
+@media screen and (max-width: 600px) {
+  /* ===== AUTH PAGES MOBILE DARK MODE FIXES ===== */
+  
+  /* Force black background in auth pages in dark mode */
+  body.dark-mode .auth-page,
+  [data-theme="dark"] .auth-page {
+    background-color: #000 !important;
+  }
+  
+  /* Remove borders and padding from containers */
+  .auth-page {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+  
+  /* Remove specific Paper styles (including inline styles) */
+  .dark-mode .auth-page .MuiPaper-root,
+  [data-theme="dark"] .auth-page .MuiPaper-root,
+  .auth-page .MuiPaper-root {
+    background-color: #000 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow: hidden !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  
+  /* Target the specific MuiPaper classes from theme.js */
+  .auth-page .MuiPaper-root.MuiPaper-elevation0,
+  .auth-page .MuiPaper-root.MuiPaper-elevation1,
+  .auth-page [class*="MuiPaper-root"],
+  .auth-page [class*="css-1fy1raf-MuiPaper-root"] {
+    border-radius: 0 !important;
+    padding: 0 !important;
+    background-color: #000 !important;
+  }
+  
+  /* Target individual MUI components within auth pages */
+  .dark-mode .auth-page .MuiBox-root,
+  .dark-mode .auth-page .MuiContainer-root,
+  .dark-mode .auth-page .MuiInputBase-root:not(.MuiOutlinedInput-root),
+  .dark-mode .auth-page .MuiFormControl-root,
+  [data-theme="dark"] .auth-page .MuiBox-root,
+  [data-theme="dark"] .auth-page .MuiContainer-root,
+  [data-theme="dark"] .auth-page .MuiInputBase-root:not(.MuiOutlinedInput-root),
+  [data-theme="dark"] .auth-page .MuiFormControl-root {
+    background-color: #000 !important;
+    transition: none !important; /* Prevent transition flashes */
+    padding: '0px';
+  }
+  
+  /* Fix input field background */
+  .dark-mode .auth-page .MuiOutlinedInput-root,
+  [data-theme="dark"] .auth-page .MuiOutlinedInput-root {
+    background-color: #000 !important;
+  }
+  
+  /* Override the theme.js button styles */
+  .dark-mode .auth-page .MuiButton-contained,
+  [data-theme="dark"] .auth-page .MuiButton-contained,
+  .dark-mode .auth-page .MuiButton-root[type="submit"],
+  [data-theme="dark"] .auth-page .MuiButton-root[type="submit"] {
+    background-color: #4aeabc !important;
+    color: #000 !important;
+    box-shadow: 0 1px 3px rgba(74, 234, 188, 0.3) !important;
+    border-radius: 28px !important;
+    border: none !important;
+  }
+  
+  .dark-mode .auth-page .MuiButton-outlined,
+  [data-theme="dark"] .auth-page .MuiButton-outlined {
+    border: 1px solid #4aeabc !important;
+    color: #fff !important;
+  }
+  
+  /* Target Google sign-in button specifically - with increased specificity */
+  .dark-mode .auth-page button.MuiButton-root:has(svg[class*="Google"]),
+  [data-theme="dark"] .auth-page button.MuiButton-root:has(svg[class*="Google"]),
+  .dark-mode .auth-page .MuiButton-outlined:has(svg[class*="Google"]),
+  [data-theme="dark"] .auth-page .MuiButton-outlined:has(svg[class*="Google"]) {
+    border: 1px solid #333 !important;
+    background-color: #000 !important;
+    color: #fff !important;
+  }
+  
+  /* Use attribute selectors to target buttons with Google icons as fallback */
+  .dark-mode .auth-page button[class*="MuiButton"][onclick*="Google"],
+  [data-theme="dark"] .auth-page button[class*="MuiButton"][onclick*="Google"] {
+    border: 1px solid #333 !important;
+    background-color: #000 !important;
+    color: #fff !important;
+  }
+  
+  /* Override any inline styles that might be causing issues */
+  .dark-mode .auth-page [style*="background"],
+  [data-theme="dark"] .auth-page [style*="background"] {
+    background-color: #000 !important;
+  }
+  
+  /* Targeting specific UI elements by their appearance if classes aren't reliable */
+  .dark-mode .auth-page form,
+  [data-theme="dark"] .auth-page form {
+    background-color: #000 !important;
+  }
+  
+  /* Make sure borders don't show as white */
+  .dark-mode .auth-page *,
+  [data-theme="dark"] .auth-page * {
+    border-color: #333 !important;
+  }
+  
+  /* Fix for custom inputs with borders */
+  .dark-mode .auth-page input,
+  [data-theme="dark"] .auth-page input {
+    border-color: #333 !important;
+  }
+  
+  /* Specifically target the css-1fy1raf-MuiPaper-root class */
+  
+
+  /* ===== DASHBOARD PAGE MOBILE FIXES ===== */
+  
+  /* Reset background for dashboard page only */
+  .dashboard-page {
+    background-color: inherit !important;
+  }
+  
+  /* Preserve component styling for dashboard */
+  .dashboard-page .MuiPaper-root,
+  .dashboard-page .MuiBox-root,
+  .dashboard-page[data-theme="dark"] .MuiPaper-root,
+  .dashboard-page[data-theme="dark"] .MuiBox-root {
+    background-color: #000 !important;
+    border: inherit !important;
+    box-shadow: inherit !important;
+  }
+  
+  /* Ensure typography uses component styling */
+  .dashboard-page .MuiTypography-root,
+  .dashboard-page[data-theme="dark"] .MuiTypography-root {
+    color: inherit !important;
+  }
+  
+  /* Fix specific Dashboard components */
+  .dashboard-page .CircularContactItem,
+  .dashboard-page .ContactAvatar,
+  .dashboard-page .ContactName,
+  .dashboard-page .TimeAgo,
+  .dashboard-page .HeaderTitle,
+  .dashboard-page .HeaderContainer,
+  .dashboard-page .MicButton,
+  .dashboard-page .AddCircleButton,
+  .dashboard-page .EmptyStateContainer {
+    background-color: inherit !important;
+    border: inherit !important;
+    box-shadow: inherit !important;
+    color: inherit !important;
+  }
+  
+  /* Ensure mic button and other buttons have proper styling */
+  .dashboard-page .MicButton {
+    background-color: inherit !important;
+  }
+}
+
+/* Non-mobile specific dashboard text styles */
+.dashboard-page.dark-mode .MuiTypography-root {
+  color: inherit !important;
+}
+
+.dashboard-page .HeaderTitle,
+.dashboard-page .ContactName,
+.dashboard-page .TimeAgo {
+  color: inherit !important;
 }

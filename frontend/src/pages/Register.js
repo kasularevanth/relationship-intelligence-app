@@ -15,8 +15,9 @@ import {
   useMediaQuery,
   useTheme as useMuiTheme,
   IconButton,
-  FormHelperText
+  Divider
 } from '@mui/material';
+import GoogleIcon from '@mui/icons-material/Google';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
@@ -61,17 +62,17 @@ const Register = () => {
   const muiTheme = useMuiTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
 
-  // Colors based on mode
-  const accentColor = darkMode ? '#4aeabc' : '#30a58b'; // Darker green for light mode
-  const headerBgColor = darkMode ? '#000000' : '#ffffff'; // White header in light mode
-  const formBgColor = darkMode ? '#1a1a1a' : '#ffffff'; // White form in light mode
-  const inputBgColor = darkMode ? '#333333' : '#f7f7f7'; // Light gray inputs in light mode
-  const inputBorderColor = darkMode ? '#444444' : '#e0e0e0'; // Light borders in light mode
-  const textColor = darkMode ? '#4aeabc' : '#30a58b'; // Darker green text in light mode
-  const subtitleColor = darkMode ? '#aaaaaa' : '#757575'; // Gray subtitle in light mode
-  const iconColor = darkMode ? '#4aeabc' : '#30a58b'; // Darker green icons in light mode
-  const formHelperTextColor = '#ff4444'; // Red error text in both modes
-  const buttonColor = darkMode ? '#4aeabc' : '#30a58b'; // Darker green button in light mode
+  // Colors and other functions remain the same
+  const accentColor = darkMode ? '#4aeabc' : '#30a58b';
+  const headerBgColor = darkMode ? '#121212' : '#ffffff';
+  const formBgColor = darkMode ? '#121212' : '#ffffff';
+  const inputBgColor = darkMode ? '#1e1e1e' : '#f7f7f7';
+  const inputBorderColor = darkMode ? '#333333' : '#e0e0e0';
+  const textColor = darkMode ? '#4aeabc' : '#30a58b';
+  const subtitleColor = darkMode ? '#aaaaaa' : '#757575';
+  const iconColor = darkMode ? '#4aeabc' : '#30a58b';
+  const formHelperTextColor = '#ff4444';
+  const buttonColor = darkMode ? '#4aeabc' : '#30a58b';
 
   // Validate email format
   const isValidEmail = (email) => {
@@ -90,6 +91,23 @@ const Register = () => {
       special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
     });
   }, [formData.password]);
+
+
+  // Add this in both Login.js and Register.js right at the start of the return statement
+useEffect(() => {
+  // Add a class to the body when on auth pages
+  if (isMobile && darkMode) {
+    document.body.classList.add('dark-mode-auth');
+    // Set page-specific data attribute
+    document.body.setAttribute('data-page-type', 'auth');
+  }
+  
+  return () => {
+    // Clean up when component unmounts
+    document.body.classList.remove('dark-mode-auth');
+    document.body.removeAttribute('data-page-type');
+  };
+}, [isMobile, darkMode]);
   
   // Toggle password visibility
   const handleTogglePasswordVisibility = () => {
@@ -190,70 +208,85 @@ const Register = () => {
     });
   };
 
+  const handleGoogleSignup = () => {
+  window.location.href = `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/auth/google`;
+};
+
   // Calculate if all password requirements are met
   const isPasswordValid = Object.values(passwordStrength).every(Boolean);
   const passwordRequirementsMet = Object.values(passwordStrength).filter(Boolean).length;
   const passwordStrengthPercent = (passwordRequirementsMet / Object.values(passwordStrength).length) * 100;
 
   return (
-    <Box sx={{ 
-      width: '100%', 
-      minHeight: '100vh', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: darkMode ? '#000000' : '#f5f5f5',
-      px: isMobile ? 2 : 4,
-      py: 4,
-      transition: 'background-color 0.3s ease'
-    }}>
+    <Box className="auth-page" sx={{ 
+        width: '100%', 
+        minHeight: '100vh', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: darkMode ? '#000000' : '#f5f5f5',
+        // Critical fix: remove any horizontal padding or margin
+        m: 0,
+        p: 0,
+        overflow: 'hidden', // Prevent any overflow
+        position: 'relative',
+        transition: 'background-color 0.3s ease'
+      }}>
       {/* Form Container */}
       <Paper 
-        elevation={darkMode ? 0 : 4} 
+        elevation={0}
         sx={{ 
-          width: '100%',
-          maxWidth: isMobile ? '100%' : '400px',
-          backgroundColor: formBgColor,
-          borderRadius: 4,
+          width: isMobile ? '100vw' : '400px',
+          maxWidth: '100%',
+          backgroundColor: darkMode ? (isMobile ? '#000000' : '#121212') : '#ffffff',
+          borderRadius: isMobile ? 0 : 4,
+          // Change this line to use !important
+          padding: isMobile ? '0 !important' : undefined, 
           overflow: 'hidden',
-          border: darkMode ? '1px solid #333333' : 'none',
-          boxShadow: darkMode 
-            ? 'none' 
-            : '0 4px 20px rgba(0, 0, 0, 0.08)',
-          mb: isMobile ? 0 : 4,
+          border: 'none',
+          boxShadow: 'none',
+          mb: 0,
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center'
+          alignItems: 'center',
+          position: isMobile ? 'absolute' : 'relative',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          right: 0,
+          height: isMobile ? '100vh' : 'auto',
+          maxHeight: isMobile ? '100vh' : 'none',
+          overflowY: isMobile ? 'auto' : 'visible', 
         }}
       >
         <Box sx={{ 
           width: '100%', 
-          backgroundColor: headerBgColor,
-          p: 4,
+          backgroundColor: darkMode ? '#121212' : '#ffffff',
+          p: 3,
           display: 'flex', 
           flexDirection: 'column',
           alignItems: 'center', 
-          textAlign: 'center' // Ensure text is centered on mobile
+          textAlign: 'center'
         }}>
           {/* Lock Icon */}
           <LockOutlinedIcon 
             sx={{ 
-              fontSize: 48, 
+              fontSize: 40, 
               color: accentColor, 
-              mb: 2
+              mb: 1
             }} 
           />
           
           {/* Title */}
           <Typography 
-            variant="h4" 
+            variant="h5" 
             component="h2" 
             sx={{ 
               color: accentColor,
               fontWeight: 'bold',
-              mb: 1,
-              textAlign: 'center', // Ensure text is centered on mobile
+              mb: 0.5,
+              textAlign: 'center',
               width: '100%'
             }}
           >
@@ -262,10 +295,10 @@ const Register = () => {
           
           {/* Subtitle */}
           <Typography 
-            variant="body1" 
+            variant="body2" // Smaller subtitle
             sx={{ 
               color: subtitleColor,
-              textAlign: 'center', // Ensure text is centered on mobile
+              textAlign: 'center',
               width: '100%'
             }}
           >
@@ -276,7 +309,12 @@ const Register = () => {
         <Box sx={{ 
           width: '100%',
           p: 3,
-          backgroundColor: formBgColor
+          backgroundColor: darkMode ? '#121212' : '#ffffff',
+          // Most important fix: set a specific height and make it scrollable
+          flex: 1,
+          overflowY: 'auto',
+          position: 'relative',
+          zIndex: 1 // Ensure form has higher z-index than the login link
         }}>
           {error && (
             <Alert 
@@ -291,7 +329,16 @@ const Register = () => {
             </Alert>
           )}
           
-          <Box component="form" onSubmit={handleSubmit} noValidate>
+          <Box 
+            component="form" 
+            onSubmit={handleSubmit} 
+            noValidate
+            sx={{
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
             {/* Full Name Field */}
             <TextField
               fullWidth
@@ -523,16 +570,16 @@ const Register = () => {
               disabled={loading}
               sx={{
                 mt: 2,
-                mb: isMobile ? 2 : 4,
+                mb: 2, // Reduced bottom margin to make room for Google button
                 backgroundColor: buttonColor,
-                color: '#ffffff', // Use white text for better contrast on darker green
-                borderRadius: 6, // Keep original border radius
+                color: '#ffffff',
+                borderRadius: 6,
                 py: 1.5,
                 fontWeight: 'bold',
                 fontSize: '1rem',
                 textTransform: 'none',
                 '&:hover': {
-                  backgroundColor: darkMode ? '#3dd9aa' : '#278f77', // Darker hover in light mode
+                  backgroundColor: darkMode ? '#3dd9aa' : '#278f77',
                 },
                 '&:disabled': {
                   backgroundColor: darkMode ? 'rgba(74, 234, 188, 0.7)' : 'rgba(48, 165, 139, 0.7)',
@@ -542,64 +589,95 @@ const Register = () => {
             >
               {loading ? <CircularProgress size={24} color="inherit" /> : 'Sign Up'}
             </Button>
+
+            {/* Divider for visual separation */}
+            <Divider sx={{ my: 2, width: '100%' }}>
+              <Typography variant="caption" sx={{ color: subtitleColor }}>
+                OR
+              </Typography>
+            </Divider>
             
-            {!isMobile && (
-              <>
-                {/* Already have an account text */}
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    color: darkMode ? '#4aeabc' : '#30a58b', // Darker green in light mode
-                    textAlign: 'center',
-                    mb: 2
-                  }}
-                >
-                  Already have an account? {' '}
-                  <RouterLink 
-                    to="/login" 
-                    style={{ 
-                      color: darkMode ? '#4aeabc' : '#30a58b', // Darker green in light mode
-                      textDecoration: 'none', 
-                      fontWeight: 'bold' 
-                    }}
-                  >
-                    Login
-                  </RouterLink>
-                </Typography>
-              </>
-            )}
+            {/* Google signup button */}         
+            <Button
+  onClick={handleGoogleSignup}
+  variant="outlined"
+  fullWidth
+  sx={{
+    height: 48,
+    backgroundColor: darkMode ? '#1e1e1e' : 'white',
+    color: darkMode ? '#ffffff' : 'rgba(0, 0, 0, 0.54)',
+    border: darkMode ? '1px solid #333' : '1px solid #ddd',
+    borderRadius: 24,
+    fontWeight: 500,
+    textTransform: 'none',
+    fontSize: '14px',
+    mb: 2, // Reduced bottom margin
+    boxShadow: 'none',
+    '&:hover': {
+      backgroundColor: darkMode ? '#252525' : '#f5f5f5',
+      boxShadow: 'none'
+    },
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  }}
+>
+  <GoogleIcon sx={{ color: '#4285F4', mr: 1, fontSize: 20 }} />
+  Sign up with Google
+</Button>
+
+{/* Login link - placed directly after Google signup */}
+<Box 
+  sx={{
+    width: '100%',
+    textAlign: 'center',
+    mt: 1,
+    mb: 2
+  }}
+>
+  <Typography 
+    variant="body2" 
+    sx={{ 
+            color: textColor,
+            textAlign: 'center',
+            pb: 2
+          }}
+  >
+    Already have an account? {' '}
+    <RouterLink 
+                to="/login" 
+                style={{ 
+                  color: textColor, 
+                  textDecoration: 'none', 
+                  fontWeight: 'bold' 
+                }}
+              >
+                Login
+              </RouterLink>
+    {/* <Button
+      component={RouterLink}
+      to="/login"
+      variant="text"
+      sx={{
+        color: darkMode ? '#4aeabc' : '#30a58b',
+        textTransform: 'none',
+        fontWeight: 'bold',
+        ml: -1,
+        borderRadius: 'none'
+        
+      }}
+    >
+      Login
+    </Button> */}
+  </Typography>
+</Box>
           </Box>
         </Box>
-      </Paper>
+      
       
       {/* Mobile-only bottom links */}
-      {isMobile && (
-        <Box sx={{ 
-          mt: 3,
-          textAlign: 'center',
-          width: '100%'
-        }}>
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              color: darkMode ? '#4aeabc' : '#30a58b', // Darker green in light mode
-              mb: isMobile ? 1 : 0
-            }}
-          >
-            Already have an account? {' '}
-            <RouterLink 
-              to="/login" 
-              style={{ 
-                color: darkMode ? '#4aeabc' : '#30a58b', // Darker green in light mode
-                textDecoration: 'none', 
-                fontWeight: 'bold' 
-              }}
-            >
-              Login
-            </RouterLink>
-          </Typography>         
-        </Box>
-      )}
+      
+      </Paper>
     </Box>
   );
 };
@@ -627,9 +705,9 @@ const PasswordRequirement = ({ text, met, darkMode, accentColor }) => (
 const inputStyle = (darkMode, accentColor, inputBgColor, inputBorderColor) => ({
   mb: 2,
   '& .MuiOutlinedInput-root': {
-    color: darkMode ? '#4aeabc' : '#333333',
+    color: darkMode ? '#ffffff' : '#333333', // Fixed text color for dark mode
     backgroundColor: inputBgColor,
-    borderRadius: 10, // Keep original border radius
+    borderRadius: 10,
     '& fieldset': {
       borderColor: inputBorderColor,
       borderWidth: 1,
@@ -647,7 +725,7 @@ const inputStyle = (darkMode, accentColor, inputBgColor, inputBorderColor) => ({
   '& .MuiInputBase-input': {
     padding: '14px 14px 14px 0',
     '&::placeholder': {
-      color: darkMode ? '#4aeabc' : '#888888',
+      color: darkMode ? '#aaaaaa' : '#888888', // Fixed placeholder color
       opacity: 0.7,
     },
   },

@@ -4,13 +4,14 @@ import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Box, Container, Paper, Typography } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
+import { padding } from '@mui/system';
 
 const AuthLayout = () => {
   const { currentUser, loading } = useAuth();
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Box sx={{ display: 'flex',p:0,m:0, justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />
       </Box>
     );
@@ -35,7 +36,7 @@ const AuthLayout = () => {
         <Paper
           elevation={6}
           sx={{
-            p: 4,
+            p: 0,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
