@@ -175,6 +175,16 @@ exports.askQuestion = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Question is required' });
     }
 
+    // Check relationship
+    const relationship = await Relationship.findOne({
+      _id: relationshipId,
+      user: userId
+    });
+
+    if (!relationship) {
+      return res.status(404).json({ success: false, message: 'Relationship not found' });
+    }
+
     // Safety check
     const safetyCheck = checkMessage(question, relationship);
 
@@ -202,15 +212,7 @@ exports.askQuestion = async (req, res) => {
       });
     }
 
-    // Check relationship
-    const relationship = await Relationship.findOne({
-      _id: relationshipId,
-      user: userId
-    });
-
-    if (!relationship) {
-      return res.status(404).json({ success: false, message: 'Relationship not found' });
-    }
+    
 
     // Check for imported conversations
     const hasConversations = await Conversation.countDocuments({
