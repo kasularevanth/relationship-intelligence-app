@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { parseWhatsApp, parseIMessage } = require('../services/chatParserService');
 const { analyzeImportedConversation } = require('../services/conversationAnalyzerService');
+const relationshipTypeAnalysisController = require('../controllers/relationshipTypeAnalysisController');
 const { enrichRelationshipData } = require('../services/relationshipAnalyzer');
 
 const extract = require('extract-zip'); // You'll need to install this package
@@ -355,8 +356,26 @@ const importChat = async (req, res) => {
           
           // Then enrich the relationship data with deeper analysis
           await enrichRelationshipData(relationship._id, conversation._id);
-          
           console.log(`Analysis completed for conversation ${conversation._id}`);
+          // Use the properly imported relationshipTypeAnalysisController
+          const mockReq = {
+            params: { relationshipId: relationship._id },
+            user: { id: req.user.id },
+            query: { timestamp: Date.now() }  // Add timestamp to force fresh analysis
+          };
+          
+          const mockRes = {
+            status: function() { return this; },
+            json: function() { return; },
+            setHeader: function() { return; }
+          };
+          
+          // Run the type analysis
+          await relationshipTypeAnalysisController.getTypeAnalysis(mockReq, mockRes);
+          
+          console.log(`Type-specific analysis completed for relationship ${relationship._id}`);
+          
+          
           
           // Update conversation status after analysis is done
           await Conversation.findByIdAndUpdate(
@@ -374,7 +393,8 @@ const importChat = async (req, res) => {
           if (socketId) {
             socketId.emit('relationship_updated', { 
               relationshipId: relationship._id,
-              conversationId: conversation._id
+              conversationId: conversation._id,
+              analysisComplete: true
             });
           }
         } catch (err) {
@@ -392,11 +412,34 @@ const importChat = async (req, res) => {
         }
       }, 100); // Small delay to let the response go out first
 
+      try {
+        console.log('Triggering relationship analysis after import');
+        // Create a mock request and response for the analysis controller
+        const analysisReq = {
+          params: { relationshipId: relationship._id },
+          user: req.user,
+          query: { timestamp: Date.now() }  // Add timestamp to force fresh analysis
+        };
+        
+        const analysisRes = {
+          status: function() { return this; },
+          json: function() { return; },
+          setHeader: function() { return; }
+        };
+        
+        // Call the analysis controller directly
+        await relationshipTypeAnalysisController.getTypeAnalysis(analysisReq, analysisRes);
+        console.log('Relationship analysis completed after import');
+      } catch (analysisError) {
+        console.error('Error running analysis after import:', analysisError);
+        // Don't fail the import if analysis fails
+      }
+      
       return res.status(200).json({
         success: true,
-          message: `Successfully imported ${messageCount} messages`,
-          conversationId: conversation._id,
-          messageCount: messageCount // FIXED: Return message count to frontend
+        message: `Successfully imported ${messageCount} messages`,
+        conversationId: conversation._id,
+        messageCount: messageCount // FIXED: Return message count to frontend
       });
     });
   } catch (error) {

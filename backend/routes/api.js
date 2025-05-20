@@ -14,6 +14,7 @@ const questionController = require('../controllers/questionController');
 const  Conversation  = require('../models/Conversation');
 const  Relationship  = require('../models/Relationship');
 const { getDetailedProfile } = require('../controllers/detailedProfileController');
+const relationshipTypeAnalysisController = require('../controllers/relationshipTypeAnalysisController');
 
 
 
@@ -43,6 +44,8 @@ router.post('/relationships/:id/analyze-topics', auth, relationshipController.an
 router.post('/relationships/:id/topics', auth, relationshipController.updateTopicDistribution);
 
 router.post('/relationships/:id/recalculate-metrics', auth, relationshipController.recalculateMetrics);
+// Add type-specific analysis route
+router.get('/relationships/:relationshipId/type-analysis', auth, relationshipTypeAnalysisController.getTypeAnalysis);
 
 // Memory routes
 router.get('/relationships/:relationshipId/memories', auth, memoryController.getRelationshipMemories);

@@ -25,6 +25,9 @@ import ProfilePhotoUpload from '../components/ProfilePhotoUpload'; // Import fro
 import RelationshipQA from '../components/RelationshipQA';
 import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer';
 import { useTheme } from '../contexts/ThemeContext';
+import RelationshipTypeAnalysis from '../components/RelationshipTypeAnalysis';
+import EnhancedImportBanner from '../components/EnhancedImportBanner';
+import AnimatedInsightsPrompt from '../components/AnimatedInsightsPrompt'
 
 
 // Animations
@@ -1041,6 +1044,26 @@ const RelationshipProfile = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const [showImportBanner, setShowImportBanner] = useState(false);
+  const [hasImportedData, setHasImportedData] = useState(false);
+
+  useEffect(() => {
+    // Determine if we have any analysis data yet
+    const hasAnalysisData = relationship?.topicDistribution && 
+                          relationship.topicDistribution.length > 0;
+    
+    // Show banner if no data exists (after a delay for better UX)
+    if (!hasAnalysisData) {
+      const timer = setTimeout(() => {
+        setShowImportBanner(true);
+      }, 1500); // Show after 1.5 seconds
+      
+      return () => clearTimeout(timer);
+    }
+    
+    setHasImportedData(hasAnalysisData);
+  }, [relationship]);
+
   useEffect(() => {
     // Check if there's a refresh parameter in the URL
     const refreshParam = searchParams.get('refresh');
@@ -1146,15 +1169,29 @@ const RelationshipProfile = () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('Refreshing relationship data with forced cache busting');
+      
+      // Add timestamp to bust cache
+      const timestamp = Date.now();
       
       const relationshipRes = await relationshipService.getById(relationshipId, { 
+        params: { timestamp },
         cache: 'no-store', 
-        headers: { 'Cache-Control': 'no-cache' } 
+        headers: { 
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        } 
       });
+      console.log('Received fresh relationship data:', relationshipRes.data);
       setRelationship(relationshipRes.data);
       
-      // Fetch updated conversations
-      const conversationsRes = await conversationService.getAll(relationshipId);
+      // Fetch updated conversations with cache busting
+      const conversationsRes = await conversationService.getAll(relationshipId, {
+        params: { timestamp },
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      console.log(`Fetched ${conversationsRes.data.length} conversations`);
       setConversations(conversationsRes.data);
       
       // Fetch updated memories
@@ -1199,6 +1236,18 @@ const RelationshipProfile = () => {
         photo: photoPath
       });
     }
+  };
+
+  const handleImportChat = () => {
+    sessionStorage.setItem('refreshRelationshipData', 'true');
+    sessionStorage.setItem('returnToRelationship', relationshipId);
+    navigate(`/relationships/${relationshipId}/import`);
+  };
+  
+  const handleCloseBanner = () => {
+    setShowImportBanner(false);
+    // Store in localStorage to not show again for some time
+    localStorage.setItem(`hideBanner_${relationshipId}`, Date.now());
   };
 
   const toggleSection = (section) => {
@@ -1416,6 +1465,14 @@ const TopicChart = ({ distribution }) => {
 
   return (
     <PageContainer>
+      {/* Show enhanced banner if we have no imported data */}
+      {showImportBanner && !hasImportedData && (
+        <EnhancedImportBanner 
+          relationshipName={relationship?.contactName || 'this relationship'} 
+          onImportClick={handleImportChat}
+          onClose={handleCloseBanner}
+        />
+      )}
       {relationship && (
         <>
           <ProfileHeader>
@@ -1474,6 +1531,16 @@ const TopicChart = ({ distribution }) => {
               </div>
             </ProfileInfo>
           </ProfileHeader>
+
+          {!hasImportedData && relationship && (
+            <AnimatedInsightsPrompt
+              relationshipId={relationshipId}
+              contactName={relationship.contactName}
+              relationshipType={relationship.type}
+              onImportClick={handleImportChat}
+            />
+          )}
+
         
           {/* Metrics Section */}
           <MetricsContainer>
@@ -1557,6 +1624,17 @@ const TopicChart = ({ distribution }) => {
               </div>
             </MetricCard>
           </MetricsContainer>
+
+
+          {/* Relationship Type-Specific Analysis */}
+          <RelationshipTypeAnalysis 
+            relationship={relationship}
+            refreshData={refreshRelationshipData}
+            // Pass onImportClick but don't show the import banner inside the component
+            onImportClick={handleImportChat}
+            hideImportBanner={true}
+            darkMode={darkMode}
+          />
           
           {/* Relationship History Section */}
           <SectionCard darkMode={darkMode}>
@@ -1942,10 +2020,15 @@ const TopicChart = ({ distribution }) => {
                     
           {/* Start Conversation Button */}
           <ActionButtonContainer>
+            {/* Keep just the new conversation button */}
             <ActionButton onClick={startNewSession}>
               <MessageCircle size={20} />
               Start a New Conversation
             </ActionButton>
+            
+            {/* Only show this import button if we haven't already shown the banners */}
+            
+            
             <UpdateInfo>Profile last updated {formatDate(relationship.updatedAt)}</UpdateInfo>
           </ActionButtonContainer>
         </>

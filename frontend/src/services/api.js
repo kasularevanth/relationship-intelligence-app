@@ -65,6 +65,7 @@ export const relationshipService = {
   delete: (id) => api.delete(`/relationships/${id}`),
   importChat: (relationshipId, formData) => importService.importChat(relationshipId, formData),
   recalculateMetrics: (id) => api.post(`/relationships/${id}/recalculate-metrics`),
+  getTypeAnalysis: (relationshipId) => api.get(`/relationships/${relationshipId}/type-analysis`),
   // In relationshipService.js
 getProfileById :(id) => {
   return api.get(`/relationships/${id}/profile`);
