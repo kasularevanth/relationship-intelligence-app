@@ -466,6 +466,21 @@ try {
     // Update relationship's topic distribution
     console.log("Setting topicDistribution:", topicDistribution);
     relationship.topicDistribution = topicDistribution;
+    if (analysisResult.loveLanguage) {
+      relationship.loveLanguage = analysisResult.loveLanguage;
+    }
+    if (analysisResult.theirValues && Array.isArray(analysisResult.theirValues)) {
+      relationship.theirValues = analysisResult.theirValues;
+    }
+    if (analysisResult.theirInterests && Array.isArray(analysisResult.theirInterests)) {
+      relationship.theirInterests = analysisResult.theirInterests;
+    }
+    if (analysisResult.communicationPreferences) {
+      relationship.theirCommunicationPreferences = analysisResult.communicationPreferences;
+    }
+    if (analysisResult.importantDates && Array.isArray(analysisResult.importantDates)) {
+      relationship.importantDates = analysisResult.importantDates;
+    }
       
       // Add gamification elements to relationship model if they don't exist
       if (!relationship.gamification) {
@@ -740,6 +755,72 @@ const groupIntoSegments = (messages, threshold = 10800000) => { // 3 hours in mi
 };
 
 /**
+ * Determine specific emotion type based on content and sentiment score
+ */
+const determineEmotion = (content, sentimentScore) => {
+  // Force lowercase for better text matching
+  const lowerContent = content.toLowerCase();
+  
+  // POSITIVE EMOTIONS
+  if (sentimentScore > 0.1) {
+    // Joy keywords
+    if (lowerContent.includes('happy') || lowerContent.includes('fun') || 
+        lowerContent.includes('enjoy') || lowerContent.includes('laugh') ||
+        lowerContent.includes('excited') || lowerContent.includes('party') ||
+        lowerContent.includes('celebration') || lowerContent.includes('hobbies')) {
+      return 'Joy';
+    }
+    
+    // Love keywords
+    if (lowerContent.includes('love') || lowerContent.includes('care') || 
+        lowerContent.includes('miss you') || lowerContent.includes('affection') ||
+        lowerContent.includes('together') || lowerContent.includes('relationship')) {
+      return 'Love';
+    }
+    
+    return 'Positive'; // Default positive emotion
+  }
+  
+  // NEGATIVE EMOTIONS
+  if (sentimentScore < -0.1) {
+    // Sadness keywords
+    if (lowerContent.includes('sad') || lowerContent.includes('miss') || 
+        lowerContent.includes('sorry') || lowerContent.includes('hurt') ||
+        lowerContent.includes('lonely') || lowerContent.includes('disappointed')) {
+      return 'Sadness';
+    }
+    
+    // Anger keywords
+    if (lowerContent.includes('angry') || lowerContent.includes('upset') || 
+        lowerContent.includes('argument') || lowerContent.includes('conflict') ||
+        lowerContent.includes('frustrated') || lowerContent.includes('annoyed')) {
+      return 'Anger';
+    }
+    
+    return 'Negative'; // Default negative emotion
+  }
+  
+  // TOPIC-BASED CATEGORIZATION
+  // Growth-related topics
+  if (lowerContent.includes('learning') || lowerContent.includes('education') || 
+      lowerContent.includes('health') || lowerContent.includes('exercise') ||
+      lowerContent.includes('development') || lowerContent.includes('progress') ||
+      lowerContent.includes('future') || lowerContent.includes('goals')) {
+    return 'Growth';
+  }
+  
+  // Positive topics even with neutral sentiment
+  if (lowerContent.includes('hobbies') || lowerContent.includes('travel') || 
+      lowerContent.includes('vacation') || lowerContent.includes('celebrate') ||
+      lowerContent.includes('recreation') || lowerContent.includes('together')) {
+    return 'Positive';
+  }
+  
+  // Default to Neutral for everything else
+  return 'Neutral';
+};
+
+/**
  * Generate basic memory nodes when OpenAI analysis fails
  */
 const generateMemoryNodes = async (conversation, relationship) => {
@@ -804,6 +885,7 @@ const generateMemoryNodes = async (conversation, relationship) => {
           type: 'conversation',
           content,
           sentiment: sentimentData.score,
+          emotion: determineEmotion(content, sentimentData.score),
           sourceReference: {
             type: 'conversation',
             id: conversation._id,

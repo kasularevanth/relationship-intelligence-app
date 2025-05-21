@@ -1301,34 +1301,61 @@ const TopicChart = ({ distribution }) => {
 };
 
   // Function to extract memories by emotion
-  const getMemoriesByEmotion = (emotion) => {
-  // Check if memories are available
+const getMemoriesByEmotion = (emotion) => {
   if (!memories || memories.length === 0) {
     return [];
   }
   
   let filteredMemories = [];
   
-  // Based on the data in your console, we need to filter differently
   if (emotion === 'growth') {
-    // Filter growth-related memories by content keywords
+    // First look for explicit Growth emotion
     filteredMemories = memories.filter(memory => 
-      memory.content.toLowerCase().includes('health') || 
-      memory.content.toLowerCase().includes('education') ||
-      memory.content.toLowerCase().includes('hobbies')
+      memory.emotion === 'Growth'
     );
+    
+    // Fallback to keyword-based if no results
+    if (filteredMemories.length === 0) {
+      filteredMemories = memories.filter(memory => 
+        memory.content.toLowerCase().includes('health') || 
+        memory.content.toLowerCase().includes('education') ||
+        memory.content.toLowerCase().includes('hobbies')
+      );
+    }
   } else if (emotion === 'positive') {
-    // Filter positive memories by content
+    // First look for positive emotions
     filteredMemories = memories.filter(memory => 
-      memory.content.toLowerCase().includes('hobbies') || 
-      memory.content.toLowerCase().includes('emotions')
+      memory.emotion === 'Joy' || 
+      memory.emotion === 'Love' || 
+      memory.emotion === 'Positive'
     );
+    
+    // Fallback to sentiment score if no results
+    if (filteredMemories.length === 0) {
+      filteredMemories = memories.filter(memory => 
+        memory.sentiment > 0.001 ||
+        memory.content.toLowerCase().includes('hobbies') || 
+        memory.content.toLowerCase().includes('enjoy')
+      );
+    }
   } else if (emotion === 'negative') {
-    // Filter potentially challenging memories
+    // First look for negative emotions
     filteredMemories = memories.filter(memory => 
-      memory.content.toLowerCase().includes('financial') || 
-      memory.content.toLowerCase().includes('work')
+      memory.emotion === 'Sadness' || 
+      memory.emotion === 'Anger' || 
+      memory.emotion === 'Challenge' ||
+      memory.emotion === 'Negative'
     );
+    
+    // Fallback to sentiment and content
+    if (filteredMemories.length === 0) {
+      filteredMemories = memories.filter(memory => 
+        memory.sentiment < -0.001 ||
+        memory.content.toLowerCase().includes('financial') || 
+        memory.content.toLowerCase().includes('work') ||
+        memory.content.toLowerCase().includes('conflict')
+      );
+    }
   }
   
   return filteredMemories.map(memory => memory.content).slice(0, 3);
@@ -1410,9 +1437,16 @@ const TopicChart = ({ distribution }) => {
   };
 
   // Filter conversations based on active tab
-  const filteredConversations = Array.isArray(conversations) 
+  // In your frontend React component where you filter conversations
+const filteredConversations = Array.isArray(conversations) 
   ? conversations.filter(conversation => {
       if (activeTab === 'all') return true;
+      
+      // For "Completed" tab, include both completed and analyzed statuses
+      if (activeTab === 'completed') 
+        return conversation.status === 'completed' || conversation.status === 'analyzed';
+        
+      // For other tabs, match exactly
       return conversation.status === activeTab;
     })
   : [];

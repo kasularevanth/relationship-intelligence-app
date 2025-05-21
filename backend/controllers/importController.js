@@ -405,7 +405,7 @@ const importChat = async (req, res) => {
             conversation._id,
             { 
               phase: 'completed',
-              status: 'analysis_failed',
+              status: 'abandoned',
               messageCount
             }
           );

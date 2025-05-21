@@ -15,6 +15,7 @@ const  Conversation  = require('../models/Conversation');
 const  Relationship  = require('../models/Relationship');
 const { getDetailedProfile } = require('../controllers/detailedProfileController');
 const relationshipTypeAnalysisController = require('../controllers/relationshipTypeAnalysisController');
+const MemoryNode = require('../models/MemoryNode');
 
 
 
@@ -119,6 +120,9 @@ router.post('/:id/recalculate-metrics', auth, async (req, res) => {
 
 
 
+
+
+
 router.post('/relationships/:id/analyze', auth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -169,6 +173,101 @@ router.post('/relationships/:id/analyze', auth, async (req, res) => {
       success: false,
       message: 'Server error analyzing relationship'
     });
+  }
+});
+
+
+
+// Add this to a routes file or your app.js
+router.get('/admin/update-memory-emotions',auth, async (req, res) => {
+  try {
+
+    console.log("updated memories.........");
+    // Include the emotion determination function here
+    /**
+ * Determine specific emotion type based on content and sentiment score
+ */
+const determineEmotion = (content, sentimentScore) => {
+  // Force lowercase for better text matching
+  const lowerContent = content.toLowerCase();
+  
+  // POSITIVE EMOTIONS
+  if (sentimentScore > 0.1) {
+    // Joy keywords
+    if (lowerContent.includes('happy') || lowerContent.includes('fun') || 
+        lowerContent.includes('enjoy') || lowerContent.includes('laugh') ||
+        lowerContent.includes('excited') || lowerContent.includes('party') ||
+        lowerContent.includes('celebration') || lowerContent.includes('hobbies')) {
+      return 'Joy';
+    }
+    
+    // Love keywords
+    if (lowerContent.includes('love') || lowerContent.includes('care') || 
+        lowerContent.includes('miss you') || lowerContent.includes('affection') ||
+        lowerContent.includes('together') || lowerContent.includes('relationship')) {
+      return 'Love';
+    }
+    
+    return 'Positive'; // Default positive emotion
+  }
+  
+  // NEGATIVE EMOTIONS
+  if (sentimentScore < -0.1) {
+    // Sadness keywords
+    if (lowerContent.includes('sad') || lowerContent.includes('miss') || 
+        lowerContent.includes('sorry') || lowerContent.includes('hurt') ||
+        lowerContent.includes('lonely') || lowerContent.includes('disappointed')) {
+      return 'Sadness';
+    }
+    
+    // Anger keywords
+    if (lowerContent.includes('angry') || lowerContent.includes('upset') || 
+        lowerContent.includes('argument') || lowerContent.includes('conflict') ||
+        lowerContent.includes('frustrated') || lowerContent.includes('annoyed')) {
+      return 'Anger';
+    }
+    
+    return 'Negative'; // Default negative emotion
+  }
+  
+  // TOPIC-BASED CATEGORIZATION
+  // Growth-related topics
+  if (lowerContent.includes('learning') || lowerContent.includes('education') || 
+      lowerContent.includes('health') || lowerContent.includes('exercise') ||
+      lowerContent.includes('development') || lowerContent.includes('progress') ||
+      lowerContent.includes('future') || lowerContent.includes('goals')) {
+    return 'Growth';
+  }
+  
+  // Positive topics even with neutral sentiment
+  if (lowerContent.includes('hobbies') || lowerContent.includes('travel') || 
+      lowerContent.includes('vacation') || lowerContent.includes('celebrate') ||
+      lowerContent.includes('recreation') || lowerContent.includes('together')) {
+    return 'Positive';
+  }
+  
+  // Default to Neutral for everything else
+  return 'Neutral';
+};
+    
+    // Get all memory nodes
+    const memories = await MemoryNode.find({});
+    let count = 0;
+    
+    for (const memory of memories) {
+      const emotion = determineEmotion(memory.content, memory.sentiment);
+      
+      if (!memory.emotion || memory.emotion === 'Neutral') {
+        memory.emotion = emotion;
+        await memory.save();
+        count++;
+      }
+    }
+    
+    res.json({ success: true, message: `Updated emotions for ${count} memory nodes` });
+  } catch (error) {
+    console.error('Error updating memory emotions:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

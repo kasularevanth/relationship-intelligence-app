@@ -29,7 +29,7 @@ const memoryNodeSchema = new Schema({
   },
   emotion: {
     type: String,
-    enum: ['Joy', 'Love', 'Gratitude', 'Sadness', 'Anger', 'Fear', 'Surprise', 'Neutral'],
+    enum: ['Neutral', 'Joy', 'Love', 'Positive', 'Sadness', 'Anger', 'Negative', 'Growth', 'Challenge'],
     default: 'Neutral'
   },
   sentiment: {
