@@ -48,6 +48,8 @@ const RelationshipTypeAnalysis = ({ relationship, refreshData, onImportClick, hi
           'Pragma': 'no-cache'
         }
       });
+
+      console.log("topic-anlysis",response);
       
       if (response.data && response.data.success) {
         setAnalysis(response.data);

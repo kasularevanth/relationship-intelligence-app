@@ -1692,8 +1692,12 @@ const TopicChart = ({ distribution }) => {
                 <Field label="Love Language" value={relationship.loveLanguage} />
                 <Field label="Communication Style" value={
                   typeof relationship.communicationStyle === 'object' ? 
-                  JSON.stringify(relationship.communicationStyle) : 
-                  relationship.communicationStyle
+                  (Object.keys(relationship.communicationStyle).length > 0 ?
+                    Object.entries(relationship.communicationStyle)
+                      .map(([key, value]) => `${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`)
+                      .join(', ') :
+                    'Not specified yet') : 
+                  relationship.communicationStyle || 'Not specified yet'
                 } />
                 
                 {/* Positive Memories */}
@@ -1834,12 +1838,37 @@ const TopicChart = ({ distribution }) => {
             
             <SectionContent isExpanded={expandedSections.perspective}>
               <SectionContentInner darkMode={darkMode}>
-                <Field label="Values" value={relationship.theirValues} />
-                <Field label="Interests" value={relationship.theirInterests} />
-                <Field label="Communication Preferences" value={
+                <Field label="Values" value={
+                  relationship.theirValues ? 
+                    (Array.isArray(relationship.theirValues) ? 
+                      (relationship.theirValues.length > 0 ? 
+                        relationship.theirValues.join(', ') : 
+                        "No values recorded yet") : 
+                      (relationship.theirValues.trim() === '' ? 
+                        "No values recorded yet" : 
+                        relationship.theirValues)) : 
+                    "No values recorded yet"
+                } />
+
+                <Field label="Interests" value={
+                  relationship.theirInterests ? 
+                    (Array.isArray(relationship.theirInterests) ? 
+                      (relationship.theirInterests.length > 0 ? 
+                        relationship.theirInterests.join(', ') : 
+                        "No interests recorded yet") : 
+                      (relationship.theirInterests.trim() === '' ? 
+                        "No interests recorded yet" : 
+                        relationship.theirInterests)) : 
+                    "No interests recorded yet"
+                } />
+                                <Field label="Communication Preferences" value={
                   typeof relationship.theirCommunicationPreferences === 'object' ? 
-                  JSON.stringify(relationship.theirCommunicationPreferences) : 
-                  relationship.theirCommunicationPreferences
+                    (relationship.theirCommunicationPreferences && Object.keys(relationship.theirCommunicationPreferences).length > 0 ?
+                      Object.entries(relationship.theirCommunicationPreferences)
+                        .map(([key, value]) => `${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`)
+                        .join(', ') :
+                      'Not specified yet') : 
+                    relationship.theirCommunicationPreferences || 'Not specified yet'
                 } />
                 <Field label="Important Dates" value={
                   relationship.importantDates && Array.isArray(relationship.importantDates) && relationship.importantDates.length > 0 ?

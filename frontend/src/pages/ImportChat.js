@@ -54,6 +54,7 @@ const ImportChat = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [conversationId, setConversationId] = useState(null);
+  const [fileSize, setFileSize] = useState(0);
   const [importStats, setImportStats] = useState(null);
   const [importStatus, setImportStatus] = useState(null);
   const [importProgress, setImportProgress] = useState(0);
@@ -87,7 +88,7 @@ const ImportChat = () => {
   
   // Start new polling only if we have a conversation ID and it's still processing
   if (conversationId && importStatus !== 'completed' && importStatus !== 'analyzed' && importStatus !== 'failed') {
-    pollingIntervalRef.current = setInterval(checkImportStatus, 3000);
+    pollingIntervalRef.current = setInterval(checkImportStatus, 1500);
   }
   
   return () => {
@@ -123,13 +124,14 @@ const ImportChat = () => {
 
       // If no progress is returned, increment slowly up to 95%
       if (progress === 0 && importProgress < 95) {
-        // Slower increments as we get closer to 95%
-        const increment = importProgress < 60 ? 5 : 
-                          importProgress < 80 ? 3 : 1;
+        // Faster increments to give impression of quicker processing
+        const increment = importProgress < 40 ? 15 : 
+                          importProgress < 70 ? 10 : 
+                          importProgress < 90 ? 5 : 2;
         setImportProgress(prev => Math.min(prev + increment, 95));
       } else {
         setImportProgress(progress || importProgress);
-      }
+      } 
       
       // Check for completion states - now including "analyzed" status
       if (status === 'completed' || status === 'analyzed' || status === 'failed') {
@@ -303,11 +305,14 @@ const ImportChat = () => {
   };
 
   const handleFileChange = (event) => {
-    if (event.target.files.length > 0) {
-      setFile(event.target.files[0]);
-      setError('');
-    }
-  };
+  if (event.target.files.length > 0) {
+    const selectedFile = event.target.files[0];
+    setFile(selectedFile);
+    // Store file size for better time estimation
+    setFileSize(selectedFile.size);
+    setError('');
+  }
+};
 
   const handleNext = () => {
     if (activeStep === 0 && !chatSource) {
@@ -346,7 +351,7 @@ const ImportChat = () => {
     try {
       setLoading(true);
       setError('');
-      setImportProgress(5); // Start with a small progress value
+      setImportProgress(40); // Start with a small progress value
       
       const formData = new FormData();
       formData.append('chatFile', file); // Make sure 'chatFile' matches the name in the backend
@@ -368,7 +373,7 @@ const ImportChat = () => {
         messageCount: response.data.messageCount || 0,
       });
       setImportStatus('processing');
-      setImportProgress(20); // Jump to 20% after successful upload
+      setImportProgress(40); // Jump to 20% after successful upload
       
     } catch (err) {
       console.error('Import error:', err);
@@ -415,16 +420,65 @@ const ImportChat = () => {
   };
   
   const getProgressPhaseMessage = () => {
-    if (importProgress < 40) return "Analyzing message patterns...";
-    if (importProgress < 70) return "Processing conversation topics...";
-    return "Generating relationship insights...";
-  };
+  if (importProgress < 40) return "Starting import process...";
+  if (importProgress < 70) return "Processing messages...";
+  return "Finalizing analysis...";
+};
 
-  const getEstimatedTimeRemaining = () => {
-    if (importProgress < 50) return "2-3 min";
-    if (importProgress < 85) return "1-2 min";
+// Add this function to calculate estimated time
+const calculateEstimatedTime = (fileSize, messageCount) => {
+  // Base time in seconds for setup/initialization
+  const baseTime = 15;
+  
+  // Calculate time based on file size (if available)
+  const fileSizeTime = fileSize ? (fileSize / (1024 * 1024)) * 2 : 0; // ~2 seconds per MB
+  
+  // Calculate time based on message count (if available)
+  const messageTime = messageCount ? messageCount * 0.005 : 0; // ~0.005 seconds per message
+  
+  // Use the larger of the two estimates or a minimum time
+  const totalEstimatedSeconds = Math.max(baseTime + fileSizeTime, baseTime + messageTime, 20);
+  
+  // Constrain maximum shown time to avoid excessive estimates
+  const cappedSeconds = Math.min(totalEstimatedSeconds, 300); // Cap at 5 minutes max
+  
+  if (cappedSeconds < 30) {
+    return "< 30 seconds";
+  } else if (cappedSeconds < 60) {
     return "< 1 min";
-  };
+  } else if (cappedSeconds < 120) {
+    return "~1-2 min";
+  } else {
+    return `~${Math.ceil(cappedSeconds / 60)} min`;
+  }
+};
+
+const getEstimatedTimeRemaining = () => {
+  // Use both file size and message count if available
+  if (importStats && importStats.messageCount) {
+    // For partially completed imports, estimate remaining time
+    const processedPercent = importProgress / 100;
+    const remainingMessages = importStats.messageCount * (1 - processedPercent);
+    
+    // Use the calculateEstimatedTime function with remaining messages
+    return calculateEstimatedTime(null, remainingMessages);
+  } 
+  
+  // Initial estimate before upload completes, based on file size
+  if (file && fileSize > 0) {
+    return calculateEstimatedTime(fileSize, null);
+  }
+  
+  // Fallback to progress-based estimation if no metrics available
+  if (importProgress < 20) {
+    return "1-2 min";
+  } else if (importProgress < 50) {
+    return "< 1 min";
+  } else if (importProgress < 85) {
+    return "Just a moment...";
+  }
+  return "Almost done!";
+};
 
   const renderStepContent = (step) => {
     switch (step) {
@@ -569,7 +623,7 @@ const ImportChat = () => {
               sx={{
                 '& .MuiInputBase-root': {
                   color: darkMode ? '#fff' : undefined,
-                  backgroundColor: darkMode ? 'rgba(0, 0, 0, 0.2)' : undefined,
+                  backgroundColor: darkMode ? 'rgba(0, 0, 0, 0.2) !important' : undefined,
                 },
                 '& .MuiOutlinedInput-notchedOutline': {
                   borderColor: darkMode ? 'rgba(255, 255, 255, 0.2)' : undefined
@@ -591,15 +645,15 @@ const ImportChat = () => {
       case 2:
         return (
           <Box mt={3}>
-                <Typography variant="h6" gutterBottom sx={{ color: darkMode ? '#fff' : undefined }}>
+                <Typography variant="h6" gutterBottom sx={{ color: darkMode ? '#fff' : undefined, mb: 2 }}>
                 Processing Import
                 </Typography>
                 
                 {/* Enhanced Progress Section */}
-                            <Box mt={3} mb={4}>
-                              <Box display="flex" justifyContent="space-between" mb={1} alignItems="center">
+                            <Box mt={4} mb={5}>
+                              <Box display="flex" justifyContent="space-between" mb={2} alignItems="center">  
                                 <Box display="flex" alignItems="center" color={darkMode ? '#6366f1' : 'primary.main'}>
-                                  <Activity sx={{ mr: 1, fontSize: 18 }} />
+                                  <Activity sx={{ mr: 2, fontSize: 18 }} />
                                   <Typography variant="body1" fontWeight="medium">
                                     Processing {chatSource} data
                                   </Typography>
@@ -619,14 +673,15 @@ const ImportChat = () => {
                         bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
                         '& .MuiLinearProgress-bar': {
                           bgcolor: darkMode ? '#6366f1' : undefined,
+                          transition: 'transform 0.3s linear',
                         }
                       }} 
                     />
 
               {/* Status message */}
               <Box mt={1} display="flex" justifyContent="space-between" color={darkMode ? 'rgba(255, 255, 255, 0.7)' : 'text.secondary'}>
-                <Typography variant="body2" display="flex" alignItems="center">
-                  <Clock sx={{ mr: 0.5, fontSize: 14 }} />
+                <Typography variant="body2" display="flex" alignItems="center" sx={{ gap: 2 }}>
+                  <Clock sx={{ fontSize: 16 }} />
                   {getProgressPhaseMessage()}
                 </Typography>
                 <Typography variant="body2" color={darkMode ? '#6366f1' : 'primary.main'}>
@@ -1501,50 +1556,91 @@ const ImportChat = () => {
           {renderStepContent(activeStep)}
         </Box>
 
-        {activeStep !== 3 && (     
-        <Box mt={4} display="flex" justifyContent="space-between">
-          <Button
-            disabled={loading || (activeStep === 2 && importStatus === 'processing')}
-            onClick={handleBack}
-            sx={{
-              color: darkMode ? 'rgba(255, 255, 255, 0.7)' : undefined,
-              '&:hover': {
-                color: darkMode ? '#fff' : undefined
-              }
-            }}
-          >
-            Back
-          </Button>
-          
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleNext}
-            disabled={loading || (activeStep === 2 && importStatus === 'processing')}
-            endIcon={activeStep < steps.length - 2 ? <ArrowRight /> : null}
-            sx={{
-              bgcolor: darkMode ? '#6366f1' : undefined,
-              '&:hover': {
-                bgcolor: darkMode ? '#4f46e5' : undefined
-              }
-            }}
-          >
-           {loading ? (
-              <>
-                <CircularProgress size={24} color="inherit" sx={{ mr: 1 }} />
-                Processing...
-              </>
-            ) : activeStep === 2 && importStatus === 'processing' ? (
-              <>
-                <CircularProgress size={24} color="inherit" sx={{ mr: 1 }} />
-                Processing...
-              </>
-           ) : (
-              activeStep === steps.length - 2 ? 'Import Chat' : 'Next'
+       
+
+
+
+
+        {(activeStep !== 3) && (
+          <Box mt={4} display="flex" justifyContent="space-between">
+            {/* Back button - always disabled during processing */}
+            <Button
+              disabled={activeStep === 2 && (importStatus === 'processing' || importProgress > 0)}
+              onClick={handleBack}
+              sx={{
+                color: darkMode ? 'rgba(255, 255, 255, 0.7)' : undefined,
+                '&:hover': {
+                  color: darkMode ? '#fff' : undefined
+                }
+              }}
+            >
+              Back
+            </Button>
+            
+            {/* Step 0 & 1 buttons stay the same */}
+            {activeStep === 0 && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleNext}
+                sx={{
+                  bgcolor: darkMode ? '#6366f1' : undefined,
+                  '&:hover': {
+                    bgcolor: darkMode ? '#4f46e5' : undefined
+                  }
+                }}
+              >
+                Next
+              </Button>
             )}
-          </Button>
-        </Box>
-       )}
+            
+            {activeStep === 1 && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleNext}
+                sx={{
+                  bgcolor: darkMode ? '#6366f1' : undefined,
+                  '&:hover': {
+                    bgcolor: darkMode ? '#4f46e5' : undefined
+                  }
+                }}
+              >
+                Next
+              </Button>
+            )}
+            
+            {/* Key fix: Only show Start Import if we're at step 2 AND no import has started yet */}
+            {activeStep === 2 && !importStatus && importProgress === 0 && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleNext}
+                sx={{
+                  bgcolor: darkMode ? '#6366f1' : undefined,
+                  '&:hover': {
+                    bgcolor: darkMode ? '#4f46e5' : undefined
+                  }
+                }}
+              >
+                Start Import
+              </Button>
+            )}
+            
+            {/* Show Processing button whenever an import is in progress */}
+            {activeStep === 2 && (importStatus === 'processing' || importProgress > 0) && (
+              <Button
+                variant="contained"
+                disabled={true}
+                sx={{
+                  opacity: 0.7
+                }}
+              >
+                Processing...
+              </Button>
+            )}
+          </Box>
+        )}
       </Paper>
     </Container>
   );
