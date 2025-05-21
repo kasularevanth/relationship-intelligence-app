@@ -26,6 +26,10 @@ import {
 // Import the VoiceInputField component
 import VoiceInputField from '../components/VoiceInputField';
 
+
+
+
+
 const relationshipTypes = [
   'Family',
   'Friend',
@@ -184,19 +188,22 @@ const NewRelationship = () => {
           <Box>
             <Grid container spacing={2}>
               <Grid item xs={12}>
-                <VoiceInputField
-                  required
-                  fullWidth
-                  id="name"
-                  name="name"
-                  label="Name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Enter or speak the name"
-                  error={!!fieldErrors.name}
-                  helperText={fieldErrors.name ? "Name is required" : ""}
-                />
-              </Grid>
+          {/* Just use the VoiceInputField directly without the Box wrapper */}
+          <VoiceInputField
+            required
+            fullWidth
+            id="name"
+            name="name"
+            label="Name"
+            value={formData.name}
+            onChange={handleChange}
+            placeholder="Enter name"
+            error={!!fieldErrors.name}
+            helperText={fieldErrors.name ? "Name is required" : ""}
+          />
+        </Grid>
+            
+              
               <Grid item xs={12}>
               <FormControl fullWidth required error={!!fieldErrors.relationshipType}>
                   <InputLabel id="relationshipType-label">Relationship Type</InputLabel>

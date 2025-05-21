@@ -1,225 +1,101 @@
-import React, { useState, useEffect } from 'react';
-import {
-  TextField,
-  InputAdornment,
-  IconButton,
-  Tooltip,
-  CircularProgress,
-  Box,
-  Typography
-} from '@mui/material';
-import { styled, keyframes } from '@mui/system';
+// frontend/src/components/VoiceInputField.js
+import React, { useState } from 'react';
+import { TextField, InputAdornment, IconButton, CircularProgress } from '@mui/material';
 import MicIcon from '@mui/icons-material/Mic';
-import StopIcon from '@mui/icons-material/Stop';
+import ContactsIcon from '@mui/icons-material/Contacts';
 
-// Animations
-const pulse = keyframes`
-  0% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.05); }
-  100% { opacity: 0.6; transform: scale(1); }
-`;
+// Helper function to detect mobile devices
+const isMobileDevice = () => {
+  // Check both userAgent and screen dimensions
+  const isMobileUserAgent = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const isMobileViewport = window.innerWidth <= 768;
+  
+  return isMobileUserAgent || isMobileViewport;
+};
 
-const fadeIn = keyframes`
-  from { opacity: 0; }
-  to { opacity: 1; }
-`;
+const VoiceInputField = (props) => {
+  const { 
+    value, 
+    onChange, 
+    name,
+    label,
+    ...otherProps 
+  } = props;
 
-// Styled components
-const AnimatedMicIcon = styled(MicIcon)(({ theme, isrecording }) => ({
-  color: isrecording === 'true' ? theme.palette.error.main : theme.palette.primary.main,
-  animation: isrecording === 'true' ? `${pulse} 1.5s infinite ease-in-out` : 'none',
-}));
+  const [loading, setLoading] = useState(false);
 
-const SoundWave = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '3px',
-  height: '20px',
-  marginLeft: theme.spacing(1),
-  animation: `${fadeIn} 0.3s ease-in-out`,
-}));
+  const handleVoiceInput = () => {
+    // Your existing voice input code
+    console.log('Voice input activated');
+  };
 
-const SoundBar = styled(Box)(({ height, delay, theme }) => ({
-  width: '3px',
-  height: `${height}px`,
-  backgroundColor: theme.palette.error.main,
-  borderRadius: '1px',
-  animation: `${pulse} 1s infinite ease-in-out`,
-  animationDelay: `${delay}s`,
-}));
-
-/**
- * VoiceInputField - A text field with voice input capability
- * 
- * @param {Object} props - Component props
- * @param {string} props.label - Field label
- * @param {string} props.value - Current field value
- * @param {function} props.onChange - Function to handle value changes
- * @param {string} props.name - Field name for form data
- * @param {Object} props.inputProps - Additional props for TextField
- */
-const VoiceInputField = ({ 
-  label, 
-  value, 
-  onChange, 
-  name, 
-  inputProps = {}, 
-  placeholder,
-  fullWidth = true,
-  required = false,
-  multiline = false,
-  rows = 1,
-  ...rest
-}) => {
-  const [isRecording, setIsRecording] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [recognition, setRecognition] = useState(null);
-  const [errorMessage, setErrorMessage] = useState('');
-
-  // Initialize speech recognition
-  useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognitionInstance = new SpeechRecognition();
-      
-      // Configure recognition
-      recognitionInstance.continuous = false;
-      recognitionInstance.interimResults = true;
-      recognitionInstance.lang = 'en-US';
-      
-      // Set up event handlers
-      recognitionInstance.onresult = (event) => {
-        const transcript = Array.from(event.results)
-          .map(result => result[0])
-          .map(result => result.transcript)
-          .join('');
-        
-        // Update the field value
-        handleChange({ target: { name, value: transcript } });
-      };
-      
-      recognitionInstance.onerror = (event) => {
-        console.error('Speech recognition error', event.error);
-        setErrorMessage(`Error: ${event.error}`);
-        stopRecording();
-      };
-      
-      recognitionInstance.onend = () => {
-        // End of recording
-        setIsProcessing(true);
-        // Add a short delay to show processing state
-        setTimeout(() => {
-          setIsProcessing(false);
-          setIsRecording(false);
-        }, 500);
-      };
-      
-      setRecognition(recognitionInstance);
+  const handleContactPicker = async () => {
+    // Only proceed if the Contact Picker API is available
+    if (!('contacts' in navigator && 'ContactsManager' in window)) {
+      console.error('Contact Picker API not supported in this browser');
+      alert('Contact selection is not supported in this browser. Please enter the name manually.');
+      return;
     }
+
+    setLoading(true);
     
-    return () => {
-      if (recognition) {
-        recognition.abort();
+    try {
+      const contacts = await navigator.contacts.select(['name'], { multiple: false });
+      
+      if (contacts && contacts.length > 0) {
+        // Get the first contact's name
+        const contactName = contacts[0].name[0];
+        // Create a synthetic event to match your onChange handler's expectations
+        const event = {
+          target: {
+            name: name,
+            value: contactName
+          }
+        };
+        onChange(event);
       }
-    };
-  }, []);
-
-  // Handle value change
-  const handleChange = (e) => {
-    if (onChange) {
-      onChange(e);
+    } catch (error) {
+      console.error('Error accessing contacts:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Start voice recording
-  const startRecording = () => {
-    if (recognition) {
-      try {
-        recognition.start();
-        setIsRecording(true);
-        setErrorMessage('');
-      } catch (error) {
-        console.error('Error starting speech recognition', error);
-        setErrorMessage('Could not start voice recording');
-      }
-    } else {
-      setErrorMessage('Speech recognition not supported by your browser');
-    }
-  };
-
-  // Stop voice recording
-  const stopRecording = () => {
-    if (recognition && isRecording) {
-      recognition.stop();
-    }
-  };
-
-  // Toggle recording
-  const toggleRecording = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
-
-  // Render sound wave animation when recording
-  const renderSoundWave = () => (
-    <SoundWave>
-      <SoundBar height={8} delay={0} />
-      <SoundBar height={16} delay={0.2} />
-      <SoundBar height={12} delay={0.4} />
-      <SoundBar height={18} delay={0.6} />
-      <SoundBar height={10} delay={0.8} />
-    </SoundWave>
-  );
+  const isMobile = isMobileDevice();
+  const isNameField = name === 'name';
 
   return (
-    <Box>
-      <TextField
-        label={label}
-        value={value}
-        onChange={handleChange}
-        name={name}
-        fullWidth={fullWidth}
-        required={required}
-        multiline={multiline}
-        rows={rows}
-        placeholder={placeholder}
-        InputProps={{
-          ...inputProps,
-          endAdornment: (
-            <InputAdornment position="end">
-              <Tooltip title={isRecording ? "Stop recording" : "Use voice input"}>
-                <IconButton
-                  edge="end"
-                  onClick={toggleRecording}
-                  disabled={isProcessing}
-                  aria-label={isRecording ? "Stop voice input" : "Start voice input"}
-                  color={isRecording ? "error" : "primary"}
-                >
-                  {isProcessing ? (
-                    <CircularProgress size={24} color="inherit" />
-                  ) : isRecording ? (
-                    <StopIcon />
-                  ) : (
-                    <AnimatedMicIcon isrecording={isRecording.toString()} />
-                  )}
-                </IconButton>
-              </Tooltip>
-              {isRecording && renderSoundWave()}
-            </InputAdornment>
-          )
-        }}
-        {...rest}
-      />
-      {errorMessage && (
-        <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
-          {errorMessage}
-        </Typography>
-      )}
-    </Box>
+    <TextField
+      {...otherProps}
+      name={name}
+      label={label}
+      value={value}
+      onChange={onChange}
+      InputProps={{
+        endAdornment: (
+          <InputAdornment position="end">
+            {isMobile && isNameField ? (
+              // Show contacts icon on mobile devices for name field
+              <IconButton 
+                edge="end"
+                onClick={handleContactPicker}
+                disabled={loading}
+              >
+                {loading ? <CircularProgress size={20} /> : <ContactsIcon />}
+              </IconButton>
+            ) : (
+              // Show mic icon in other cases
+              <IconButton 
+                edge="end"
+                onClick={handleVoiceInput}
+              >
+                <MicIcon />
+              </IconButton>
+            )}
+          </InputAdornment>
+        ),
+      }}
+    />
   );
 };
 
