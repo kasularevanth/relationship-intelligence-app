@@ -36,6 +36,12 @@ exports.getTypeAnalysis = async (req, res) => {
         message: 'Relationship not found'
       });
     }
+        
+    console.log('Found relationship:', {
+      id: relationship._id,
+      type: relationship.relationshipType, // This should be relationshipType, not type
+      contactName: relationship.contactName
+    });
     
     // Get all conversations for this relationship
     // Use a timestamp parameter to force fresh lookup after import
@@ -82,6 +88,8 @@ exports.getTypeAnalysis = async (req, res) => {
         }
       }
     }
+
+    console.log(`Found ${allMessages.length} messages for analysis`);
     
     // If we have fewer than 10 messages, return basic analysis
     if (allMessages.length < 10) {
@@ -89,18 +97,20 @@ exports.getTypeAnalysis = async (req, res) => {
         success: true,
         message: 'Not enough messages for detailed analysis',
         messageCount: allMessages.length,
-        metrics: getBasicMetrics(relationship.type),
-        insights: getBasicInsights(relationship.type, relationship.contactName),
-        recommendations: getBasicRecommendations(relationship.type)
+        metrics: getBasicMetrics(relationship.relationshipType), // Fix: use relationshipType
+        insights: getBasicInsights(relationship.relationshipType, relationship.contactName), // Fix: use relationshipType
+        recommendations: getBasicRecommendations(relationship.relationshipType) // Fix: use relationshipType
       });
     }
     
     // Get relationship type-specific metrics
     const metrics = await getRelationshipTypeMetrics(
-      relationship.type,
+       relationship.relationshipType,
       allMessages,
       relationship.contactName
     );
+
+    console.log('Generated metrics:', metrics);
     
     // Get memories/insights related to this relationship
     const memories = await MemoryNode.find({
@@ -114,7 +124,7 @@ exports.getTypeAnalysis = async (req, res) => {
     if (allMessages.length >= 50) {
       // Generate insights using AI based on message history
       const aiAnalysis = await generateAIInsights(
-        relationship.type,
+        relationship.relationshipType,
         relationship.contactName,
         allMessages,
         memories
@@ -124,14 +134,14 @@ exports.getTypeAnalysis = async (req, res) => {
       recommendations = aiAnalysis.recommendations || [];
     } else {
       // Use basic insights if not enough messages
-      insights = getBasicInsights(relationship.type, relationship.contactName);
-      recommendations = getBasicRecommendations(relationship.type);
+      insights = getBasicInsights(relationship.relationshipType, relationship.contactName);
+      recommendations = getBasicRecommendations(relationship.relationshipType);
     }
     
     // Create the full analysis response
     const analysis = {
       success: true,
-      type: relationship.type,
+      type: relationship.relationshipType,
       contactName: relationship.contactName,
       messageCount: allMessages.length,
       conversationCount: conversations.length,
@@ -140,6 +150,12 @@ exports.getTypeAnalysis = async (req, res) => {
       recommendations,
       lastUpdated: new Date()
     };
+        
+    console.log('Sending analysis response:', {
+      type: analysis.type,
+      messageCount: analysis.messageCount,
+      metricsKeys: Object.keys(analysis.metrics)
+    });
     
     // Store analysis in relationship for future reference
     // Since we used lean() earlier, we need to get a proper document to save
@@ -164,9 +180,10 @@ exports.getTypeAnalysis = async (req, res) => {
 /**
  * Generate metrics based on relationship type and message history
  */
-const getRelationshipTypeMetrics = async (type, messages, contactName) => {
+const getRelationshipTypeMetrics = async (relationshipType, messages, contactName) => {
   // Normalize type for consistent processing
-  const normalizedType = normalizeRelationshipType(type);
+  const normalizedType = normalizeRelationshipType(relationshipType);
+  console.log('Processing metrics for type:', relationshipType, 'normalized to:', normalizedType);
   
   // Basic metrics calculated from message patterns
   const messageCounts = countMessagesByRole(messages);
@@ -188,10 +205,12 @@ const getRelationshipTypeMetrics = async (type, messages, contactName) => {
     topTopics: topicAnalysis.topTopics,
     communicationStyle: responsePatterns.communicationStyle
   };
+  console.log('Base metrics calculated:', baseMetrics);
   
   // Add relationship type-specific metrics
   switch (normalizedType) {
     case 'romantic':
+      console.log('Calculating romantic metrics...');
       return {
         ...baseMetrics,
         emotionalHealthScore: `${Math.round(sentimentAnalysis.overallScore * 100)}%`,
@@ -204,6 +223,7 @@ const getRelationshipTypeMetrics = async (type, messages, contactName) => {
       };
       
     case 'friendship':
+      console.log('Calculating friendship metrics...');
       return {
         ...baseMetrics,
         initiationBalance: getInitiationBalance(messageCounts, contactName),
@@ -216,6 +236,7 @@ const getRelationshipTypeMetrics = async (type, messages, contactName) => {
       };
       
     case 'professional':
+      console.log('Calculating professional metrics...');
       return {
         ...baseMetrics,
         professionalTone: getProfessionalTone(messages),
@@ -228,6 +249,7 @@ const getRelationshipTypeMetrics = async (type, messages, contactName) => {
       };
       
     case 'family':
+      console.log('Calculating family metrics...');
       return {
         ...baseMetrics,
         familyPattern: getFamilyPattern(messages),
@@ -240,6 +262,7 @@ const getRelationshipTypeMetrics = async (type, messages, contactName) => {
       };
       
     case 'mentor':
+      console.log('Calculating mentor metrics...');
       return {
         ...baseMetrics,
         guidanceStyle: getGuidanceStyle(messages),
@@ -252,6 +275,7 @@ const getRelationshipTypeMetrics = async (type, messages, contactName) => {
       };
       
     default:
+      console.log('Using default metrics...');
       return baseMetrics;
   }
 };
@@ -259,10 +283,10 @@ const getRelationshipTypeMetrics = async (type, messages, contactName) => {
 /**
  * Generate AI-based insights using OpenAI
  */
-const generateAIInsights = async (type, contactName, messages, memories) => {
+const generateAIInsights = async (relationshipType, contactName, messages, memories) => {
   try {
     // Normalize type
-    const normalizedType = normalizeRelationshipType(type);
+    const normalizedType = normalizeRelationshipType(relationshipType);
     
     // Sample a subset of messages to stay within token limits
     const messageSample = sampleMessages(messages, 30);
@@ -324,8 +348,8 @@ Format your response as JSON with "insights" and "recommendations" arrays.`;
       
       // Return basic insights if parsing fails
       return {
-        insights: getBasicInsights(type, contactName),
-        recommendations: getBasicRecommendations(type)
+        insights: getBasicInsights(relationshipType, contactName),
+        recommendations: getBasicRecommendations(relationshipType)
       };
     }
   } catch (error) {
@@ -333,8 +357,8 @@ Format your response as JSON with "insights" and "recommendations" arrays.`;
     
     // Return basic insights if API call fails
     return {
-      insights: getBasicInsights(type, contactName),
-      recommendations: getBasicRecommendations(type)
+      insights: getBasicInsights(relationshipType, contactName),
+      recommendations: getBasicRecommendations(relationshipType)
     };
   }
 };
@@ -613,8 +637,8 @@ const formatMinutes = (minutes) => {
 /**
  * Get basic metrics when not enough data is available
  */
-const getBasicMetrics = (type) => {
-  const normalizedType = normalizeRelationshipType(type);
+const getBasicMetrics = (relationshipType) => {
+  const normalizedType = normalizeRelationshipType(relationshipType);
   
   switch (normalizedType) {
     case 'romantic':
@@ -670,8 +694,8 @@ const getBasicMetrics = (type) => {
 /**
  * Get basic insights when not enough data is available
  */
-const getBasicInsights = (type, contactName) => {
-  const normalizedType = normalizeRelationshipType(type);
+const getBasicInsights = (relationshipType, contactName) => {
+  const normalizedType = normalizeRelationshipType(relationshipType);
   
   switch (normalizedType) {
     case 'romantic':
@@ -721,8 +745,8 @@ const getBasicInsights = (type, contactName) => {
 /**
  * Get basic recommendations when not enough data is available
  */
-const getBasicRecommendations = (type) => {
-  const normalizedType = normalizeRelationshipType(type);
+const getBasicRecommendations = (relationshipType) => {
+  const normalizedType = normalizeRelationshipType(relationshipType);
   
   switch (normalizedType) {
     case 'romantic':

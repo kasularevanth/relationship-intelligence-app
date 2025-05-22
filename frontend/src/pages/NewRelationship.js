@@ -20,15 +20,13 @@ import {
   StepLabel,
   Alert,
   CircularProgress,
-    Container // Import Container for better centering
+  Container,
+  IconButton // Add IconButton import
 } from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'; // Add this import
 
 // Import the VoiceInputField component
 import VoiceInputField from '../components/VoiceInputField';
-
-
-
-
 
 const relationshipTypes = [
   'Family',
@@ -67,6 +65,11 @@ const NewRelationship = () => {
     howWeMet: '',
     notes: ''
   });
+
+  // Function to handle back to dashboard
+  const handleBackToDashboard = () => {
+    navigate('/dashboard');
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -350,36 +353,75 @@ const NewRelationship = () => {
       pb: 4, // Add padding at the bottom
       px: { xs: 2, sm: 3 }, // Add responsive horizontal padding
     }}>
-      {/* Add top margin to create space between navbar and content */}
+      {/* Add back button and header section */}
       <Box sx={{ 
-        mt: { xs: 4, sm: 5 }, // More space on larger screens
+        mt: { xs: 4, sm: 5 },
         mb: 4,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center'
       }}>
-        <Typography 
-          component="h1" 
-          variant="h4" 
-          align="center"
-          sx={{ 
-            color: darkMode ? '#fff' : '#000',
-            fontWeight: 600,
-          }}
-        >
-          Add New Relationship
-        </Typography>
-        <Typography 
-          variant="body1" 
-          align="center" 
-          sx={{ 
-            mt: 1,
-            color: darkMode ? 'rgba(255,255,255,0.7)' : 'text.secondary',
-            maxWidth: '90%', // Prevent text from stretching too wide
-          }}
-        >
-          Create a profile for someone important in your life
-        </Typography>
+        {/* Back Button Row */}
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          mb: 2,
+        }}>
+          <IconButton
+            onClick={handleBackToDashboard}
+            sx={{
+              color: darkMode ? '#fff' : '#000',
+              backgroundColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+              '&:hover': {
+                backgroundColor: darkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+              },
+              borderRadius: 2,
+              p: 1,
+              mr: 2,
+            }}
+            aria-label="Back to dashboard"
+          >
+            <ArrowBackIcon />
+          </IconButton>
+          
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              color: darkMode ? 'rgba(255,255,255,0.7)' : 'text.secondary',
+              fontSize: { xs: '0.875rem', sm: '1rem' }
+            }}
+          >
+            Back to Dashboard
+          </Typography>
+        </Box>
+
+        {/* Header Section */}
+        <Box sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center'
+        }}>
+          <Typography 
+            component="h1" 
+            variant="h4" 
+            sx={{ 
+              color: darkMode ? '#fff' : '#000',
+              fontWeight: 600,
+              fontSize: { xs: '1.75rem', sm: '2.125rem' }
+            }}
+          >
+            Add New Relationship
+          </Typography>
+          <Typography 
+            variant="body1" 
+            sx={{ 
+              mt: 1,
+              color: darkMode ? 'rgba(255,255,255,0.7)' : 'text.secondary',
+              maxWidth: '90%',
+              fontSize: { xs: '0.875rem', sm: '1rem' }
+            }}
+          >
+            Create a profile for someone important in your life
+          </Typography>
+        </Box>
       </Box>
 
       {error && (

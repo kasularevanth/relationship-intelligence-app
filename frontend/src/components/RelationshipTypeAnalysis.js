@@ -222,7 +222,8 @@ const RelationshipTypeAnalysis = ({ relationship, refreshData, onImportClick, hi
             <RelationshipMetrics 
               analysis={analysis} 
               darkMode={darkMode} 
-              relationshipColor={relationshipColor} 
+              relationshipColor={relationshipColor}
+              relationshipType={relationship?.relationshipType} // Add this prop
             />
           </div>
         )}
