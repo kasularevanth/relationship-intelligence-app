@@ -14,9 +14,21 @@ const RelationshipTypeAnalysis = ({ relationship, refreshData, onImportClick, hi
   const [expanded, setExpanded] = useState(true);
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
   const { relationshipId } = useParams();
   const navigate = useNavigate();
   const [showImportAnimation, setShowImportAnimation] = useState(false);
+  
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   useEffect(() => {
     // Fetch relationship type-specific analysis if the relationship ID is available
@@ -154,6 +166,23 @@ const RelationshipTypeAnalysis = ({ relationship, refreshData, onImportClick, hi
 
   const relationshipColor = getRelationshipColor(relationship?.relationshipType, darkMode);
 
+  // Calculate dynamic max height based on content and screen size
+  const getMaxHeight = () => {
+    if (!expanded) return '0';
+    
+    // On mobile, we need much more height for recommendations
+    if (isMobile) {
+      // If we have analysis data with recommendations, allow much more height
+      if (hasAnalysisData && analysis.recommendations?.length > 0) {
+        return 'none'; // Remove height constraint completely on mobile
+      }
+      return '3000px'; // Fallback for mobile
+    }
+    
+    // Desktop - keep original constraint
+    return '2000px';
+  };
+
   return (
     <div 
       style={{
@@ -200,11 +229,18 @@ const RelationshipTypeAnalysis = ({ relationship, refreshData, onImportClick, hi
       
       <div 
         style={{
-          maxHeight: expanded ? '2000px' : '0',
-          overflow: 'hidden',
-          transition: 'max-height 0.5s ease',
+          maxHeight: getMaxHeight(),
+          overflow: isMobile && expanded ? 'visible' : (expanded ? 'auto' : 'hidden'),
+          transition: isMobile ? 'none' : 'max-height 0.5s ease',
           background: darkMode ? '#121212' : '#ffffff',
           padding: expanded ? '0' : '0',
+          // Force expansion on mobile
+          ...(isMobile && expanded && {
+            height: 'auto',
+            minHeight: 'auto',
+            maxHeight: 'none',
+            overflow: 'visible',
+          })
         }}
       >
         {!hasAnalysisData && relationship && !hideImportBanner && (
@@ -218,12 +254,23 @@ const RelationshipTypeAnalysis = ({ relationship, refreshData, onImportClick, hi
         )}
         
         {hasAnalysisData && (
-          <div style={{ padding: '24px 20px' }}>
+          <div 
+            style={{ 
+              padding: '24px 20px',
+              // Additional mobile constraints removal
+              ...(isMobile && {
+                height: 'auto',
+                minHeight: 'auto',
+                maxHeight: 'none',
+                overflow: 'visible',
+              })
+            }}
+          >
             <RelationshipMetrics 
               analysis={analysis} 
               darkMode={darkMode} 
               relationshipColor={relationshipColor}
-              relationshipType={relationship?.relationshipType} // Add this prop
+              relationshipType={relationship?.relationshipType}
             />
           </div>
         )}

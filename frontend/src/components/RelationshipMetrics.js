@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useLayoutEffect, useState } from 'react';
 import styled, { keyframes } from 'styled-components';
 
 // Animations
@@ -200,7 +200,6 @@ const InsightsGrid = styled.div`
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
     gap: 1rem;
-    /* Ensure proper stacking in mobile */
     display: flex;
     flex-direction: column;
   }
@@ -223,7 +222,6 @@ const InsightsCard = styled.div`
   
   @media (max-width: 768px) {
     padding: 1.25rem;
-    /* Ensure full expansion on mobile */
     height: auto !important;
     min-height: auto !important;
     max-height: none !important;
@@ -237,7 +235,6 @@ const RecommendationsCard = styled.div`
   border-radius: 0.75rem;
   border: 1px solid ${({ darkMode }) => darkMode ? 'rgba(75, 85, 99, 0.2)' : 'rgba(229, 231, 235, 0.8)'};
   animation: ${slideInRight} 0.5s ease-out;
-  transition: all 0.3s ease;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -246,22 +243,33 @@ const RecommendationsCard = styled.div`
     box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
   }
   
+  /* Desktop styles */
+  @media (min-width: 769px) {
+    transition: all 0.3s ease;
+  }
+  
+  /* Mobile styles - completely disable constraints */
   @media (max-width: 768px) {
-    padding: 1.25rem;
-    /* Force full expansion for recommendations on mobile */
+    padding: 1.25rem !important;
     height: auto !important;
     min-height: auto !important;
     max-height: none !important;
     overflow: visible !important;
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    flex: none !important;
+    transition: none !important;
     
-    /* Additional properties to ensure content is fully visible */
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: stretch;
-    flex: 1;
-    transition: none; /* Disable transitions on mobile for immediate expansion */
+    /* Force expansion class when applied */
+    &.mobile-expanded {
+      height: auto !important;
+      min-height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
   }
 `;
 
@@ -275,24 +283,26 @@ const ListContainer = styled.ul`
   flex-grow: 1;
   
   @media (max-width: 768px) {
-    padding-left: 1rem;
-    margin-bottom: 0;
-    
-    /* Force full expansion on mobile */
+    padding-left: 1rem !important;
+    margin-bottom: 0 !important;
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
     min-height: fit-content !important;
+    display: block !important;
+    width: 100% !important;
+    padding-right: 0.5rem !important;
+    line-height: 1.6 !important;
+    flex: none !important;
+    position: relative !important;
     
-    /* Ensure proper spacing for multiple items */
-    display: block;
-    width: 100%;
-    
-    /* Additional mobile-specific improvements */
-    padding-right: 0.5rem;
-    line-height: 1.6;
-    flex: 1;
-    position: relative;
+    /* Force expansion class when applied */
+    &.mobile-expanded {
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+      min-height: fit-content !important;
+    }
   }
 `;
 
@@ -311,23 +321,18 @@ const ListItem = styled.li`
   }
   
   @media (max-width: 768px) {
-    font-size: 0.875rem;
-    margin-bottom: 1rem;
-    line-height: 1.7;
-    
-    /* Ensure proper text flow on mobile */
+    font-size: 0.875rem !important;
+    margin-bottom: 1rem !important;
+    line-height: 1.7 !important;
     white-space: normal !important;
-    word-break: break-word;
-    hyphens: auto;
-    
-    /* Add slight padding for better readability */
-    padding-right: 0.25rem;
-    
-    /* Ensure each item has enough space */
-    min-height: auto;
+    word-break: break-word !important;
+    hyphens: auto !important;
+    padding-right: 0.25rem !important;
+    min-height: auto !important;
+    display: block !important;
     
     &:last-child {
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.5rem !important;
     }
   }
 `;
@@ -341,40 +346,110 @@ const LastUpdated = styled.div`
 `;
 
 const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationshipType }) => {
-  // Effect to ensure mobile recommendations are expanded
+  const recommendationsSectionRef = useRef(null);
+  const recommendationsListRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [forceExpansion, setForceExpansion] = useState(false);
+
+  // Check if mobile on mount and resize
   useEffect(() => {
-    // Function to ensure recommendations are expanded on mobile
-    const ensureRecommendationsExpanded = () => {
-      if (window.innerWidth <= 768) {
-        const recommendationsSection = document.querySelector('.recommendations-section');
-        const recommendationsList = document.querySelector('.recommendations-list');
-        
-        if (recommendationsSection && recommendationsList) {
-          recommendationsSection.style.height = 'auto';
-          recommendationsSection.style.maxHeight = 'none';
-          recommendationsSection.style.overflow = 'visible';
-          
-          recommendationsList.style.height = 'auto';
-          recommendationsList.style.maxHeight = 'none';
-          recommendationsList.style.overflow = 'visible';
-        }
-      }
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
     };
     
-    // Run on mount and window resize
-    ensureRecommendationsExpanded();
-    window.addEventListener('resize', ensureRecommendationsExpanded);
-    
-    // Clean up
-    return () => window.removeEventListener('resize', ensureRecommendationsExpanded);
-  }, [analysis.recommendations]);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Force expansion on mobile using useLayoutEffect for synchronous execution
+  useLayoutEffect(() => {
+    if (isMobile && analysis.recommendations?.length > 0) {
+      setForceExpansion(true);
+      
+      // Apply mobile expansion classes and styles
+      const applyMobileExpansion = () => {
+        if (recommendationsSectionRef.current) {
+          const section = recommendationsSectionRef.current;
+          section.classList.add('mobile-expanded');
+          
+          // Apply aggressive inline styles
+          Object.assign(section.style, {
+            height: 'auto',
+            minHeight: 'auto',
+            maxHeight: 'none',
+            overflow: 'visible',
+            display: 'flex',
+            flexDirection: 'column',
+            transition: 'none'
+          });
+        }
+        
+        if (recommendationsListRef.current) {
+          const list = recommendationsListRef.current;
+          list.classList.add('mobile-expanded');
+          
+          Object.assign(list.style, {
+            height: 'auto',
+            minHeight: 'fit-content',
+            maxHeight: 'none',
+            overflow: 'visible',
+            display: 'block',
+            width: '100%',
+            flex: 'none'
+          });
+        }
+      };
+      
+      // Apply immediately and after a small delay to handle race conditions
+      applyMobileExpansion();
+      setTimeout(applyMobileExpansion, 50);
+      setTimeout(applyMobileExpansion, 200);
+    }
+  }, [isMobile, analysis.recommendations, forceExpansion]);
+
+  // Additional effect to handle component updates
+  useEffect(() => {
+    if (isMobile && analysis.recommendations?.length > 0) {
+      const interval = setInterval(() => {
+        if (recommendationsSectionRef.current && recommendationsListRef.current) {
+          const section = recommendationsSectionRef.current;
+          const list = recommendationsListRef.current;
+          
+          // Check if elements are properly expanded
+          const sectionHeight = section.offsetHeight;
+          const listHeight = list.scrollHeight;
+          
+          if (sectionHeight < listHeight || list.style.maxHeight !== 'none') {
+            // Force re-expansion
+            Object.assign(section.style, {
+              height: 'auto',
+              minHeight: 'auto',
+              maxHeight: 'none',
+              overflow: 'visible'
+            });
+            
+            Object.assign(list.style, {
+              height: 'auto',
+              maxHeight: 'none',
+              overflow: 'visible'
+            });
+          }
+        }
+      }, 1000);
+      
+      // Clear interval after 10 seconds
+      setTimeout(() => clearInterval(interval), 10000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [isMobile, analysis.recommendations]);
 
   // Function to determine which metrics to display based on relationship type
   const renderTypeSpecificMetrics = () => {
     console.log("analysis", analysis);
     console.log("relationshipType", relationshipType);
     
-    // Use the passed relationshipType prop instead of analysis.type
     const type = relationshipType?.toLowerCase() || '';
     
     if (type.includes('romantic') || type.includes('partner')) {
@@ -389,7 +464,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
       return renderMentorMetrics();
     }
     
-    // Default case
     return renderDefaultMetrics();
   };
   
@@ -399,7 +473,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
     
     return (
       <MetricsGrid>
-        {/* Emotional Health Score */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Emotional Health</MetricLabel>
@@ -412,7 +485,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Conflict Frequency */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Conflict Frequency</MetricLabel>
@@ -425,7 +497,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Attachment Style */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Attachment Style</MetricLabel>
@@ -438,7 +509,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Affection vs. Logistics */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Affection/Logistics</MetricLabel>
@@ -451,7 +521,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Intimacy Level */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Intimacy Level</MetricLabel>
@@ -464,7 +533,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Conflict Resolution */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Conflict Resolution</MetricLabel>
@@ -486,7 +554,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
     
     return (
       <MetricsGrid>
-        {/* Initiation Balance */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Initiation Balance</MetricLabel>
@@ -499,7 +566,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Humor/Depth Ratio */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Humor vs Depth</MetricLabel>
@@ -512,7 +578,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Vulnerability Index */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Vulnerability</MetricLabel>
@@ -525,7 +590,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Longest Gap */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Longest Gap</MetricLabel>
@@ -538,7 +602,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Topic Diversity */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Topic Diversity</MetricLabel>
@@ -551,7 +614,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Engagement Consistency */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Engagement</MetricLabel>
@@ -573,7 +635,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
     
     return (
       <MetricsGrid>
-        {/* Professional Tone */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Professional Tone</MetricLabel>
@@ -586,7 +647,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Power Dynamic */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Power Dynamic</MetricLabel>
@@ -599,7 +659,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Response Time */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Response Time</MetricLabel>
@@ -612,7 +671,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Task/Social Ratio */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Task vs Social</MetricLabel>
@@ -625,7 +683,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Clarity Index */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Clarity Index</MetricLabel>
@@ -638,7 +695,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Boundary Maintenance */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Boundaries</MetricLabel>
@@ -660,7 +716,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
     
     return (
       <MetricsGrid>
-        {/* Family Pattern */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Family Pattern</MetricLabel>
@@ -673,7 +728,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Emotional Warmth */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Emotional Warmth</MetricLabel>
@@ -686,7 +740,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Family Role */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Family Role</MetricLabel>
@@ -699,7 +752,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Interaction Frequency */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Contact Frequency</MetricLabel>
@@ -712,7 +764,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Generation Gap */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Generation Gap</MetricLabel>
@@ -725,7 +776,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Tradition/Autonomy Balance */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Traditional vs. Modern</MetricLabel>
@@ -747,7 +797,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
     
     return (
       <MetricsGrid>
-        {/* Guidance Style */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Guidance Style</MetricLabel>
@@ -760,7 +809,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Feedback Balance */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Feedback Balance</MetricLabel>
@@ -773,7 +821,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Growth Focus */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Growth Focus</MetricLabel>
@@ -786,7 +833,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Follow Through */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Follow Through</MetricLabel>
@@ -799,7 +845,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Knowledge Transfer */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Knowledge Transfer</MetricLabel>
@@ -812,7 +857,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
         
-        {/* Goal Setting */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Goal Setting</MetricLabel>
@@ -832,7 +876,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
   const renderDefaultMetrics = () => {
     return (
       <MetricsGrid>
-        {/* Message Count */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Total Messages</MetricLabel>
@@ -845,7 +888,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
 
-        {/* Sentiment Score */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Sentiment</MetricLabel>
@@ -864,7 +906,6 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
           </MetricFooter>
         </MetricCard>
 
-        {/* Response Time */}
         <MetricCard darkMode={darkMode}>
           <div style={{ marginBottom: '0.5rem' }}>
             <MetricLabel darkMode={darkMode}>Response Time</MetricLabel>
@@ -887,7 +928,7 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
         {renderTypeSpecificMetrics()}
       </MetricsContainer>
       
-      {/* Keep your existing Topics section */}
+      {/* Topics section */}
       {analysis.metrics?.topTopics && analysis.metrics.topTopics.length > 0 && (
         <TopicsContainer darkMode={darkMode}>
           <SectionTitle darkMode={darkMode}>
@@ -909,7 +950,7 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
         </TopicsContainer>
       )}
       
-      {/* Keep your existing Insights and Recommendations section */}
+      {/* Insights and Recommendations section */}
       <InsightsGrid>
         {/* Insights */}
         {analysis.insights && analysis.insights.length > 0 && (
@@ -930,16 +971,24 @@ const RelationshipMetrics = ({ analysis, darkMode, relationshipColor, relationsh
         
         {/* Recommendations */}
         {analysis.recommendations && analysis.recommendations.length > 0 && (
-          <RecommendationsCard darkMode={darkMode} className="recommendations-section">
+          <RecommendationsCard 
+            darkMode={darkMode} 
+            ref={recommendationsSectionRef}
+            className={isMobile ? 'mobile-expanded' : ''}
+          >
             <SectionTitle darkMode={darkMode}>
               <IconBadge bgColor="rgba(245, 158, 11, 0.2)" color="#fbbf24">
                 !
               </IconBadge>
               Recommendations
             </SectionTitle>
-            <ListContainer darkMode={darkMode} className="recommendations-list">
+            <ListContainer 
+              darkMode={darkMode} 
+              ref={recommendationsListRef}
+              className={isMobile ? 'mobile-expanded' : ''}
+            >
               {analysis.recommendations?.map((recommendation, index) => (
-                <ListItem key={index} className="recommendation-item">{recommendation}</ListItem>
+                <ListItem key={index}>{recommendation}</ListItem>
               ))}
             </ListContainer>
           </RecommendationsCard>
