@@ -143,7 +143,7 @@ const MobileTypingText = styled(Box)(({ theme }) => ({
   animation: `${typing} 4s steps(60, end) forwards, ${blink} 1s infinite 4s`,
   fontFamily: "'Fira Code', 'Monaco', monospace",
   display: 'inline-block',
-  fontSize: '1.8rem',
+  fontSize: '1.6rem',
     fontWeight: 700,
     lineHeight: 1.3,
     textAlign: 'center',
@@ -365,7 +365,7 @@ const WelcomeDialog = ({ open, onClose, darkMode }) => {
             alignItems: 'center',
             justifyContent: 'center',
             flexDirection: 'column',
-            px: 2,
+            px: 1,
           }}>
             {/* Mobile typing question with better text */}
             <Fade 
@@ -378,7 +378,7 @@ const WelcomeDialog = ({ open, onClose, darkMode }) => {
               <Box sx={{ 
                 textAlign: 'center',
                 width: '100%',
-                maxWidth: '95%',
+                maxWidth: '100%',
                 mx: 'auto',
                 animation: typingComplete && !questionFaded ? `${fadeOut} 1s ease-out 0.8s forwards` : 'none',
               }}>
@@ -398,7 +398,7 @@ const WelcomeDialog = ({ open, onClose, darkMode }) => {
                   }}
                 >
                   {/* First line */}
-                  <Box sx={{ width: '100%' }}>
+                  <Box sx={{ width: '100%',overflow: 'visible',minWidth: 'fit-content', }}>
                     <MobileTypingText>
                       What Does AI Think
                     </MobileTypingText>
