@@ -97,6 +97,15 @@ const float = keyframes`
   }
 `;
 
+const typingChars = keyframes`
+  from {
+    width: 0ch;
+  }
+  to {
+    width: 18ch; /* Exact character count for "What Does AI Think" */
+  }
+`;
+
 // Styled components
 const TypingText = styled(Box)(({ theme }) => ({
   overflow: 'hidden',
@@ -133,36 +142,57 @@ const TypingText = styled(Box)(({ theme }) => ({
   },
 }));
 
-// Mobile-specific typing text with better line breaks
+
 const MobileTypingText = styled(Box)(({ theme }) => ({
   overflow: 'hidden',
-  borderRight: '2px solid #ff6b8b', // Smaller cursor for mobile
+  borderRight: '2px solid #ff6b8b',
   whiteSpace: 'nowrap',
-  width: '0',
-  maxWidth: 'none',
-  animation: `${typing} 4s steps(60, end) forwards, ${blink} 1s infinite 4s`,
+  width: '0ch', // Use character-based width
+  animation: `${typingChars} 4s steps(18, end) forwards, ${blink} 1s infinite 4s`, // 18 characters in "What Does AI Think"
   fontFamily: "'Fira Code', 'Monaco', monospace",
   display: 'inline-block',
   fontSize: '1.6rem',
-    fontWeight: 700,
-    lineHeight: 1.3,
-    textAlign: 'center',
-    background: theme.palette.mode === 'dark' 
-      ? 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)'
-      : 'linear-gradient(90deg, #d63384 0%, #198754 100%)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    backgroundClip: 'text',
-    color: theme.palette.mode === 'dark' ? '#ffffff' : '#2c3e50',
-    position: 'relative',  
-    zIndex: 1,
-    minHeight: '0.5em',
-    animationFillMode: 'forwards',
-    '@supports not (background-clip: text)': {
-      color: theme.palette.mode === 'dark' ? '#ffffff' : '#2c3e50',
-      background: 'none',
-    },
-  }));
+  fontWeight: 700,
+  lineHeight: 1.3,
+  background: theme.palette.mode === 'dark' 
+    ? 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)'
+    : 'linear-gradient(90deg, #d63384 0%, #198754 100%)',
+  WebkitBackgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+  backgroundClip: 'text',
+  animationFillMode: 'forwards',
+}));
+
+// Mobile-specific typing text with better line breaks
+// const MobileTypingText = styled(Box)(({ theme }) => ({
+//   overflow: 'hidden',
+//   borderRight: '2px solid #ff6b8b', // Smaller cursor for mobile
+//   whiteSpace: 'nowrap',
+//   width: '0',
+//   maxWidth: 'none',
+//   animation: `${typing} 4s steps(60, end) forwards, ${blink} 1s infinite 4s`,
+//   fontFamily: "'Fira Code', 'Monaco', monospace",
+//   display: 'inline-block',
+//   fontSize: '1.6rem',
+//     fontWeight: 700,
+//     lineHeight: 1.3,
+//     textAlign: 'center',
+//     background: theme.palette.mode === 'dark' 
+//       ? 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)'
+//       : 'linear-gradient(90deg, #d63384 0%, #198754 100%)',
+//     WebkitBackgroundClip: 'text',
+//     WebkitTextFillColor: 'transparent',
+//     backgroundClip: 'text',
+//     color: theme.palette.mode === 'dark' ? '#ffffff' : '#2c3e50',
+//     position: 'relative',  
+//     zIndex: 1,
+//     minHeight: '0.5em',
+//     animationFillMode: 'forwards',
+//     '@supports not (background-clip: text)': {
+//       color: theme.palette.mode === 'dark' ? '#ffffff' : '#2c3e50',
+//       background: 'none',
+//     },
+//   }));
   
   // Second line typing animation for mobile
   const MobileTypingTextSecond = styled(Box)(({ theme }) => ({
@@ -248,34 +278,34 @@ const WelcomeDialog = ({ open, onClose, darkMode }) => {
   const [questionFaded, setQuestionFaded] = useState(false);
 
   useEffect(() => {
-    if (open) {
-      // Reset all states
-      setTypingComplete(false);
-      setQuestionFaded(false);
-      
-      // Mobile timing (shorter text)
-      const typingTimer = setTimeout(() => setTypingComplete(true), 5000);
-      const fadeTimer = setTimeout(() => setQuestionFaded(true), 5800);
-      const subtitleTimer = setTimeout(() => setShowSubtitle(true), 6800);
-      const statsTimer = setTimeout(() => setShowStats(true), 7500);
-      const observationTimer = setTimeout(() => setShowObservation(true), 8500);
+  if (open) {
+    // Reset all states
+    setTypingComplete(false);
+    setQuestionFaded(false);
+    
+    // Updated timing for 5-second animation
+    const typingTimer = setTimeout(() => setTypingComplete(true), 5500);
+    const fadeTimer = setTimeout(() => setQuestionFaded(true), 6300);
+    const subtitleTimer = setTimeout(() => setShowSubtitle(true), 7300);
+    const statsTimer = setTimeout(() => setShowStats(true), 8000);
+    const observationTimer = setTimeout(() => setShowObservation(true), 9000);
 
-      return () => {
-        clearTimeout(typingTimer);
-        clearTimeout(fadeTimer);
-        clearTimeout(subtitleTimer);
-        clearTimeout(statsTimer);
-        clearTimeout(observationTimer);
-      };
-    } else {
-      // Reset states when dialog closes
-      setShowSubtitle(false);
-      setShowStats(false);
-      setShowObservation(false);
-      setTypingComplete(false);
-      setQuestionFaded(false);
-    }
-  }, [open]);
+    return () => {
+      clearTimeout(typingTimer);
+      clearTimeout(fadeTimer);
+      clearTimeout(subtitleTimer);
+      clearTimeout(statsTimer);
+      clearTimeout(observationTimer);
+    };
+  } else {
+    // Reset states when dialog closes
+    setShowSubtitle(false);
+    setShowStats(false);
+    setShowObservation(false);
+    setTypingComplete(false);
+    setQuestionFaded(false);
+  }
+}, [open]);
 
   const topicData = [
     { label: 'Logistics', value: 62, color: '#ff6b8b' },
