@@ -124,7 +124,7 @@ const TypingText = styled(Box)(({ theme }) => ({
   // Better contrast for both light and dark modes
   background: theme.palette.mode === 'dark' 
     ? 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)'
-    : 'linear-gradient(90deg, #d63384 0%, #198754 100%)', // Darker colors for light mode
+    : 'linear-gradient(90deg, #f7017b 0%, #02ff8a  100%)', // Darker colors for light mode
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
   backgroundClip: 'text',
@@ -156,7 +156,7 @@ const MobileTypingText = styled(Box)(({ theme }) => ({
   lineHeight: 1.3,
   background: theme.palette.mode === 'dark' 
     ? 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)'
-    : 'linear-gradient(90deg, #d63384 0%, #198754 100%)',
+    : 'linear-gradient(90deg, #f7017b 0%, #02ff8a  100%)',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
   backgroundClip: 'text',
@@ -195,35 +195,35 @@ const MobileTypingText = styled(Box)(({ theme }) => ({
 //   }));
   
   // Second line typing animation for mobile
-  const MobileTypingTextSecond = styled(Box)(({ theme }) => ({
-    overflow: 'hidden',
-    borderRight: '2px solid #ff6b8b', // Same small cursor
-    whiteSpace: 'nowrap',
-    width: '0',
-    maxWidth: 'none',
-    animation: `${typing} 3s steps(50, end) forwards, ${blink} 1s infinite 3s`,
-    fontFamily: "'Fira Code', 'Monaco', monospace",
-    display: 'inline-block',
-    fontSize: '1.8rem',
-  fontWeight: 700,
-  lineHeight: 1.3,
-  textAlign: 'center',
-  background: theme.palette.mode === 'dark' 
-    ? 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)'
-    : 'linear-gradient(90deg, #d63384 0%, #198754 100%)',
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-  backgroundClip: 'text',
-  color: theme.palette.mode === 'dark' ? '#ffffff' : '#2c3e50',
-  position: 'relative',  
-  zIndex: 1,
-  minHeight: '2.2em',
-  animationFillMode: 'forwards',
-  '@supports not (background-clip: text)': {
-    color: theme.palette.mode === 'dark' ? '#ffffff' : '#2c3e50',
-    background: 'none',
-  },
-}));
+//   const MobileTypingTextSecond = styled(Box)(({ theme }) => ({
+//     overflow: 'hidden',
+//     borderRight: '2px solid #ff6b8b', // Same small cursor
+//     whiteSpace: 'nowrap',
+//     width: '0',
+//     maxWidth: 'none',
+//     animation: `${typing} 3s steps(50, end) forwards, ${blink} 1s infinite 3s`,
+//     fontFamily: "'Fira Code', 'Monaco', monospace",
+//     display: 'inline-block',
+//     fontSize: '1.8rem',
+//   fontWeight: 700,
+//   lineHeight: 1.3,
+//   textAlign: 'center',
+//   background: theme.palette.mode === 'dark' 
+//     ? 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)'
+//     : 'linear-gradient(90deg, #d63384 0%, #198754 100%)',
+//   WebkitBackgroundClip: 'text',
+//   WebkitTextFillColor: 'transparent',
+//   backgroundClip: 'text',
+//   color: theme.palette.mode === 'dark' ? '#ffffff' : '#2c3e50',
+//   position: 'relative',  
+//   zIndex: 1,
+//   minHeight: '2.2em',
+//   animationFillMode: 'forwards',
+//   '@supports not (background-clip: text)': {
+//     color: theme.palette.mode === 'dark' ? '#ffffff' : '#2c3e50',
+//     background: 'none',
+//   },
+// }));
 
 const AnimatedChip = styled(Chip)(({ theme, delay = 0 }) => ({
   animation: `${fadeInUp} 0.8s ease-out ${delay}s both`,
@@ -441,7 +441,7 @@ const WelcomeDialog = ({ open, onClose, darkMode }) => {
                       animation: `${fadeInUp} 0.8s ease-out forwards`,
                       fontSize: '1.8rem',
                       fontWeight: 700,
-                      background: 'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)',
+                      background: darkMode?'linear-gradient(90deg, #ff6b8b 0%, #33d2c3 100%)':'linear-gradient(90deg, #f7017b 0%, #02ff8a  100%)',
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent',
                       backgroundClip: 'text',
