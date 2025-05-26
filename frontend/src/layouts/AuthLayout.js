@@ -1,17 +1,26 @@
 // frontend/src/layouts/AuthLayout.js
-import React from 'react';
-import { Outlet, Navigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { Box, Container, Paper, Typography } from '@mui/material';
-import CircularProgress from '@mui/material/CircularProgress';
-import { padding } from '@mui/system';
+import React from "react";
+import { Outlet, Navigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { Box, Container, Paper, Typography } from "@mui/material";
+import CircularProgress from "@mui/material/CircularProgress";
+import { padding } from "@mui/system";
 
 const AuthLayout = () => {
   const { currentUser, loading } = useAuth();
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex',p:0,m:0, justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Box
+        sx={{
+          display: "flex",
+          p: 0,
+          m: 0,
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -25,10 +34,10 @@ const AuthLayout = () => {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         backgroundColor: (theme) => theme.palette.grey[100],
       }}
     >
@@ -37,9 +46,9 @@ const AuthLayout = () => {
           elevation={6}
           sx={{
             p: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
           }}
         >
           {/* <Typography component="h1" variant="h4" sx={{ mb: 4 }}>

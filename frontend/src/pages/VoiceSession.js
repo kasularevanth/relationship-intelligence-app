@@ -1,62 +1,62 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { 
-  Mic, 
-  MicOff, 
-  Play, 
-  Square, 
-  ArrowRight, 
+import React, { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import axios from "axios";
+import {
+  Mic,
+  MicOff,
+  Play,
+  Square,
+  ArrowRight,
   ChevronRight,
-  MessageCircle
-} from 'lucide-react';
+  MessageCircle,
+} from "lucide-react";
 
 // Phase definitions based on your project overview
 const PHASES = {
   ONBOARDING: {
-    name: 'onboarding',
-    title: 'Onboarding & History',
-    description: 'Let\'s get a feel for this relationship.',
+    name: "onboarding",
+    title: "Onboarding & History",
+    description: "Let's get a feel for this relationship.",
     sampleQuestions: [
       "How did you and [Name] meet?",
-      "What's your favorite memory with them?", 
+      "What's your favorite memory with them?",
       "How often do you talk or see each other?",
-      "What do you usually talk about?"
-    ]
+      "What do you usually talk about?",
+    ],
   },
   EMOTIONAL_MAPPING: {
-    name: 'emotional_mapping',
-    title: 'Emotional Mapping',
-    description: 'Now let\'s explore the emotional dynamics.',
+    name: "emotional_mapping",
+    title: "Emotional Mapping",
+    description: "Now let's explore the emotional dynamics.",
     sampleQuestions: [
       "What do you love or appreciate most about [Name]?",
       "What role do they play in your life?",
       "How do you feel after talking to them?",
-      "Have they been there for you during hard times?"
-    ]
+      "Have they been there for you during hard times?",
+    ],
   },
   DYNAMICS_TENSIONS: {
-    name: 'dynamics_tensions',
-    title: 'Dynamics & Tensions',
-    description: 'Let\'s get honest about the hard parts too.',
+    name: "dynamics_tensions",
+    title: "Dynamics & Tensions",
+    description: "Let's get honest about the hard parts too.",
     sampleQuestions: [
       "When was the last time you felt disconnected or misunderstood by them?",
       "What's something they do that triggers or annoys you?",
       "Have you ever argued or had a conflict? What happened?",
-      "Do you feel like the relationship is balanced?"
-    ]
+      "Do you feel like the relationship is balanced?",
+    ],
   },
   DUAL_LENS_REFLECTION: {
-    name: 'dual_lens_reflection',
-    title: 'Dual-Lens Reflection',
-    description: 'Now let\'s switch perspectives and build empathy.',
+    name: "dual_lens_reflection",
+    title: "Dual-Lens Reflection",
+    description: "Now let's switch perspectives and build empathy.",
     sampleQuestions: [
       "How do you think they would describe this relationship?",
       "How do you think they view you?",
       "What might they say you bring to their life?",
-      "What's something you wish they knew about you?"
-    ]
-  }
+      "What's something you wish they knew about you?",
+    ],
+  },
 };
 
 const VoiceSession = () => {
@@ -69,16 +69,16 @@ const VoiceSession = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [conversation, setConversation] = useState(null);
-  const [userInput, setUserInput] = useState(''); // For text input fallback
-  const [inputMode, setInputMode] = useState('voice'); // 'voice' or 'text'
-  
+  const [userInput, setUserInput] = useState(""); // For text input fallback
+  const [inputMode, setInputMode] = useState("voice"); // 'voice' or 'text'
+
   const messagesEndRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
   // Scroll to bottom of messages
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -93,27 +93,31 @@ const VoiceSession = () => {
         setRelationship(res.data);
 
         // Create a new conversation for this session
-        const conversationRes = await axios.post('/api/conversations', {
+        const conversationRes = await axios.post("/api/conversations", {
           relationship: relationshipId,
-          title: `Conversation with ${res.data.contactName} - ${new Date().toLocaleDateString()}`,
-          status: 'active'
+          title: `Conversation with ${
+            res.data.contactName
+          } - ${new Date().toLocaleDateString()}`,
+          status: "active",
         });
         setConversation(conversationRes.data);
 
         // Add initial ai message
         const welcomeMessage = {
-          role: 'ai',
+          role: "ai",
           content: `Hi there! Let's talk about your relationship with ${res.data.contactName}. How did you two meet?`,
-          phase: PHASES.ONBOARDING.name
+          phase: PHASES.ONBOARDING.name,
         };
         setMessages([welcomeMessage]);
-        
+
         // Save welcome message to conversation
-        await axios.post(`/api/conversations/${conversationRes.data._id}/messages`, welcomeMessage);
-        
+        await axios.post(
+          `/api/conversations/${conversationRes.data._id}/messages`,
+          welcomeMessage
+        );
       } catch (err) {
-        console.error('Error setting up conversation:', err);
-        setError('Failed to set up conversation. Please try again.');
+        console.error("Error setting up conversation:", err);
+        setError("Failed to set up conversation. Please try again.");
       }
     };
 
@@ -124,25 +128,31 @@ const VoiceSession = () => {
     // Set up audio recording capabilities
     const setupAudioRecording = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
         mediaRecorderRef.current = new MediaRecorder(stream);
-        
+
         mediaRecorderRef.current.ondataavailable = (event) => {
           if (event.data.size > 0) {
             audioChunksRef.current.push(event.data);
           }
         };
-        
+
         mediaRecorderRef.current.onstop = async () => {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const audioBlob = new Blob(audioChunksRef.current, {
+            type: "audio/webm",
+          });
           audioChunksRef.current = [];
           await processAudio(audioBlob);
         };
       } catch (err) {
-        console.error('Error accessing microphone:', err);
-        setError('Microphone access denied. Please enable microphone access or use text input instead.');
+        console.error("Error accessing microphone:", err);
+        setError(
+          "Microphone access denied. Please enable microphone access or use text input instead."
+        );
         // Switch to text input mode if microphone access is denied
-        setInputMode('text');
+        setInputMode("text");
       }
     };
 
@@ -150,7 +160,10 @@ const VoiceSession = () => {
 
     // Cleanup
     return () => {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      if (
+        mediaRecorderRef.current &&
+        mediaRecorderRef.current.state === "recording"
+      ) {
         mediaRecorderRef.current.stop();
       }
     };
@@ -159,56 +172,67 @@ const VoiceSession = () => {
   // Process audio recording
   const processAudio = async (audioBlob) => {
     if (!conversation) return;
-    
+
     setIsProcessing(true);
-    
+
     try {
       // Create form data to send audio
       const formData = new FormData();
-      formData.append('audio', audioBlob);
-      formData.append('conversationId', conversation._id);
-      formData.append('phase', currentPhase.name);
-      
+      formData.append("audio", audioBlob);
+      formData.append("conversationId", conversation._id);
+      formData.append("phase", currentPhase.name);
+
       // Send audio to backend for processing
-      const response = await axios.post('/api/conversations/process-audio', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
+      const response = await axios.post(
+        "/api/conversations/process-audio",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
         }
-      });
-      
+      );
+
       // Add user message
       const userMessage = {
-        role: 'user',
+        role: "user",
         content: response.data.transcription,
-        phase: currentPhase.name
+        phase: currentPhase.name,
       };
-      
-      setMessages(prev => [...prev, userMessage]);
-      
+
+      setMessages((prev) => [...prev, userMessage]);
+
       // Save user message to conversation
-      await axios.post(`/api/conversations/${conversation._id}/messages`, userMessage);
-      
+      await axios.post(
+        `/api/conversations/${conversation._id}/messages`,
+        userMessage
+      );
+
       // Add AI response
       if (response.data.aiResponse) {
         const assistantMessage = {
-          role: 'ai',
+          role: "ai",
           content: response.data.aiResponse,
           phase: currentPhase.name,
-          insights: response.data.insights || []
+          insights: response.data.insights || [],
         };
-        
-        setMessages(prev => [...prev, assistantMessage]);
-        
+
+        setMessages((prev) => [...prev, assistantMessage]);
+
         // Save ai message to conversation
-        await axios.post(`/api/conversations/${conversation._id}/messages`, assistantMessage);
-        
+        await axios.post(
+          `/api/conversations/${conversation._id}/messages`,
+          assistantMessage
+        );
+
         // Check if we should advance to next phase
         checkPhaseProgression(response.data.aiResponse);
       }
-      
     } catch (err) {
-      console.error('Error processing audio:', err);
-      setError('Failed to process audio. Please try again or switch to text input.');
+      console.error("Error processing audio:", err);
+      setError(
+        "Failed to process audio. Please try again or switch to text input."
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -218,49 +242,57 @@ const VoiceSession = () => {
   const handleTextSubmit = async (e) => {
     e.preventDefault();
     if (!userInput.trim() || !conversation) return;
-    
+
     try {
       // Add user message
       const userMessage = {
-        role: 'user',
+        role: "user",
         content: userInput,
-        phase: currentPhase.name
+        phase: currentPhase.name,
       };
-      
-      setMessages(prev => [...prev, userMessage]);
-      setUserInput('');
+
+      setMessages((prev) => [...prev, userMessage]);
+      setUserInput("");
       setIsProcessing(true);
-      
+
       // Save user message to conversation
-      await axios.post(`/api/conversations/${conversation._id}/messages`, userMessage);
-      
+      await axios.post(
+        `/api/conversations/${conversation._id}/messages`,
+        userMessage
+      );
+
       // Get AI response
-      const response = await axios.post(`/api/conversations/${conversation._id}/ai-response`, {
-        userMessage,
-        phase: currentPhase.name
-      });
-      
+      const response = await axios.post(
+        `/api/conversations/${conversation._id}/ai-response`,
+        {
+          userMessage,
+          phase: currentPhase.name,
+        }
+      );
+
       // Add AI response
       if (response.data.aiResponse) {
         const assistantMessage = {
-          role: 'ai',
+          role: "ai",
           content: response.data.aiResponse,
           phase: currentPhase.name,
-          insights: response.data.insights || []
+          insights: response.data.insights || [],
         };
-        
-        setMessages(prev => [...prev, assistantMessage]);
-        
+
+        setMessages((prev) => [...prev, assistantMessage]);
+
         // Save ai message to conversation
-        await axios.post(`/api/conversations/${conversation._id}/messages`, assistantMessage);
-        
+        await axios.post(
+          `/api/conversations/${conversation._id}/messages`,
+          assistantMessage
+        );
+
         // Check if we should advance to next phase
         checkPhaseProgression(response.data.aiResponse);
       }
-      
     } catch (err) {
-      console.error('Error getting AI response:', err);
-      setError('Failed to get AI response. Please try again.');
+      console.error("Error getting AI response:", err);
+      setError("Failed to get AI response. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -268,7 +300,10 @@ const VoiceSession = () => {
 
   // Start voice recording
   const startRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive') {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state === "inactive"
+    ) {
       audioChunksRef.current = [];
       mediaRecorderRef.current.start();
       setIsRecording(true);
@@ -277,7 +312,10 @@ const VoiceSession = () => {
 
   // Stop voice recording
   const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state === "recording"
+    ) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
@@ -285,17 +323,19 @@ const VoiceSession = () => {
 
   // Toggle input mode between voice and text
   const toggleInputMode = () => {
-    setInputMode(inputMode === 'voice' ? 'text' : 'voice');
+    setInputMode(inputMode === "voice" ? "text" : "voice");
   };
 
   // Check if we should advance to the next conversation phase
   const checkPhaseProgression = (aiResponse) => {
     // Logic to determine if we should move to the next phase
     // This is a simplified version - in production you might want more sophisticated logic
-    
+
     // Count messages in current phase
-    const phaseMessages = messages.filter(msg => msg.phase === currentPhase.name);
-    
+    const phaseMessages = messages.filter(
+      (msg) => msg.phase === currentPhase.name
+    );
+
     // Check for phase-specific keywords in AI response
     const containsProgressionWords = (response) => {
       const progressionPhrases = [
@@ -303,14 +343,14 @@ const VoiceSession = () => {
         "Now that we've explored",
         "Let's talk about the emotional aspects",
         "Let's shift our focus",
-        "Now I'd like to understand"
+        "Now I'd like to understand",
       ];
-      
-      return progressionPhrases.some(phrase => response.includes(phrase));
+
+      return progressionPhrases.some((phrase) => response.includes(phrase));
     };
-    
+
     // Progress to next phase if we have enough messages or AI suggests progression
-    if ((phaseMessages.length >= 6) || containsProgressionWords(aiResponse)) {
+    if (phaseMessages.length >= 6 || containsProgressionWords(aiResponse)) {
       advanceToNextPhase();
     }
   };
@@ -318,8 +358,8 @@ const VoiceSession = () => {
   // Advance to next conversation phase
   const advanceToNextPhase = async () => {
     let nextPhase;
-    
-    switch(currentPhase.name) {
+
+    switch (currentPhase.name) {
       case PHASES.ONBOARDING.name:
         nextPhase = PHASES.EMOTIONAL_MAPPING;
         break;
@@ -336,21 +376,24 @@ const VoiceSession = () => {
       default:
         nextPhase = PHASES.ONBOARDING;
     }
-    
+
     setCurrentPhase(nextPhase);
-    
+
     // Add transition message
     const transitionMessage = {
-      role: 'ai',
+      role: "ai",
       content: `Great! Now let's move on to the next phase: ${nextPhase.title}. ${nextPhase.description}`,
-      phase: nextPhase.name
+      phase: nextPhase.name,
     };
-    
-    setMessages(prev => [...prev, transitionMessage]);
-    
+
+    setMessages((prev) => [...prev, transitionMessage]);
+
     // Save transition message
     if (conversation) {
-      await axios.post(`/api/conversations/${conversation._id}/messages`, transitionMessage);
+      await axios.post(
+        `/api/conversations/${conversation._id}/messages`,
+        transitionMessage
+      );
     }
   };
 
@@ -363,52 +406,66 @@ const VoiceSession = () => {
   const completeSession = async () => {
     try {
       if (!conversation) return;
-      
+
       // Add completion message
       const completionMessage = {
-        role: 'ai',
+        role: "ai",
         content: `Thank you for sharing about your relationship with ${relationship?.contactName}. I've gathered valuable insights that will help build a richer understanding of this connection. You can now view a summary of our conversation.`,
-        phase: 'completion'
+        phase: "completion",
       };
-      
-      setMessages(prev => [...prev, completionMessage]);
-      
+
+      setMessages((prev) => [...prev, completionMessage]);
+
       // Save completion message
-      await axios.post(`/api/conversations/${conversation._id}/messages`, completionMessage);
-      
+      await axios.post(
+        `/api/conversations/${conversation._id}/messages`,
+        completionMessage
+      );
+
       // Update conversation status to completed
       await axios.patch(`/api/conversations/${conversation._id}`, {
-        status: 'completed'
+        status: "completed",
       });
-      
+
       // Navigate to conversation summary page
       setTimeout(() => {
-        navigate(`/relationships/${relationshipId}/conversations/${conversation._id}/summary`);
+        navigate(
+          `/relationships/${relationshipId}/conversations/${conversation._id}/summary`
+        );
       }, 3000);
-      
     } catch (err) {
-      console.error('Error completing session:', err);
-      setError('Failed to complete session. Please try again.');
+      console.error("Error completing session:", err);
+      setError("Failed to complete session. Please try again.");
     }
   };
 
   // Render phase indicator
   const renderPhaseIndicator = () => {
     const phases = Object.values(PHASES);
-    const currentIndex = phases.findIndex(phase => phase.name === currentPhase.name);
-    
+    const currentIndex = phases.findIndex(
+      (phase) => phase.name === currentPhase.name
+    );
+
     return (
       <div className="flex items-center justify-center mb-6">
         {phases.map((phase, index) => (
           <div key={phase.name} className="flex items-center">
-            <div 
+            <div
               className={`w-8 h-8 rounded-full flex items-center justify-center
-                ${currentIndex >= index ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-600'}`}
+                ${
+                  currentIndex >= index
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-200 text-gray-600"
+                }`}
             >
               {index + 1}
             </div>
             {index < phases.length - 1 && (
-              <div className={`h-1 w-12 ${currentIndex > index ? 'bg-indigo-600' : 'bg-gray-200'}`}></div>
+              <div
+                className={`h-1 w-12 ${
+                  currentIndex > index ? "bg-indigo-600" : "bg-gray-200"
+                }`}
+              ></div>
             )}
           </div>
         ))}
@@ -418,15 +475,17 @@ const VoiceSession = () => {
 
   // Render message item
   const renderMessage = (message, index) => {
-    const isUser = message.role === 'user';
+    const isUser = message.role === "user";
     return (
-      <div 
-        key={index} 
-        className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}
+      <div
+        key={index}
+        className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4`}
       >
-        <div 
+        <div
           className={`max-w-3/4 p-3 rounded-lg
-            ${isUser ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-800'}`}
+            ${
+              isUser ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-800"
+            }`}
         >
           {message.content}
         </div>
@@ -438,15 +497,24 @@ const VoiceSession = () => {
   const renderPhaseQuestions = () => {
     return (
       <div className="mt-4 p-4 bg-indigo-50 rounded-lg">
-        <h3 className="text-sm font-medium text-indigo-800 mb-2">Sample Questions:</h3>
+        <h3 className="text-sm font-medium text-indigo-800 mb-2">
+          Sample Questions:
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {currentPhase.sampleQuestions.map((question, index) => (
-            <div 
-              key={index} 
+            <div
+              key={index}
               className="text-sm p-2 bg-white rounded border border-indigo-200 cursor-pointer hover:bg-indigo-100"
-              onClick={() => setUserInput(question.replace('[Name]', relationship?.contactName || 'them'))}
+              onClick={() =>
+                setUserInput(
+                  question.replace(
+                    "[Name]",
+                    relationship?.contactName || "them"
+                  )
+                )
+              }
             >
-              {question.replace('[Name]', relationship?.contactName || 'them')}
+              {question.replace("[Name]", relationship?.contactName || "them")}
             </div>
           ))}
         </div>
@@ -471,7 +539,7 @@ const VoiceSession = () => {
             <h1 className="text-xl font-semibold">
               Conversation with {relationship.contactName}
             </h1>
-            <button 
+            <button
               onClick={() => navigate(`/relationships/${relationshipId}`)}
               className="p-1 rounded hover:bg-indigo-600"
             >
@@ -480,18 +548,16 @@ const VoiceSession = () => {
           </div>
           <p className="text-sm opacity-80">{currentPhase.title}</p>
         </div>
-        
+
         {/* Phase progress indicator */}
-        <div className="p-4 bg-gray-50 border-b">
-          {renderPhaseIndicator()}
-        </div>
+        <div className="p-4 bg-gray-50 border-b">{renderPhaseIndicator()}</div>
 
         {/* Error message if any */}
         {error && (
           <div className="p-3 bg-red-100 border-l-4 border-red-500 text-red-700 mb-4">
             <p>{error}</p>
-            <button 
-              onClick={() => setError(null)} 
+            <button
+              onClick={() => setError(null)}
               className="text-sm underline"
             >
               Dismiss
@@ -510,7 +576,7 @@ const VoiceSession = () => {
 
         {/* Input area */}
         <div className="p-4 border-t">
-          {inputMode === 'voice' ? (
+          {inputMode === "voice" ? (
             <div className="flex justify-center items-center space-x-4">
               {isRecording ? (
                 <button
@@ -529,7 +595,7 @@ const VoiceSession = () => {
                   <Mic size={24} />
                 </button>
               )}
-              
+
               <button
                 onClick={toggleInputMode}
                 className="p-2 text-gray-500 hover:text-indigo-600"
@@ -571,11 +637,11 @@ const VoiceSession = () => {
               Processing your message...
             </div>
           )}
-          
+
           {/* Next phase button (only visible to admins or for debugging) */}
-          {process.env.NODE_ENV === 'development' && (
+          {process.env.NODE_ENV === "development" && (
             <div className="mt-4 text-center">
-              <button 
+              <button
                 onClick={forceNextPhase}
                 className="text-xs bg-gray-200 px-2 py-1 rounded text-gray-700 hover:bg-gray-300"
               >

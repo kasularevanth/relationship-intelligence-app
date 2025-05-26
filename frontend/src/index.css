@@ -1,8 +1,9 @@
 /* Base styles */
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -35,7 +36,8 @@ body {
 }
 
 * {
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  transition: background-color 0.3s ease, color 0.3s ease,
+    border-color 0.3s ease;
 }
 
 /* Home page styles */
@@ -130,13 +132,13 @@ body.dark-mode-auth {
 
 @media screen and (max-width: 600px) {
   /* ===== AUTH PAGES MOBILE DARK MODE FIXES ===== */
-  
+
   /* Force black background in auth pages in dark mode */
   body.dark-mode .auth-page,
   [data-theme="dark"] .auth-page {
     background-color: #000 !important;
   }
-  
+
   /* Remove borders and padding from containers */
   .auth-page {
     padding: 0 !important;
@@ -145,7 +147,7 @@ body.dark-mode-auth {
     width: 100vw !important;
     max-width: 100vw !important;
   }
-  
+
   /* Remove specific Paper styles (including inline styles) */
   .dark-mode .auth-page .MuiPaper-root,
   [data-theme="dark"] .auth-page .MuiPaper-root,
@@ -160,7 +162,7 @@ body.dark-mode-auth {
     border: none !important;
     box-shadow: none !important;
   }
-  
+
   /* Target the specific MuiPaper classes from theme.js */
   .auth-page .MuiPaper-root.MuiPaper-elevation0,
   .auth-page .MuiPaper-root.MuiPaper-elevation1,
@@ -170,7 +172,7 @@ body.dark-mode-auth {
     padding: 0 !important;
     background-color: #000 !important;
   }
-  
+
   /* Target individual MUI components within auth pages */
   .dark-mode .auth-page .MuiBox-root,
   .dark-mode .auth-page .MuiContainer-root,
@@ -182,15 +184,15 @@ body.dark-mode-auth {
   [data-theme="dark"] .auth-page .MuiFormControl-root {
     background-color: #000 !important;
     transition: none !important; /* Prevent transition flashes */
-    padding: '0px';
+    padding: "0px";
   }
-  
+
   /* Fix input field background */
   .dark-mode .auth-page .MuiOutlinedInput-root,
   [data-theme="dark"] .auth-page .MuiOutlinedInput-root {
     background-color: #000 !important;
   }
-  
+
   /* Override the theme.js button styles */
   .dark-mode .auth-page .MuiButton-contained,
   [data-theme="dark"] .auth-page .MuiButton-contained,
@@ -202,23 +204,25 @@ body.dark-mode-auth {
     border-radius: 28px !important;
     border: none !important;
   }
-  
+
   .dark-mode .auth-page .MuiButton-outlined,
   [data-theme="dark"] .auth-page .MuiButton-outlined {
     border: 1px solid #4aeabc !important;
     color: #fff !important;
   }
-  
+
   /* Target Google sign-in button specifically - with increased specificity */
   .dark-mode .auth-page button.MuiButton-root:has(svg[class*="Google"]),
-  [data-theme="dark"] .auth-page button.MuiButton-root:has(svg[class*="Google"]),
+  [data-theme="dark"]
+    .auth-page
+    button.MuiButton-root:has(svg[class*="Google"]),
   .dark-mode .auth-page .MuiButton-outlined:has(svg[class*="Google"]),
   [data-theme="dark"] .auth-page .MuiButton-outlined:has(svg[class*="Google"]) {
     border: 1px solid #333 !important;
     background-color: #000 !important;
     color: #fff !important;
   }
-  
+
   /* Use attribute selectors to target buttons with Google icons as fallback */
   .dark-mode .auth-page button[class*="MuiButton"][onclick*="Google"],
   [data-theme="dark"] .auth-page button[class*="MuiButton"][onclick*="Google"] {
@@ -226,41 +230,40 @@ body.dark-mode-auth {
     background-color: #000 !important;
     color: #fff !important;
   }
-  
+
   /* Override any inline styles that might be causing issues */
   .dark-mode .auth-page [style*="background"],
   [data-theme="dark"] .auth-page [style*="background"] {
     background-color: #000 !important;
   }
-  
+
   /* Targeting specific UI elements by their appearance if classes aren't reliable */
   .dark-mode .auth-page form,
   [data-theme="dark"] .auth-page form {
     background-color: #000 !important;
   }
-  
+
   /* Make sure borders don't show as white */
   .dark-mode .auth-page *,
   [data-theme="dark"] .auth-page * {
     border-color: #333 !important;
   }
-  
+
   /* Fix for custom inputs with borders */
   .dark-mode .auth-page input,
   [data-theme="dark"] .auth-page input {
     border-color: #333 !important;
   }
-  
+
   /* Specifically target the css-1fy1raf-MuiPaper-root class */
-  
 
   /* ===== DASHBOARD PAGE MOBILE FIXES ===== */
-  
+
   /* Reset background for dashboard page only */
   .dashboard-page {
     background-color: inherit !important;
   }
-  
+
   /* Preserve component styling for dashboard */
   .dashboard-page .MuiPaper-root,
   .dashboard-page .MuiBox-root,
@@ -270,13 +273,13 @@ body.dark-mode-auth {
     border: inherit !important;
     box-shadow: inherit !important;
   }
-  
+
   /* Ensure typography uses component styling */
   .dashboard-page .MuiTypography-root,
   .dashboard-page[data-theme="dark"] .MuiTypography-root {
     color: inherit !important;
   }
-  
+
   /* Fix specific Dashboard components */
   .dashboard-page .CircularContactItem,
   .dashboard-page .ContactAvatar,
@@ -292,7 +295,7 @@ body.dark-mode-auth {
     box-shadow: inherit !important;
     color: inherit !important;
   }
-  
+
   /* Ensure mic button and other buttons have proper styling */
   .dashboard-page .MicButton {
     background-color: inherit !important;

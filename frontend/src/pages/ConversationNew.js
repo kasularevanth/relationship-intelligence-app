@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { conversationService } from '../services/api';
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { conversationService } from "../services/api";
 
 const ConversationNew = () => {
   const [loading, setLoading] = useState(true);
@@ -13,15 +13,14 @@ const ConversationNew = () => {
       try {
         setLoading(true);
         // Call API to start a new conversation
-       
+
         const response = await conversationService.start(relationshipId);
-        
-        
+
         // Once created, navigate to the conversation interface
         navigate(`/conversations/${response.data.conversation._id}`);
       } catch (err) {
-        console.error('Error starting conversation:', err);
-        setError(err.message || 'Failed to start conversation');
+        console.error("Error starting conversation:", err);
+        setError(err.message || "Failed to start conversation");
         setLoading(false);
       }
     };
@@ -44,7 +43,7 @@ const ConversationNew = () => {
     return (
       <div className="text-center p-10">
         <div className="text-red-500 mb-4">{error}</div>
-        <button 
+        <button
           onClick={() => navigate(`/relationships/${relationshipId}`)}
           className="bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700"
         >

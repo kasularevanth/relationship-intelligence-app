@@ -1,9 +1,9 @@
 // frontend/src/components/ThemeToggle.js
-import React from 'react';
-import { IconButton, Tooltip } from '@mui/material';
-import Brightness4Icon from '@mui/icons-material/Brightness4';
-import Brightness7Icon from '@mui/icons-material/Brightness7';
-import { useTheme } from '../contexts/ThemeContext';
+import React from "react";
+import { IconButton, Tooltip } from "@mui/material";
+import Brightness4Icon from "@mui/icons-material/Brightness4";
+import Brightness7Icon from "@mui/icons-material/Brightness7";
+import { useTheme } from "../contexts/ThemeContext";
 
 const ThemeToggle = () => {
   const { darkMode, toggleDarkMode } = useTheme();
@@ -15,9 +15,9 @@ const ThemeToggle = () => {
         color="inherit"
         aria-label="toggle dark mode"
         sx={{
-          transition: 'transform 0.3s ease',
-          '&:hover': {
-            transform: 'rotate(30deg)',
+          transition: "transform 0.3s ease",
+          "&:hover": {
+            transform: "rotate(30deg)",
           },
         }}
       >
