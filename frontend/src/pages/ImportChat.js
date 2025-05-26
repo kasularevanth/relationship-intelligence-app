@@ -114,53 +114,54 @@ const ImportChat = () => {
   }, [topicsProcessed]);
 
   const checkImportStatus = async () => {
-    try {
-      if (!conversationId) return;
+  try {
+    if (!conversationId) return;
 
-      const response = await importService.getImportStatus(conversationId);
-      const { status, progress = 0 } = response.data;
-      
-      setImportStatus(status);
+    const response = await importService.getImportStatus(conversationId);
+    const { status, progress = 0 } = response.data;
+    
+    setImportStatus(status);
 
-      // If no progress is returned, increment slowly up to 95%
-      if (progress === 0 && importProgress < 95) {
-        // Faster increments to give impression of quicker processing
-        const increment = importProgress < 40 ? 15 : 
-                          importProgress < 70 ? 10 : 
-                          importProgress < 90 ? 5 : 2;
-        setImportProgress(prev => Math.min(prev + increment, 95));
-      } else {
-        setImportProgress(progress || importProgress);
-      } 
-      
-      // Check for completion states - now including "analyzed" status
-      if (status === 'completed' || status === 'analyzed' || status === 'failed') {
-        // Clear the interval to stop polling
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
-        }
-        
-        if (status === 'completed' || status === 'analyzed') {
-          setSuccess(true);
-          setImportProgress(100);
-          // Move to final step to show analysis
-          setActiveStep(3);
-        } else if (status === 'failed') {
-          setError('Import failed. Please try again.');
-        }
-      }
-    } catch (err) {
-      console.error('Error checking import status:', err);
-      setError(err.response?.data?.message || 'Error checking import status');
-      
-      // Always clear interval on error to prevent continuous failing requests
+    // Only increment if backend hasn't provided actual progress AND we haven't received a completion status
+    if (progress === 0 && importProgress < 95 && status !== 'completed' && status !== 'analyzed' && status !== 'failed') {
+      // Stop incrementing once backend starts providing real progress or status changes
+      const increment = importProgress < 40 ? 15 : 
+                        importProgress < 70 ? 10 : 
+                        importProgress < 90 ? 5 : 2;
+      setImportProgress(prev => Math.min(prev + increment, 95));
+    } else if (progress > 0) {
+      // Use backend progress when available
+      setImportProgress(progress);
+    }
+    
+    // Check for completion states
+    if (status === 'completed' || status === 'analyzed' || status === 'failed') {
+      // Clear the interval to stop polling
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
+      
+      if (status === 'completed' || status === 'analyzed') {
+        setSuccess(true);
+        setImportProgress(100);
+        // Move to final step to show analysis
+        setActiveStep(3);
+      } else if (status === 'failed') {
+        setError('Import failed. Please try again.');
+      }
     }
-  };
+  } catch (err) {
+    console.error('Error checking import status:', err);
+    setError(err.response?.data?.message || 'Error checking import status');
+    
+    // Always clear interval on error to prevent continuous failing requests
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  }
+};
 
  // Update this function in your ImportChat component
  const fetchImportAnalysis = async () => {
@@ -545,102 +546,206 @@ const getEstimatedTimeRemaining = () => {
           </Box>
         );
       
-      case 1:
-        return (
-          <Box mt={3}>
-            <Box 
-              border={1} 
-              borderRadius={1} 
-              borderColor={darkMode ? "rgba(255, 255, 255, 0.2)" : "divider"} 
-              p={3} 
-              textAlign="center"
-              mb={3}
+      
+
+case 1:
+  return (
+    <Box mt={3}>
+      {!file ? (
+        // Show upload area when no file is selected
+        <Box 
+          border={1} 
+          borderRadius={1} 
+          borderColor={darkMode ? "rgba(255, 255, 255, 0.2)" : "divider"} 
+          p={3} 
+          textAlign="center"
+          mb={3}
+          sx={{
+            backgroundColor: darkMode ? 'rgba(0, 0, 0, 0.2)' : undefined,
+            borderStyle: 'dashed',
+            '&:hover': {
+              borderColor: darkMode ? 'rgba(255, 255, 255, 0.4)' : 'primary.main',
+              backgroundColor: darkMode ? 'rgba(99, 102, 241, 0.05)' : 'rgba(63, 81, 181, 0.02)'
+            }
+          }}
+        >
+          {/* Allowed file types section */}
+          <Box mb={3}>
+            <Typography variant="subtitle2" sx={{ color: darkMode ? 'rgba(255, 255, 255, 0.7)' : 'text.secondary', mb: 1 }}>
+              Supported file types:
+            </Typography>
+            <Box display="flex" justifyContent="center" flexWrap="wrap" gap={1}>
+              {allowedFileTypes.map((type, index) => (
+                <Chip 
+                  key={index}
+                  icon={<FileType size={16} />}
+                  label={type}
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    color: darkMode ? '#fff' : undefined,
+                    borderColor: darkMode ? 'rgba(255, 255, 255, 0.3)' : undefined
+                  }}
+                />
+              ))}
+            </Box>
+          </Box>
+
+          <input
+            accept=".txt,.csv,.json,.zip,.html"
+            style={{ display: 'none' }}
+            id="chat-file-upload"
+            type="file"
+            onChange={handleFileChange}
+          />
+          <label htmlFor="chat-file-upload">
+            <Button
+              variant="outlined"
+              startIcon={<Upload />}
+              component="span"
+              size="large"
               sx={{
-                backgroundColor: darkMode ? 'rgba(0, 0, 0, 0.2)' : undefined
+                color: darkMode ? '#fff' : undefined,
+                borderColor: darkMode ? 'rgba(255, 255, 255, 0.3)' : undefined,
+                '&:hover': {
+                  borderColor: darkMode ? 'rgba(255, 255, 255, 0.5)' : undefined,
+                  backgroundColor: darkMode ? 'rgba(99, 102, 241, 0.1)' : undefined
+                },
+                py: 1.5,
+                px: 3
               }}
             >
-              {/* Allowed file types section */}
-              <Box mb={2}>
-                <Typography variant="subtitle2" sx={{ color: darkMode ? 'rgba(255, 255, 255, 0.7)' : 'text.secondary', mb: 1 }}>
-                  Supported file types:
+              Select Chat Export File
+            </Button>
+          </label>
+          
+          <Typography variant="body2" mt={2} sx={{ color: darkMode ? 'rgba(255, 255, 255, 0.6)' : 'text.secondary' }}>
+            Drag and drop your file here or click to browse
+          </Typography>
+        </Box>
+      ) : (
+        // Show selected file with success state
+        <Box 
+          border={1} 
+          borderRadius={2} 
+          borderColor={darkMode ? "rgba(74, 222, 128, 0.4)" : "success.main"} 
+          p={3} 
+          mb={3}
+          sx={{
+            backgroundColor: darkMode ? 'rgba(74, 222, 128, 0.1)' : 'rgba(76, 175, 80, 0.05)',
+            position: 'relative'
+          }}
+        >
+          {/* Success indicator */}
+          <Box display="flex" alignItems="center" mb={2}>
+            <CheckCircle 
+              size={24} 
+              style={{ 
+                color: darkMode ? '#4ade80' : '#4caf50', 
+                marginRight: 12 
+              }} 
+            />
+            <Typography variant="h6" fontWeight="600" sx={{ color: darkMode ? '#4ade80' : 'success.main' }}>
+              File Successfully Attached
+            </Typography>
+          </Box>
+          
+          {/* File details */}
+          <Box 
+            display="flex" 
+            alignItems="center" 
+            justifyContent="space-between"
+            p={2}
+            borderRadius={1}
+            sx={{
+              backgroundColor: darkMode ? 'rgba(0, 0, 0, 0.2)' : 'background.paper',
+              border: darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e0e0e0'
+            }}
+          >
+            <Box display="flex" alignItems="center">
+              <FileText 
+                size={20} 
+                style={{ 
+                  color: darkMode ? '#6366f1' : '#3f51b5', 
+                  marginRight: 12 
+                }} 
+              />
+              <Box>
+                <Typography variant="subtitle2" fontWeight="500" sx={{ color: darkMode ? '#fff' : undefined }}>
+                  {file.name}
                 </Typography>
-                <Box display="flex" justifyContent="center" flexWrap="wrap" gap={1}>
-                  {allowedFileTypes.map((type, index) => (
-                    <Chip 
-                      key={index}
-                      icon={<FileType size={16} />}
-                      label={type}
-                      variant="outlined"
-                      size="small"
-                      sx={{
-                        color: darkMode ? '#fff' : undefined,
-                        borderColor: darkMode ? 'rgba(255, 255, 255, 0.3)' : undefined
-                      }}
-                    />
-                  ))}
-                </Box>
+                <Typography variant="caption" sx={{ color: darkMode ? 'rgba(255, 255, 255, 0.7)' : 'text.secondary' }}>
+                  {(file.size / (1024 * 1024)).toFixed(2)} MB • {file.type || 'Unknown type'}
+                </Typography>
               </Box>
-
+            </Box>
+            
+            {/* Change file button */}
+            <Box>
               <input
                 accept=".txt,.csv,.json,.zip,.html"
                 style={{ display: 'none' }}
-                id="chat-file-upload"
+                id="chat-file-replace"
                 type="file"
                 onChange={handleFileChange}
               />
-              <label htmlFor="chat-file-upload">
+              <label htmlFor="chat-file-replace">
                 <Button
                   variant="outlined"
-                  startIcon={<Upload />}
+                  size="small"
                   component="span"
                   sx={{
-                    color: darkMode ? '#fff' : undefined,
+                    color: darkMode ? 'rgba(255, 255, 255, 0.8)' : undefined,
                     borderColor: darkMode ? 'rgba(255, 255, 255, 0.3)' : undefined,
                     '&:hover': {
                       borderColor: darkMode ? 'rgba(255, 255, 255, 0.5)' : undefined
                     }
                   }}
                 >
-                  Select Chat Export File
+                  Change File
                 </Button>
               </label>
-              
-              {file && (
-                <Typography variant="body2" mt={2} sx={{ color: darkMode ? '#fff' : undefined }}>
-                  Selected file: {file.name}
-                </Typography>
-              )}
             </Box>
-            
-            <TextField
-              label="Contact's Phone Number (optional)"
-              placeholder="e.g. +1234567890"
-              fullWidth
-              value={contactPhone}
-              onChange={(e) => setContactPhone(e.target.value)}
-              helperText="This helps identify which messages are from your contact"
-              margin="normal"
-              sx={{
-                '& .MuiInputBase-root': {
-                  color: darkMode ? '#fff' : undefined,
-                  backgroundColor: darkMode ? 'rgba(0, 0, 0, 0.2) !important' : undefined,
-                },
-                '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: darkMode ? 'rgba(255, 255, 255, 0.2)' : undefined
-                },
-                '&:hover .MuiOutlinedInput-notchedOutline': {
-                  borderColor: darkMode ? 'rgba(255, 255, 255, 0.3)' : undefined
-                },
-                '& .MuiInputLabel-root': {
-                  color: darkMode ? 'rgba(255, 255, 255, 0.7)' : undefined
-                },
-                '& .MuiFormHelperText-root': {
-                  color: darkMode ? 'rgba(255, 255, 255, 0.5)' : undefined
-                }
-              }}
-            />
           </Box>
-        );
+          
+          {/* Ready indicator */}
+          <Box mt={2} textAlign="center">
+            <Typography variant="body2" sx={{ color: darkMode ? '#4ade80' : 'success.main', fontWeight: 500 }}>
+              ✓ Ready to import your {chatSource} conversation
+            </Typography>
+          </Box>
+        </Box>
+      )}
+      
+      <TextField
+        label="Contact's Phone Number (optional)"
+        placeholder="e.g. +1234567890"
+        fullWidth
+        value={contactPhone}
+        onChange={(e) => setContactPhone(e.target.value)}
+        helperText="This helps identify which messages are from your contact"
+        margin="normal"
+        sx={{
+          '& .MuiInputBase-root': {
+            color: darkMode ? '#fff' : undefined,
+            backgroundColor: darkMode ? 'rgba(0, 0, 0, 0.2) !important' : undefined,
+          },
+          '& .MuiOutlinedInput-notchedOutline': {
+            borderColor: darkMode ? 'rgba(255, 255, 255, 0.2)' : undefined
+          },
+          '&:hover .MuiOutlinedInput-notchedOutline': {
+            borderColor: darkMode ? 'rgba(255, 255, 255, 0.3)' : undefined
+          },
+          '& .MuiInputLabel-root': {
+            color: darkMode ? 'rgba(255, 255, 255, 0.7)' : undefined
+          },
+          '& .MuiFormHelperText-root': {
+            color: darkMode ? 'rgba(255, 255, 255, 0.5)' : undefined
+          }
+        }}
+      />
+    </Box>
+  );
       
       case 2:
         return (
