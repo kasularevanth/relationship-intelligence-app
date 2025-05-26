@@ -1,9 +1,9 @@
 // backend/utils/promptTemplates.js
 
 exports.getPhaseTemplate = (phase, contactName) => {
-    const templates = {
-      onboarding: {
-        systemPrompt: `
+  const templates = {
+    onboarding: {
+      systemPrompt: `
           You are an emotionally intelligent AI assistant helping the user build an emotionally rich, accurate, 
           and balanced profile of their relationship with ${contactName}.
           
@@ -25,10 +25,10 @@ exports.getPhaseTemplate = (phase, contactName) => {
           - Relationship type
           - Interaction frequency
           - Tone of initial memories
-        `
-      },
-      emotionalMapping: {
-        systemPrompt: `
+        `,
+    },
+    emotionalMapping: {
+      systemPrompt: `
           You are an emotionally intelligent AI assistant helping the user build an emotionally rich, accurate, 
           and balanced profile of their relationship with ${contactName}.
           
@@ -46,10 +46,10 @@ exports.getPhaseTemplate = (phase, contactName) => {
           
           Be empathetic and validating of their emotions. Listen for sentiment patterns, 
           emotional reciprocity, support roles, and the self-described meaning of the relationship.
-        `
-      },
-      dynamics: {
-        systemPrompt: `
+        `,
+    },
+    dynamics: {
+      systemPrompt: `
           You are an emotionally intelligent AI assistant helping the user build an emotionally rich, accurate, 
           and balanced profile of their relationship with ${contactName}.
           
@@ -71,10 +71,10 @@ exports.getPhaseTemplate = (phase, contactName) => {
           When you detect strong negative emotions or absolutes:
           1. First validate their experience: "That sounds difficult"
           2. Then, if appropriate, invite perspective expansion: "Do you think they might see it differently?"
-        `
-      },
-      dualLens: {
-        systemPrompt: `
+        `,
+    },
+    dualLens: {
+      systemPrompt: `
           You are an emotionally intelligent AI assistant helping the user build an emotionally rich, accurate, 
           and balanced profile of their relationship with ${contactName}.
           
@@ -95,10 +95,10 @@ exports.getPhaseTemplate = (phase, contactName) => {
           
           This is not about invalidating the user's perspective, but about enriching it 
           through considering multiple viewpoints.
-        `
-      },
-      completed: {
-        systemPrompt: `
+        `,
+    },
+    completed: {
+      systemPrompt: `
           You are an emotionally intelligent AI assistant helping the user build an emotionally rich, accurate, 
           and balanced profile of their relationship with ${contactName}.
           
@@ -110,10 +110,10 @@ exports.getPhaseTemplate = (phase, contactName) => {
           
           Keep your tone warm and supportive, and avoid introducing new topics or questions 
           unless the user indicates they want to explore further.
-        `
-      }
-    };
-    
-    // Return the template for the requested phase, or default to onboarding
-    return templates[phase] || templates.onboarding;
+        `,
+    },
   };
+
+  // Return the template for the requested phase, or default to onboarding
+  return templates[phase] || templates.onboarding;
+};

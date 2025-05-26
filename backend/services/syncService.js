@@ -1,49 +1,49 @@
 // backend/services/syncService.js
-const { db } = require('../config/firebaseAdmin');
-const User = require('../models/User');
-const Relationship = require('../models/Relationship');
-const Conversation = require('../models/Conversation');
-const Message = require('../models/Message');
-const MemoryNode = require('../models/MemoryNode');
-const RelationshipQuestion = require('../models/RelationshipQuestion');
-const Recording = require('../models/Recording');
-const { modelEvents } = require('../utils/eventEmitter');
+const { db } = require("../config/firebaseAdmin");
+const User = require("../models/User");
+const Relationship = require("../models/Relationship");
+const Conversation = require("../models/Conversation");
+const Message = require("../models/Message");
+const MemoryNode = require("../models/MemoryNode");
+const RelationshipQuestion = require("../models/RelationshipQuestion");
+const Recording = require("../models/Recording");
+const { modelEvents } = require("../utils/eventEmitter");
 
 // Helper function to convert MongoDB documents to Firebase-friendly objects
 const convertToFirebaseDoc = (doc) => {
   if (!doc) return null;
-  
+
   // If it's a Mongoose document, convert to plain object
   const obj = doc.toObject ? doc.toObject() : { ...doc };
-  
+
   // Convert _id to string for Firebase
   if (obj._id) {
     obj._id = obj._id.toString();
   }
-  
+
   // Convert reference IDs to strings
-  ['user', 'relationship', 'conversation'].forEach(field => {
-    if (obj[field] && typeof obj[field] !== 'string' && obj[field].toString) {
+  ["user", "relationship", "conversation"].forEach((field) => {
+    if (obj[field] && typeof obj[field] !== "string" && obj[field].toString) {
       obj[field] = obj[field].toString();
     }
   });
-  
+
   // Handle arrays of ObjectIDs (like sessions in Relationship)
-  ['sessions', 'memoryNodes'].forEach(field => {
+  ["sessions", "memoryNodes"].forEach((field) => {
     if (Array.isArray(obj[field])) {
-      obj[field] = obj[field].map(item => {
-        return typeof item === 'string' ? item : item.toString();
+      obj[field] = obj[field].map((item) => {
+        return typeof item === "string" ? item : item.toString();
       });
     }
   });
-  
+
   // Convert dates to timestamps for Firestore
-  Object.keys(obj).forEach(key => {
+  Object.keys(obj).forEach((key) => {
     if (obj[key] instanceof Date) {
       obj[key] = obj[key].toISOString();
     }
   });
-  
+
   return obj;
 };
 
@@ -55,7 +55,7 @@ const syncUserToFirebase = async (userId) => {
       console.error(`User ${userId} not found in MongoDB`);
       return false;
     }
-    
+
     // Transform user for Firebase - exclude password and sensitive fields
     const userData = convertToFirebaseDoc({
       _id: user._id,
@@ -63,15 +63,18 @@ const syncUserToFirebase = async (userId) => {
       email: user.email,
       avatar: user.avatar,
       createdAt: user.createdAt,
-      updatedAt: user.updatedAt || new Date()
+      updatedAt: user.updatedAt || new Date(),
     });
-    
+
     // Use the MongoDB _id as the document ID in Firebase
-    await db.collection('users').doc(userId.toString()).set(userData, { merge: true });
+    await db
+      .collection("users")
+      .doc(userId.toString())
+      .set(userData, { merge: true });
     console.log(`User ${userId} synced to Firebase`);
     return true;
   } catch (error) {
-    console.error('Error syncing user to Firebase:', error);
+    console.error("Error syncing user to Firebase:", error);
     return false;
   }
 };
@@ -84,16 +87,19 @@ const syncRelationshipToFirebase = async (relationshipId) => {
       console.error(`Relationship ${relationshipId} not found in MongoDB`);
       return false;
     }
-    
+
     // Transform the relationship for Firebase
     const relationshipData = convertToFirebaseDoc(relationship);
-    
+
     // Use the MongoDB _id as the document ID in Firebase
-    await db.collection('relationships').doc(relationshipId.toString()).set(relationshipData, { merge: true });
+    await db
+      .collection("relationships")
+      .doc(relationshipId.toString())
+      .set(relationshipData, { merge: true });
     console.log(`Relationship ${relationshipId} synced to Firebase`);
     return true;
   } catch (error) {
-    console.error('Error syncing relationship to Firebase:', error);
+    console.error("Error syncing relationship to Firebase:", error);
     return false;
   }
 };
@@ -106,51 +112,55 @@ const syncConversationToFirebase = async (conversationId) => {
       console.error(`Conversation ${conversationId} not found in MongoDB`);
       return false;
     }
-    
+
     // Transform the conversation for Firebase
     const conversationData = convertToFirebaseDoc(conversation);
-    
+
     // Store messages in a separate collection in Firebase
     if (conversation.messages && conversation.messages.length > 0) {
       const batch = db.batch();
-      
+
       // Delete existing messages to avoid duplicates
-      const existingMessages = await db.collection('messages')
-        .where('conversation', '==', conversationId.toString())
+      const existingMessages = await db
+        .collection("messages")
+        .where("conversation", "==", conversationId.toString())
         .get();
-      
-      existingMessages.forEach(doc => {
+
+      existingMessages.forEach((doc) => {
         batch.delete(doc.ref);
       });
-      
+
       // Add new messages
       conversation.messages.forEach((message, index) => {
         const messageData = convertToFirebaseDoc({
           ...message,
           conversation: conversationId,
-          index: index
+          index: index,
         });
-        
-        const messageId = message._id ? 
-          message._id.toString() : 
-          `${conversationId.toString()}-${index}`;
-        
-        const messageRef = db.collection('messages').doc(messageId);
+
+        const messageId = message._id
+          ? message._id.toString()
+          : `${conversationId.toString()}-${index}`;
+
+        const messageRef = db.collection("messages").doc(messageId);
         batch.set(messageRef, messageData);
       });
-      
+
       await batch.commit();
-      
+
       // Remove messages from the conversation document to avoid data duplication
       delete conversationData.messages;
     }
-    
+
     // Store the conversation data (without messages) in Firebase
-    await db.collection('conversations').doc(conversationId.toString()).set(conversationData, { merge: true });
+    await db
+      .collection("conversations")
+      .doc(conversationId.toString())
+      .set(conversationData, { merge: true });
     console.log(`Conversation ${conversationId} synced to Firebase`);
     return true;
   } catch (error) {
-    console.error('Error syncing conversation to Firebase:', error);
+    console.error("Error syncing conversation to Firebase:", error);
     return false;
   }
 };
@@ -163,16 +173,19 @@ const syncMemoryNodeToFirebase = async (memoryId) => {
       console.error(`Memory ${memoryId} not found in MongoDB`);
       return false;
     }
-    
+
     // Transform the memory for Firebase
     const memoryData = convertToFirebaseDoc(memory);
-    
+
     // Store the memory in Firebase
-    await db.collection('memories').doc(memoryId.toString()).set(memoryData, { merge: true });
+    await db
+      .collection("memories")
+      .doc(memoryId.toString())
+      .set(memoryData, { merge: true });
     console.log(`Memory ${memoryId} synced to Firebase`);
     return true;
   } catch (error) {
-    console.error('Error syncing memory to Firebase:', error);
+    console.error("Error syncing memory to Firebase:", error);
     return false;
   }
 };
@@ -185,16 +198,19 @@ const syncQuestionToFirebase = async (questionId) => {
       console.error(`Question ${questionId} not found in MongoDB`);
       return false;
     }
-    
+
     // Transform the question for Firebase
     const questionData = convertToFirebaseDoc(question);
-    
+
     // Store the question in Firebase
-    await db.collection('questions').doc(questionId.toString()).set(questionData, { merge: true });
+    await db
+      .collection("questions")
+      .doc(questionId.toString())
+      .set(questionData, { merge: true });
     console.log(`Question ${questionId} synced to Firebase`);
     return true;
   } catch (error) {
-    console.error('Error syncing question to Firebase:', error);
+    console.error("Error syncing question to Firebase:", error);
     return false;
   }
 };
@@ -207,7 +223,7 @@ const syncRecordingToFirebase = async (recordingId) => {
       console.error(`Recording ${recordingId} not found in MongoDB`);
       return false;
     }
-    
+
     // Transform the recording for Firebase, excluding the actual audio data
     const recordingData = convertToFirebaseDoc({
       _id: recording._id,
@@ -223,15 +239,18 @@ const syncRecordingToFirebase = async (recordingId) => {
       nextQuestion: recording.nextQuestion,
       askedQuestions: recording.askedQuestions,
       createdAt: recording.createdAt,
-      updatedAt: recording.updatedAt
+      updatedAt: recording.updatedAt,
     });
-    
+
     // Store the recording metadata in Firebase (without the audio buffer)
-    await db.collection('recordings').doc(recordingId.toString()).set(recordingData, { merge: true });
+    await db
+      .collection("recordings")
+      .doc(recordingId.toString())
+      .set(recordingData, { merge: true });
     console.log(`Recording ${recordingId} synced to Firebase`);
     return true;
   } catch (error) {
-    console.error('Error syncing recording to Firebase:', error);
+    console.error("Error syncing recording to Firebase:", error);
     return false;
   }
 };
@@ -241,29 +260,29 @@ const syncRecordingToFirebase = async (recordingId) => {
 // Sync a user from Firebase to MongoDB
 const syncUserFromFirebase = async (userId) => {
   try {
-    const userDoc = await db.collection('users').doc(userId).get();
+    const userDoc = await db.collection("users").doc(userId).get();
     if (!userDoc.exists) {
       console.error(`User ${userId} not found in Firebase`);
       return false;
     }
-    
+
     const userData = userDoc.data();
-    
+
     // Find or create user in MongoDB
     let user = await User.findOne({ firebaseUid: userData.firebaseUid });
-    
+
     if (!user) {
       // Try by ID
       user = await User.findById(userId);
     }
-    
+
     if (user) {
       // Update existing user
       user.name = userData.name;
       user.email = userData.email;
       user.avatar = userData.avatar;
       user.firebaseUid = userData.firebaseUid;
-      
+
       await user.save();
       console.log(`User ${userId} updated in MongoDB`);
     } else {
@@ -273,16 +292,16 @@ const syncUserFromFirebase = async (userId) => {
         name: userData.name,
         email: userData.email,
         avatar: userData.avatar,
-        firebaseUid: userData.firebaseUid
+        firebaseUid: userData.firebaseUid,
       });
-      
+
       await user.save();
       console.log(`User ${userId} created in MongoDB`);
     }
-    
+
     return true;
   } catch (error) {
-    console.error('Error syncing user from Firebase:', error);
+    console.error("Error syncing user from Firebase:", error);
     return false;
   }
 };
@@ -290,17 +309,20 @@ const syncUserFromFirebase = async (userId) => {
 // Sync a relationship from Firebase to MongoDB
 const syncRelationshipFromFirebase = async (relationshipId) => {
   try {
-    const relationshipDoc = await db.collection('relationships').doc(relationshipId).get();
+    const relationshipDoc = await db
+      .collection("relationships")
+      .doc(relationshipId)
+      .get();
     if (!relationshipDoc.exists) {
       console.error(`Relationship ${relationshipId} not found in Firebase`);
       return false;
     }
-    
+
     const relationshipData = relationshipDoc.data();
-    
+
     // Find or create relationship in MongoDB
     let relationship = await Relationship.findById(relationshipId);
-    
+
     if (relationship) {
       // Update core fields
       relationship.contactName = relationshipData.contactName;
@@ -310,29 +332,29 @@ const syncRelationshipFromFirebase = async (relationshipId) => {
       relationship.howWeMet = relationshipData.howWeMet;
       relationship.photo = relationshipData.photo;
       relationship.timeKnown = relationshipData.timeKnown;
-      
+
       // Handle complex fields
       if (relationshipData.metrics) {
         relationship.metrics = {
           ...relationship.metrics,
-          ...relationshipData.metrics
+          ...relationshipData.metrics,
         };
       }
-      
+
       if (relationshipData.topicDistribution) {
         relationship.topicDistribution = relationshipData.topicDistribution;
       }
-      
+
       if (relationshipData.theirValues) {
         relationship.theirValues = relationshipData.theirValues;
       }
-      
+
       if (relationshipData.theirInterests) {
         relationship.theirInterests = relationshipData.theirInterests;
       }
-      
+
       relationship.updatedAt = new Date();
-      
+
       await relationship.save();
       console.log(`Relationship ${relationshipId} updated in MongoDB`);
     } else {
@@ -351,16 +373,16 @@ const syncRelationshipFromFirebase = async (relationshipId) => {
         topicDistribution: relationshipData.topicDistribution || [],
         theirValues: relationshipData.theirValues || [],
         theirInterests: relationshipData.theirInterests || [],
-        sessions: relationshipData.sessions || []
+        sessions: relationshipData.sessions || [],
       });
-      
+
       await relationship.save();
       console.log(`Relationship ${relationshipId} created in MongoDB`);
     }
-    
+
     return true;
   } catch (error) {
-    console.error('Error syncing relationship from Firebase:', error);
+    console.error("Error syncing relationship from Firebase:", error);
     return false;
   }
 };
@@ -368,28 +390,32 @@ const syncRelationshipFromFirebase = async (relationshipId) => {
 // Sync a conversation from Firebase to MongoDB
 const syncConversationFromFirebase = async (conversationId) => {
   try {
-    const conversationDoc = await db.collection('conversations').doc(conversationId).get();
+    const conversationDoc = await db
+      .collection("conversations")
+      .doc(conversationId)
+      .get();
     if (!conversationDoc.exists) {
       console.error(`Conversation ${conversationId} not found in Firebase`);
       return false;
     }
-    
+
     const conversationData = conversationDoc.data();
-    
+
     // Get messages from Firebase
-    const messagesSnapshot = await db.collection('messages')
-      .where('conversation', '==', conversationId)
-      .orderBy('index')
+    const messagesSnapshot = await db
+      .collection("messages")
+      .where("conversation", "==", conversationId)
+      .orderBy("index")
       .get();
-    
+
     const messages = [];
-    messagesSnapshot.forEach(doc => {
+    messagesSnapshot.forEach((doc) => {
       messages.push(doc.data());
     });
-    
+
     // Find or create conversation in MongoDB
     let conversation = await Conversation.findById(conversationId);
-    
+
     if (conversation) {
       // Update fields
       conversation.title = conversationData.title;
@@ -399,7 +425,7 @@ const syncConversationFromFirebase = async (conversationId) => {
       conversation.summary = conversationData.summary;
       conversation.askedQuestions = conversationData.askedQuestions;
       conversation.messages = messages;
-      
+
       await conversation.save();
       console.log(`Conversation ${conversationId} updated in MongoDB`);
     } else {
@@ -418,16 +444,16 @@ const syncConversationFromFirebase = async (conversationId) => {
         startTime: conversationData.startTime,
         endTime: conversationData.endTime,
         duration: conversationData.duration,
-        sentimentAnalysis: conversationData.sentimentAnalysis
+        sentimentAnalysis: conversationData.sentimentAnalysis,
       });
-      
+
       await conversation.save();
       console.log(`Conversation ${conversationId} created in MongoDB`);
     }
-    
+
     return true;
   } catch (error) {
-    console.error('Error syncing conversation from Firebase:', error);
+    console.error("Error syncing conversation from Firebase:", error);
     return false;
   }
 };
@@ -435,17 +461,17 @@ const syncConversationFromFirebase = async (conversationId) => {
 // Sync a memory node from Firebase to MongoDB
 const syncMemoryNodeFromFirebase = async (memoryId) => {
   try {
-    const memoryDoc = await db.collection('memories').doc(memoryId).get();
+    const memoryDoc = await db.collection("memories").doc(memoryId).get();
     if (!memoryDoc.exists) {
       console.error(`Memory ${memoryId} not found in Firebase`);
       return false;
     }
-    
+
     const memoryData = memoryDoc.data();
-    
+
     // Find or create memory in MongoDB
     let memory = await MemoryNode.findById(memoryId);
-    
+
     if (memory) {
       // Update fields
       memory.content = memoryData.content;
@@ -455,7 +481,7 @@ const syncMemoryNodeFromFirebase = async (memoryId) => {
       memory.keywords = memoryData.keywords;
       memory.weight = memoryData.weight;
       memory.decayFactor = memoryData.decayFactor;
-      
+
       await memory.save();
       console.log(`Memory ${memoryId} updated in MongoDB`);
     } else {
@@ -471,16 +497,16 @@ const syncMemoryNodeFromFirebase = async (memoryId) => {
         sentiment: memoryData.sentiment,
         keywords: memoryData.keywords || [],
         weight: memoryData.weight,
-        decayFactor: memoryData.decayFactor
+        decayFactor: memoryData.decayFactor,
       });
-      
+
       await memory.save();
       console.log(`Memory ${memoryId} created in MongoDB`);
     }
-    
+
     return true;
   } catch (error) {
-    console.error('Error syncing memory from Firebase:', error);
+    console.error("Error syncing memory from Firebase:", error);
     return false;
   }
 };
@@ -489,83 +515,105 @@ const syncMemoryNodeFromFirebase = async (memoryId) => {
 const setupFirebaseListeners = () => {
   try {
     // Listen for changes to users collection
-    db.collection('users').onSnapshot(snapshot => {
-      snapshot.docChanges().forEach(change => {
-        if (change.type === 'added' || change.type === 'modified') {
-          const userId = change.doc.id;
-          syncUserFromFirebase(userId)
-            .catch(err => console.error(`Error in user listener for ${userId}:`, err));
-        }
-      });
-    }, error => {
-      console.error("Error setting up users listener:", error);
-    });
-    
+    db.collection("users").onSnapshot(
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added" || change.type === "modified") {
+            const userId = change.doc.id;
+            syncUserFromFirebase(userId).catch((err) =>
+              console.error(`Error in user listener for ${userId}:`, err)
+            );
+          }
+        });
+      },
+      (error) => {
+        console.error("Error setting up users listener:", error);
+      }
+    );
+
     // Listen for changes to relationships collection
-    db.collection('relationships').onSnapshot(snapshot => {
-      snapshot.docChanges().forEach(change => {
-        if (change.type === 'added' || change.type === 'modified') {
-          const relationshipId = change.doc.id;
-          syncRelationshipFromFirebase(relationshipId)
-            .catch(err => console.error(`Error in relationship listener for ${relationshipId}:`, err));
-        }
-      });
-    }, error => {
-      console.error("Error setting up relationships listener:", error);
-    });
-    
+    db.collection("relationships").onSnapshot(
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added" || change.type === "modified") {
+            const relationshipId = change.doc.id;
+            syncRelationshipFromFirebase(relationshipId).catch((err) =>
+              console.error(
+                `Error in relationship listener for ${relationshipId}:`,
+                err
+              )
+            );
+          }
+        });
+      },
+      (error) => {
+        console.error("Error setting up relationships listener:", error);
+      }
+    );
+
     // Listen for changes to conversations collection
-    db.collection('conversations').onSnapshot(snapshot => {
-      snapshot.docChanges().forEach(change => {
-        if (change.type === 'added' || change.type === 'modified') {
-          const conversationId = change.doc.id;
-          syncConversationFromFirebase(conversationId)
-            .catch(err => console.error(`Error in conversation listener for ${conversationId}:`, err));
-        }
-      });
-    }, error => {
-      console.error("Error setting up conversations listener:", error);
-    });
-    
+    db.collection("conversations").onSnapshot(
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added" || change.type === "modified") {
+            const conversationId = change.doc.id;
+            syncConversationFromFirebase(conversationId).catch((err) =>
+              console.error(
+                `Error in conversation listener for ${conversationId}:`,
+                err
+              )
+            );
+          }
+        });
+      },
+      (error) => {
+        console.error("Error setting up conversations listener:", error);
+      }
+    );
+
     // Listen for changes to memories collection
-    db.collection('memories').onSnapshot(snapshot => {
-      snapshot.docChanges().forEach(change => {
-        if (change.type === 'added' || change.type === 'modified') {
-          const memoryId = change.doc.id;
-          syncMemoryNodeFromFirebase(memoryId)
-            .catch(err => console.error(`Error in memory listener for ${memoryId}:`, err));
-        }
-      });
-    }, error => {
-      console.error("Error setting up memories listener:", error);
-    });
-    
-    console.log('Firebase listeners initialized successfully');
+    db.collection("memories").onSnapshot(
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added" || change.type === "modified") {
+            const memoryId = change.doc.id;
+            syncMemoryNodeFromFirebase(memoryId).catch((err) =>
+              console.error(`Error in memory listener for ${memoryId}:`, err)
+            );
+          }
+        });
+      },
+      (error) => {
+        console.error("Error setting up memories listener:", error);
+      }
+    );
+
+    console.log("Firebase listeners initialized successfully");
   } catch (error) {
-    console.error('Error setting up Firebase listeners:', error);
+    console.error("Error setting up Firebase listeners:", error);
   }
 };
 
 // Sync a question from Firebase to MongoDB
 const syncQuestionFromFirebase = async (questionId) => {
   try {
-    const questionDoc = await db.collection('questions').doc(questionId).get();
+    const questionDoc = await db.collection("questions").doc(questionId).get();
     if (!questionDoc.exists) {
       console.error(`Question ${questionId} not found in Firebase`);
       return false;
     }
-    
+
     const questionData = questionDoc.data();
-    
+
     // Find or create question in MongoDB
     let question = await RelationshipQuestion.findById(questionId);
-    
+
     if (question) {
       // Update fields
       question.question = questionData.question;
       question.answer = questionData.answer;
       question.sentiment = questionData.sentiment;
-      
+
       await question.save();
       console.log(`Question ${questionId} updated in MongoDB`);
     } else {
@@ -576,28 +624,30 @@ const syncQuestionFromFirebase = async (questionId) => {
         relationship: questionData.relationship,
         question: questionData.question,
         answer: questionData.answer,
-        sentiment: questionData.sentiment || 'neutral',
-        createdAt: questionData.createdAt ? new Date(questionData.createdAt) : new Date()
+        sentiment: questionData.sentiment || "neutral",
+        createdAt: questionData.createdAt
+          ? new Date(questionData.createdAt)
+          : new Date(),
       });
-      
+
       await question.save();
       console.log(`Question ${questionId} created in MongoDB`);
     }
-    
+
     return true;
   } catch (error) {
-    console.error('Error syncing question from Firebase:', error);
+    console.error("Error syncing question from Firebase:", error);
     return false;
   }
 };
 
 const setupModelEventListeners = () => {
-  modelEvents.on('syncUserToFirebase', syncUserToFirebase);
-  modelEvents.on('syncRelationshipToFirebase', syncRelationshipToFirebase);
-  modelEvents.on('syncConversationToFirebase', syncConversationToFirebase);
-  modelEvents.on('syncMemoryNodeToFirebase', syncMemoryNodeToFirebase);
-  modelEvents.on('syncQuestionToFirebase', syncQuestionToFirebase);
-  modelEvents.on('syncRecordingToFirebase', syncRecordingToFirebase);
+  modelEvents.on("syncUserToFirebase", syncUserToFirebase);
+  modelEvents.on("syncRelationshipToFirebase", syncRelationshipToFirebase);
+  modelEvents.on("syncConversationToFirebase", syncConversationToFirebase);
+  modelEvents.on("syncMemoryNodeToFirebase", syncMemoryNodeToFirebase);
+  modelEvents.on("syncQuestionToFirebase", syncQuestionToFirebase);
+  modelEvents.on("syncRecordingToFirebase", syncRecordingToFirebase);
 };
 
 module.exports = {
@@ -613,5 +663,5 @@ module.exports = {
   syncQuestionFromFirebase,
   syncMemoryNodeFromFirebase,
   setupFirebaseListeners,
-  setupModelEventListeners  // Export this new function
+  setupModelEventListeners, // Export this new function
 };

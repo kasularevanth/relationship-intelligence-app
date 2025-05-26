@@ -1,14 +1,14 @@
 // backend/controllers/enhancedQuestionController.js
 
-const Relationship = require('../models/Relationship');
-const RelationshipQuestion = require('../models/RelationshipQuestion');
-const Conversation = require('../models/Conversation');
-const MemoryNode = require('../models/MemoryNode');
-const { checkMessage, checkForBias } = require('../utils/safetyGuards');
-const OpenAI = require('openai');
-const config = require('../config');
-const fs = require('fs');
-const path = require('path');
+const Relationship = require("../models/Relationship");
+const RelationshipQuestion = require("../models/RelationshipQuestion");
+const Conversation = require("../models/Conversation");
+const MemoryNode = require("../models/MemoryNode");
+const { checkMessage, checkForBias } = require("../utils/safetyGuards");
+const OpenAI = require("openai");
+const config = require("../config");
+const fs = require("fs");
+const path = require("path");
 
 // Initialize OpenAI
 const openai = new OpenAI({
@@ -22,26 +22,26 @@ const getRelevantMemories = async (userId, relationshipId, question) => {
   try {
     // Extract keywords from question
     const keywords = extractKeywords(question);
-    
+
     // Find relevant memory nodes based on keywords
     const memories = await MemoryNode.find({
       user: userId,
       relationship: relationshipId,
-      keywords: { $in: keywords }
+      keywords: { $in: keywords },
     })
-    .sort({ weight: -1 })
-    .limit(5);
-    
+      .sort({ weight: -1 })
+      .limit(5);
+
     // Record access to update metrics
     for (const memory of memories) {
       memory.lastAccessed = new Date();
       memory.accessCount += 1;
       await memory.save();
     }
-    
+
     return memories;
   } catch (error) {
-    console.error('Error retrieving memories:', error);
+    console.error("Error retrieving memories:", error);
     return [];
   }
 };
@@ -49,35 +49,40 @@ const getRelevantMemories = async (userId, relationshipId, question) => {
 /**
  * Save conversation as memory for future context
  */
-const saveConversationMemory = async (userId, relationshipId, question, answer) => {
+const saveConversationMemory = async (
+  userId,
+  relationshipId,
+  question,
+  answer
+) => {
   try {
     // Determine emotion based on content
-    let emotion = 'Neutral';
+    let emotion = "Neutral";
     if (/positive|happy|great|love/i.test(answer)) {
-      emotion = 'Joy';
+      emotion = "Joy";
     } else if (/sad|sorry|difficult|challenge/i.test(answer)) {
-      emotion = 'Sadness';
+      emotion = "Sadness";
     } else if (/angry|frustrat|upset/i.test(answer)) {
-      emotion = 'Anger';
+      emotion = "Anger";
     }
-    
+
     // Create memory node
     const memoryNode = new MemoryNode({
       user: userId,
       relationship: relationshipId,
       content: `Q: ${question.substring(0, 100)}... A: ${answer.substring(0, 100)}...`,
-      type: 'conversation',
+      type: "conversation",
       emotion: emotion,
-      keywords: extractKeywords(question + ' ' + answer),
+      keywords: extractKeywords(question + " " + answer),
       weight: 0.7, // Higher weight for direct Q&A
       decayFactor: 0.03,
-      createdAt: new Date()
+      createdAt: new Date(),
     });
-    
+
     await memoryNode.save();
     return true;
   } catch (error) {
-    console.error('Error saving conversation memory:', error);
+    console.error("Error saving conversation memory:", error);
     return false;
   }
 };
@@ -90,17 +95,17 @@ const buildConversationContext = async (userId, relationshipId, limit = 5) => {
     // Get recent questions and answers
     const previousQuestions = await RelationshipQuestion.find({
       user: userId,
-      relationship: relationshipId
+      relationship: relationshipId,
     })
-    .sort({ createdAt: -1 })
-    .limit(limit);
-    
-    if (previousQuestions.length === 0) return '';
-    
-    const context = previousQuestions.map(q => 
-      `User: ${q.question}\nAI: ${q.answer}`
-    ).join('\n\n');
-    
+      .sort({ createdAt: -1 })
+      .limit(limit);
+
+    if (previousQuestions.length === 0) return "";
+
+    const context = previousQuestions
+      .map((q) => `User: ${q.question}\nAI: ${q.answer}`)
+      .join("\n\n");
+
     return `
 Previous conversation history (DO NOT reference directly):
 ${context}
@@ -108,8 +113,8 @@ ${context}
 Use this history to maintain conversation continuity without explicitly mentioning previous questions.
 `;
   } catch (error) {
-    console.error('Error building conversation context:', error);
-    return '';
+    console.error("Error building conversation context:", error);
+    return "";
   }
 };
 
@@ -148,16 +153,32 @@ Speak naturally, be direct, and maintain a supportive tone throughout.`;
  */
 const extractKeywords = (text) => {
   if (!text) return [];
-  
+
   // Convert to lowercase and remove punctuation
-  const cleaned = text.toLowerCase().replace(/[^\w\s]/g, '');
-  
+  const cleaned = text.toLowerCase().replace(/[^\w\s]/g, "");
+
   // Remove common stop words
-  const stopWords = ['the', 'and', 'is', 'in', 'to', 'i', 'you', 'that', 'it', 'for', 'on', 'with', 'as', 'this', 'of'];
-  const words = cleaned.split(/\s+/).filter(word => 
-    word.length > 3 && !stopWords.includes(word)
-  );
-  
+  const stopWords = [
+    "the",
+    "and",
+    "is",
+    "in",
+    "to",
+    "i",
+    "you",
+    "that",
+    "it",
+    "for",
+    "on",
+    "with",
+    "as",
+    "this",
+    "of",
+  ];
+  const words = cleaned
+    .split(/\s+/)
+    .filter((word) => word.length > 3 && !stopWords.includes(word));
+
   // Return unique words
   return [...new Set(words)];
 };
@@ -171,18 +192,22 @@ exports.askQuestion = async (req, res) => {
     const userId = req.user.id;
 
     // Input validation
-    if (!question || question.trim() === '') {
-      return res.status(400).json({ success: false, message: 'Question is required' });
+    if (!question || question.trim() === "") {
+      return res
+        .status(400)
+        .json({ success: false, message: "Question is required" });
     }
 
     // Check relationship
     const relationship = await Relationship.findOne({
       _id: relationshipId,
-      user: userId
+      user: userId,
     });
 
     if (!relationship) {
-      return res.status(404).json({ success: false, message: 'Relationship not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Relationship not found" });
     }
 
     // Safety check
@@ -197,63 +222,72 @@ exports.askQuestion = async (req, res) => {
         answer: safetyCheck.response,
         flagged: true,
         flagType: safetyCheck.type,
-        createdAt: new Date()
+        createdAt: new Date(),
       });
-      
+
       await relationshipQuestion.save();
-      
+
       return res.status(200).json({
         success: true,
         flagged: true,
         flagType: safetyCheck.type,
         question,
         answer: safetyCheck.response,
-        _id: relationshipQuestion._id
+        _id: relationshipQuestion._id,
       });
     }
 
-    
-
     // Check for imported conversations
-    const hasConversations = await Conversation.countDocuments({
-      relationship: relationshipId,
-      status: 'analyzed'
-    }) > 0;
-    
+    const hasConversations =
+      (await Conversation.countDocuments({
+        relationship: relationshipId,
+        status: "analyzed",
+      })) > 0;
+
     if (!hasConversations) {
       return res.status(200).json({
         success: true,
-        answer: `I need more information about your relationship with ${relationship.contactName}. Please import your WhatsApp chat history so I can provide helpful insights.`
+        answer: `I need more information about your relationship with ${relationship.contactName}. Please import your WhatsApp chat history so I can provide helpful insights.`,
       });
     }
 
     // Retrieve relevant memories
-    const memories = await getRelevantMemories(userId, relationshipId, question);
-    
+    const memories = await getRelevantMemories(
+      userId,
+      relationshipId,
+      question
+    );
+
     // Get previous conversation context
-    const conversationContext = await buildConversationContext(userId, relationshipId);
-    
+    const conversationContext = await buildConversationContext(
+      userId,
+      relationshipId
+    );
+
     // Get relationship context data
     const contextData = {
       relationship: {
         name: relationship.contactName,
         type: relationship.relationshipType,
-        frequency: relationship.interactionFrequency || 'Not specified',
-        howWeMet: relationship.howWeMet || '',
-        timeKnown: relationship.timeKnown || 'Not specified'
+        frequency: relationship.interactionFrequency || "Not specified",
+        howWeMet: relationship.howWeMet || "",
+        timeKnown: relationship.timeKnown || "Not specified",
       },
       metrics: relationship.metrics || {},
       topicDistribution: relationship.topicDistribution || [],
       insights: relationship.insights || {},
       communicationStyle: relationship.communicationStyle || {},
       sentimentScore: relationship.insights?.sentimentScore || 0,
-      communicationBalance: relationship.insights?.communicationBalance || 'unknown'
+      communicationBalance:
+        relationship.insights?.communicationBalance || "unknown",
     };
 
     // Format memories for prompt context
-    const memoryContext = memories.length > 0 ? 
-      `RELEVANT MEMORIES (use this information but DO NOT reference directly):\n` + 
-      memories.map(m => `- ${m.content}`).join('\n') : '';
+    const memoryContext =
+      memories.length > 0
+        ? `RELEVANT MEMORIES (use this information but DO NOT reference directly):\n` +
+          memories.map((m) => `- ${m.content}`).join("\n")
+        : "";
 
     // Create improved system prompt
     const systemPrompt = createEnhancedSystemPrompt(relationship.contactName);
@@ -269,15 +303,15 @@ Relationship Context: ${JSON.stringify(contextData, null, 2)}`;
 
     // Generate AI response
     const completion = await openai.chat.completions.create({
-    model: "gpt-4-turbo", // Use the latest GPT-4 model
-    messages: [
+      model: "gpt-4-turbo", // Use the latest GPT-4 model
+      messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage }
-    ],
-    temperature: 0.7, // Keep this balanced
-    
-    presence_penalty: 0.6, // Helps avoid repetitive phrasing
-    frequency_penalty: 0.5 // Encourages more varied language
+        { role: "user", content: userMessage },
+      ],
+      temperature: 0.7, // Keep this balanced
+
+      presence_penalty: 0.6, // Helps avoid repetitive phrasing
+      frequency_penalty: 0.5, // Encourages more varied language
     });
 
     const aiResponse = completion.choices[0].message.content;
@@ -288,11 +322,11 @@ Relationship Context: ${JSON.stringify(contextData, null, 2)}`;
       relationship: relationshipId,
       question,
       answer: aiResponse,
-      createdAt: new Date()
+      createdAt: new Date(),
     });
 
     await relationshipQuestion.save();
-    
+
     // Save as memory for future context
     await saveConversationMemory(userId, relationshipId, question, aiResponse);
 
@@ -301,14 +335,14 @@ Relationship Context: ${JSON.stringify(contextData, null, 2)}`;
       success: true,
       question,
       answer: aiResponse,
-      _id: relationshipQuestion._id
+      _id: relationshipQuestion._id,
     });
   } catch (error) {
-    console.error('Error processing question:', error);
+    console.error("Error processing question:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error processing question',
-      error: error.message
+      message: "Server error processing question",
+      error: error.message,
     });
   }
 };
@@ -320,73 +354,78 @@ exports.askQuestionVoice = async (req, res) => {
   try {
     const { relationshipId } = req.params;
     const userId = req.user.id;
-    
+
     // Validate file upload
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No audio file received' });
+      return res
+        .status(400)
+        .json({ success: false, message: "No audio file received" });
     }
-    
+
     // Check relationship
     const relationship = await Relationship.findOne({
       _id: relationshipId,
-      user: userId
+      user: userId,
     });
 
     if (!relationship) {
-      return res.status(404).json({ success: false, message: 'Relationship not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Relationship not found" });
     }
-    
+
     // Check for imported conversations
-    const hasConversations = await Conversation.countDocuments({
-      relationship: relationshipId,
-      status: 'analyzed'
-    }) > 0;
-    
+    const hasConversations =
+      (await Conversation.countDocuments({
+        relationship: relationshipId,
+        status: "analyzed",
+      })) > 0;
+
     if (!hasConversations) {
       return res.status(200).json({
         success: true,
         transcription: "No data available",
-        answer: `I need more information about your relationship with ${relationship.contactName}. Please import your WhatsApp chat history so I can provide helpful insights.`
+        answer: `I need more information about your relationship with ${relationship.contactName}. Please import your WhatsApp chat history so I can provide helpful insights.`,
       });
     }
-    
+
     // Transcribe audio using Whisper API
     let transcription;
     try {
-      const FormData = require('form-data');
+      const FormData = require("form-data");
       const formData = new FormData();
-      
-      formData.append('file', req.file.buffer, {
-        filename: 'audio.webm',
-        contentType: req.file.mimetype || 'audio/webm'
+
+      formData.append("file", req.file.buffer, {
+        filename: "audio.webm",
+        contentType: req.file.mimetype || "audio/webm",
       });
-      formData.append('model', 'whisper-1');
-      formData.append('language', 'en');
-      
-      const axios = require('axios');
+      formData.append("model", "whisper-1");
+      formData.append("language", "en");
+
+      const axios = require("axios");
       const openaiResponse = await axios.post(
-        'https://api.openai.com/v1/audio/transcriptions',
+        "https://api.openai.com/v1/audio/transcriptions",
         formData,
         {
           headers: {
             ...formData.getHeaders(),
-            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
-          }
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          },
         }
       );
-      
+
       transcription = { text: openaiResponse.data.text };
     } catch (transcriptionError) {
-      console.error('Error transcribing audio:', transcriptionError);
+      console.error("Error transcribing audio:", transcriptionError);
       return res.status(500).json({
         success: false,
-        message: 'Failed to transcribe audio',
-        error: transcriptionError.message
+        message: "Failed to transcribe audio",
+        error: transcriptionError.message,
       });
     }
-    
+
     const question = transcription.text;
-    
+
     // Safety check
     const safetyCheck = checkMessage(question, relationship);
 
@@ -399,47 +438,57 @@ exports.askQuestionVoice = async (req, res) => {
         answer: safetyCheck.response,
         flagged: true,
         flagType: safetyCheck.type,
-        createdAt: new Date()
+        createdAt: new Date(),
       });
-      
+
       await relationshipQuestion.save();
-      
+
       return res.status(200).json({
         success: true,
         transcription: question,
         flagged: true,
         flagType: safetyCheck.type,
         answer: safetyCheck.response,
-        _id: relationshipQuestion._id
+        _id: relationshipQuestion._id,
       });
     }
-    
+
     // The rest of the process is identical to text questions
-    const memories = await getRelevantMemories(userId, relationshipId, question);
-    const conversationContext = await buildConversationContext(userId, relationshipId);
-    
+    const memories = await getRelevantMemories(
+      userId,
+      relationshipId,
+      question
+    );
+    const conversationContext = await buildConversationContext(
+      userId,
+      relationshipId
+    );
+
     const contextData = {
       relationship: {
         name: relationship.contactName,
         type: relationship.relationshipType,
-        frequency: relationship.interactionFrequency || 'Not specified',
-        howWeMet: relationship.howWeMet || '',
-        timeKnown: relationship.timeKnown || 'Not specified'
+        frequency: relationship.interactionFrequency || "Not specified",
+        howWeMet: relationship.howWeMet || "",
+        timeKnown: relationship.timeKnown || "Not specified",
       },
       metrics: relationship.metrics || {},
       topicDistribution: relationship.topicDistribution || [],
       insights: relationship.insights || {},
       communicationStyle: relationship.communicationStyle || {},
       sentimentScore: relationship.insights?.sentimentScore || 0,
-      communicationBalance: relationship.insights?.communicationBalance || 'unknown'
+      communicationBalance:
+        relationship.insights?.communicationBalance || "unknown",
     };
-    
-    const memoryContext = memories.length > 0 ? 
-      `RELEVANT MEMORIES (use this information but DO NOT reference directly):\n` + 
-      memories.map(m => `- ${m.content}`).join('\n') : '';
-    
+
+    const memoryContext =
+      memories.length > 0
+        ? `RELEVANT MEMORIES (use this information but DO NOT reference directly):\n` +
+          memories.map((m) => `- ${m.content}`).join("\n")
+        : "";
+
     const systemPrompt = createEnhancedSystemPrompt(relationship.contactName);
-    
+
     const userMessage = `Question about my relationship with ${relationship.contactName}: "${question}"
 
 ${memoryContext}
@@ -447,45 +496,44 @@ ${memoryContext}
 ${conversationContext}
 
 Relationship Context: ${JSON.stringify(contextData, null, 2)}`;
-    
-    const completion = await openai.chat.completions.create({
-    model: "gpt-4-turbo", // Use the latest GPT-4 model
-    messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage }
-    ],
-    temperature: 0.7, // Keep this balanced
 
-    presence_penalty: 0.6, // Helps avoid repetitive phrasing
-    frequency_penalty: 0.5 // Encourages more varied language
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4-turbo", // Use the latest GPT-4 model
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      temperature: 0.7, // Keep this balanced
+
+      presence_penalty: 0.6, // Helps avoid repetitive phrasing
+      frequency_penalty: 0.5, // Encourages more varied language
     });
-    
+
     const aiResponse = completion.choices[0].message.content;
-    
+
     const relationshipQuestion = new RelationshipQuestion({
       user: userId,
       relationship: relationshipId,
       question: question,
       answer: aiResponse,
-      createdAt: new Date()
+      createdAt: new Date(),
     });
-    
+
     await relationshipQuestion.save();
     await saveConversationMemory(userId, relationshipId, question, aiResponse);
-    
+
     res.json({
       success: true,
       transcription: question,
       answer: aiResponse,
-      _id: relationshipQuestion._id
+      _id: relationshipQuestion._id,
     });
-    
   } catch (error) {
-    console.error('Error processing voice question:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to process voice question',
-      error: error.message 
+    console.error("Error processing voice question:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process voice question",
+      error: error.message,
     });
   }
 };
@@ -498,33 +546,31 @@ exports.getQuestionHistory = async (req, res) => {
 
     const relationship = await Relationship.findOne({
       _id: relationshipId,
-      user: userId
+      user: userId,
     });
 
     if (!relationship) {
       return res.status(404).json({
         success: false,
-        message: 'Relationship not found'
+        message: "Relationship not found",
       });
     }
 
     const questions = await RelationshipQuestion.find({
       relationship: relationshipId,
-      user: userId
-    })
-    .sort({ createdAt: -1 });
+      user: userId,
+    }).sort({ createdAt: -1 });
 
     res.json({
       success: true,
-      questions
+      questions,
     });
-
   } catch (error) {
-    console.error('Error fetching question history:', error);
+    console.error("Error fetching question history:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch question history',
-      error: error.message
+      message: "Failed to fetch question history",
+      error: error.message,
     });
   }
 };
