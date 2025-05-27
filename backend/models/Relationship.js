@@ -1,4 +1,4 @@
-// backend/models/Relationship.js - UPDATED
+// backend/models/Relationship.js - FIXED VERSION
 
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
@@ -56,6 +56,7 @@ const insightSchema = new Schema({
   },
 });
 
+// FIXED: Updated metrics schema with proper validation
 const metricsSchema = new Schema({
   sentimentScore: {
     type: Number,
@@ -66,7 +67,7 @@ const metricsSchema = new Schema({
   depthScore: {
     type: Number,
     min: 1,
-    max: 5,
+    max: 5, // Keep max at 5 as defined
     default: 1,
   },
   reciprocityRatio: {
@@ -75,6 +76,7 @@ const metricsSchema = new Schema({
     max: 1,
     default: 0.5,
   },
+  // FIXED: emotionalVolatility should be enum, not number
   emotionalVolatility: {
     type: String,
     enum: ["Stable", "Swingy", "Erratic"],
@@ -83,6 +85,64 @@ const metricsSchema = new Schema({
   lastUpdated: {
     type: Date,
     default: Date.now,
+  },
+  // NEW: Add additional professional metrics
+  professionalTone: {
+    type: String,
+    enum: ["Very formal", "Formal", "Semi-formal", "Casual", "Very casual"],
+    default: "Casual",
+  },
+  powerDynamic: {
+    type: String,
+    enum: [
+      "You lead",
+      "They lead",
+      "Balanced",
+      "You appear more directive",
+      "They appear more directive",
+    ],
+    default: "Balanced",
+  },
+  responseTime: {
+    type: String,
+    default: "N/A",
+  },
+  taskSocialRatio: {
+    type: String,
+    default: "50% / 50%",
+  },
+  clarityIndex: {
+    type: String,
+    enum: [
+      "Very clear",
+      "Clear",
+      "Average clarity",
+      "Somewhat unclear",
+      "Unclear",
+    ],
+    default: "Average clarity",
+  },
+  boundaryMaintenance: {
+    type: String,
+    enum: [
+      "Very strong boundaries",
+      "Strong boundaries",
+      "Moderate boundaries",
+      "Flexible boundaries",
+      "Loose boundaries",
+    ],
+    default: "Moderate boundaries",
+  },
+  collaborationStyle: {
+    type: String,
+    enum: [
+      "Highly collaborative",
+      "Collaborative",
+      "Moderately collaborative",
+      "Independent",
+      "Highly independent",
+    ],
+    default: "Moderately collaborative",
   },
 });
 
@@ -96,6 +156,38 @@ const topicDistributionSchema = new Schema({
     min: 0,
     max: 100,
     default: 0,
+  },
+});
+
+// NEW: Add gamification schema
+const gamificationSchema = new Schema({
+  connectionScore: {
+    type: Number,
+    min: 1,
+    max: 100,
+    default: 50,
+  },
+  relationshipLevel: {
+    type: Number,
+    min: 1,
+    max: 10,
+    default: 1,
+  },
+  challengesBadges: {
+    type: [String],
+    default: [],
+  },
+  nextMilestone: {
+    type: String,
+    default: "",
+  },
+  communicationStyle: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {},
+  },
+  lastUpdated: {
+    type: Date,
+    default: Date.now,
   },
 });
 
@@ -125,24 +217,29 @@ const relationshipSchema = new Schema(
       ],
       required: true,
     },
-
     photo: {
       type: String,
       default: null,
     },
-
     contactInfo: {
       type: String,
       trim: true,
     },
-    // Add new fields for enhanced relationship data
     loveLanguage: {
       type: String,
     },
     interactionFrequency: {
       type: String,
+      enum: [
+        "Daily",
+        "Several times a week",
+        "Weekly",
+        "Monthly",
+        "Occasionally",
+        "Rarely",
+      ],
+      default: "Not specified",
     },
-    // Their information - expanded
     theirValues: {
       type: [String],
       default: [],
@@ -167,21 +264,8 @@ const relationshipSchema = new Schema(
       type: [String],
       default: [],
     },
-    // Communication style - can be string or object
     communicationStyle: {
       type: mongoose.Schema.Types.Mixed,
-    },
-    interactionFrequency: {
-      type: String,
-      enum: [
-        "Daily",
-        "Several times a week",
-        "Weekly",
-        "Monthly",
-        "Occasionally",
-        "Rarely",
-      ],
-      default: "Not specified",
     },
     howWeMet: {
       type: String,
@@ -195,12 +279,16 @@ const relationshipSchema = new Schema(
       type: metricsSchema,
       default: {},
     },
+    // NEW: Add gamification data
+    gamification: {
+      type: gamificationSchema,
+      default: {},
+    },
     insights: [insightSchema],
     growthAreas: [growthAreaSchema],
     topicDistribution: [topicDistributionSchema],
     sessions: [
       {
-        // Add this field
         type: Schema.Types.ObjectId,
         ref: "Conversation",
       },
@@ -216,7 +304,6 @@ const relationshipSchema = new Schema(
       type: Date,
       default: Date.now,
     },
-    // Add these new fields
     connectionScore: {
       type: Number,
       min: 1,
@@ -292,39 +379,58 @@ relationshipSchema.pre("save", function (next) {
   next();
 });
 
-// Method to update metrics based on new data
+// FIXED: Enhanced updateMetrics method with proper validation
 relationshipSchema.methods.updateMetrics = async function (newMetrics) {
   const { sentimentScore, depthScore, reciprocityRatio, emotionalVolatility } =
     newMetrics;
 
   // Calculate weighted averages for numeric metrics
   if (sentimentScore !== undefined) {
-    // Weight: 30% new score, 70% existing score (if it exists)
+    // Ensure sentimentScore is within bounds
+    const validSentimentScore = Math.max(-1, Math.min(1, sentimentScore));
     this.metrics.sentimentScore =
       this.metrics.sentimentScore !== undefined
-        ? this.metrics.sentimentScore * 0.7 + sentimentScore * 0.3
-        : sentimentScore;
+        ? this.metrics.sentimentScore * 0.7 + validSentimentScore * 0.3
+        : validSentimentScore;
   }
 
   if (depthScore !== undefined) {
-    // Weight: 20% new score, 80% existing score (if it exists)
+    // FIXED: Ensure depthScore is within bounds (1-5)
+    const validDepthScore = Math.max(1, Math.min(5, depthScore));
     this.metrics.depthScore =
       this.metrics.depthScore !== undefined
-        ? this.metrics.depthScore * 0.8 + depthScore * 0.2
-        : depthScore;
+        ? Math.max(
+            1,
+            Math.min(5, this.metrics.depthScore * 0.8 + validDepthScore * 0.2)
+          )
+        : validDepthScore;
   }
 
   if (reciprocityRatio !== undefined) {
-    // Weight: 25% new score, 75% existing score (if it exists)
+    // Ensure reciprocityRatio is within bounds
+    const validReciprocityRatio = Math.max(0, Math.min(1, reciprocityRatio));
     this.metrics.reciprocityRatio =
       this.metrics.reciprocityRatio !== undefined
-        ? this.metrics.reciprocityRatio * 0.75 + reciprocityRatio * 0.25
-        : reciprocityRatio;
+        ? this.metrics.reciprocityRatio * 0.75 + validReciprocityRatio * 0.25
+        : validReciprocityRatio;
   }
 
-  // For categorical metrics, use most recent if confidence is high
+  // FIXED: For categorical metrics, ensure valid enum values
   if (emotionalVolatility !== undefined) {
-    this.metrics.emotionalVolatility = emotionalVolatility;
+    // Convert numeric to enum if needed
+    if (typeof emotionalVolatility === "number") {
+      if (emotionalVolatility <= 0.3) {
+        this.metrics.emotionalVolatility = "Stable";
+      } else if (emotionalVolatility <= 0.7) {
+        this.metrics.emotionalVolatility = "Swingy";
+      } else {
+        this.metrics.emotionalVolatility = "Erratic";
+      }
+    } else if (["Stable", "Swingy", "Erratic"].includes(emotionalVolatility)) {
+      this.metrics.emotionalVolatility = emotionalVolatility;
+    } else {
+      this.metrics.emotionalVolatility = "Stable"; // Default fallback
+    }
   }
 
   this.metrics.lastUpdated = Date.now();
@@ -394,11 +500,9 @@ relationshipSchema.methods.updateTopicDistribution = async function (topics) {
   return this.save();
 };
 
-// NEW - Add Firebase sync hooks
-
+// Firebase sync hooks
 relationshipSchema.post("save", function (doc) {
   try {
-    // Only sync to Firebase in production to avoid unnecessary operations in development
     if (process.env.NODE_ENV === "production") {
       modelEvents.emit("syncRelationshipToFirebase", doc._id);
     }
@@ -410,7 +514,6 @@ relationshipSchema.post("save", function (doc) {
 relationshipSchema.post("findOneAndUpdate", function (doc) {
   if (doc) {
     try {
-      // Only sync to Firebase in production
       if (process.env.NODE_ENV === "production") {
         modelEvents.emit("syncRelationshipToFirebase", doc._id);
       }

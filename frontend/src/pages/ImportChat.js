@@ -462,6 +462,372 @@ const ImportChat = () => {
     }
   };
 
+  const AnimatedConnectionScore = ({
+    connectionScore,
+    relationshipLevel,
+    darkMode,
+    nextMilestone,
+  }) => {
+    const [currentScore, setCurrentScore] = useState(0);
+    const [showLevel, setShowLevel] = useState(false);
+    const [showMilestone, setShowMilestone] = useState(false);
+
+    useEffect(() => {
+      // Animate connection score from 0 to target
+      const animateScore = () => {
+        const duration = 2000;
+        const steps = 60;
+        const stepValue = (connectionScore || 75) / steps;
+        const stepTime = duration / steps;
+
+        let currentStep = 0;
+
+        const animate = () => {
+          if (currentStep <= steps) {
+            const newScore = Math.min(
+              Math.round(currentStep * stepValue),
+              connectionScore || 75
+            );
+            setCurrentScore(newScore);
+            currentStep++;
+            setTimeout(animate, stepTime);
+          }
+        };
+
+        setTimeout(animate, 500); // Start after 500ms
+      };
+
+      // Show level after score animation
+      setTimeout(() => setShowLevel(true), 2000);
+
+      // Show milestone after level
+      setTimeout(() => setShowMilestone(true), 2500);
+
+      animateScore();
+    }, [connectionScore]);
+
+    const radius = 32; // For 80x80 circle
+    const circumference = radius * 2 * Math.PI;
+    const strokeDashoffset =
+      circumference - (currentScore / 100) * circumference;
+
+    return (
+      <Paper
+        variant="outlined"
+        sx={{
+          p: { xs: 2, sm: 3 },
+          mb: 3,
+          background: darkMode
+            ? "linear-gradient(222deg, #0009 0%, #1c345c 100%)"
+            : "linear-gradient(135deg, #f5f7fa 0%, #e8edf5 100%)",
+          borderRadius: 2,
+          borderColor: darkMode ? "rgba(255, 255, 255, 0.1)" : undefined,
+        }}
+      >
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box sx={{ maxWidth: { xs: "65%", sm: "70%" } }}>
+            <Typography
+              variant="subtitle1"
+              fontWeight="600"
+              gutterBottom
+              sx={{ color: darkMode ? "#fff" : undefined }}
+            >
+              Connection Score
+            </Typography>
+            <Typography
+              variant="body2"
+              color={darkMode ? "rgba(255, 255, 255, .7)" : "text.secondary"}
+            >
+              Based on your conversation patterns, engagement level, and
+              sentiment
+            </Typography>
+          </Box>
+
+          {/* Animated Circular Progress */}
+          <Box
+            sx={{
+              width: { xs: 64, sm: 80 },
+              height: { xs: 64, sm: 80 },
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {/* Background circle */}
+            <svg
+              width="80"
+              height="80"
+              style={{
+                position: "absolute",
+                transform: "rotate(-90deg)",
+              }}
+            >
+              <circle
+                cx="40"
+                cy="40"
+                r={radius}
+                stroke={darkMode ? "rgba(255, 255, 255, 0.1)" : "#e0e0e0"}
+                strokeWidth="6"
+                fill="transparent"
+              />
+              {/* Animated progress circle */}
+              <circle
+                cx="40"
+                cy="40"
+                r={radius}
+                stroke={darkMode ? "#6366f1" : "#3f51b5"}
+                strokeWidth="6"
+                fill="transparent"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+                style={{
+                  transition:
+                    "stroke-dashoffset 2s cubic-bezier(0.4, 0, 0.2, 1)",
+                }}
+              />
+            </svg>
+
+            {/* Score text */}
+            <Typography
+              variant="h5"
+              fontWeight="bold"
+              color={darkMode ? "#6366f1" : "primary"}
+              sx={{
+                position: "relative",
+                zIndex: 1,
+                fontSize: { xs: "1.25rem", sm: "1.5rem" },
+              }}
+            >
+              {currentScore}
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Relationship Level with slide-in animation */}
+        {relationshipLevel && (
+          <Grow in={showLevel} timeout={600}>
+            <Box
+              mt={2}
+              pt={2}
+              borderTop={1}
+              borderColor={darkMode ? "rgba(255, 255, 255, 0.1)" : "divider"}
+            >
+              <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
+              >
+                <Typography
+                  variant="body2"
+                  fontWeight="500"
+                  sx={{ color: darkMode ? "#fff" : undefined }}
+                >
+                  Relationship Level
+                </Typography>
+                <Box
+                  sx={{
+                    px: { xs: 1.5, sm: 2 },
+                    py: 0.5,
+                    backgroundColor: darkMode
+                      ? "rgba(99, 102, 241, 0.3)"
+                      : "primary.light",
+                    color: darkMode ? "#fff" : "primary.contrastText",
+                    borderRadius: 5,
+                    display: "flex",
+                    alignItems: "center",
+                    border: darkMode
+                      ? "1px solid rgba(99, 102, 241, 0.5)"
+                      : "none",
+                    animation: showLevel
+                      ? "levelPop 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)"
+                      : "none",
+                    "@keyframes levelPop": {
+                      "0%": {
+                        transform: "scale(0)",
+                        opacity: 0,
+                      },
+                      "70%": {
+                        transform: "scale(1.1)",
+                      },
+                      "100%": {
+                        transform: "scale(1)",
+                        opacity: 1,
+                      },
+                    },
+                  }}
+                >
+                  <Typography variant="body2" fontWeight="bold">
+                    Level {relationshipLevel}
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Next Milestone with fade-in animation */}
+              {nextMilestone && (
+                <Grow in={showMilestone} timeout={800}>
+                  <Box mt={1.5} display="flex" alignItems="center">
+                    <ArrowRight
+                      size={16}
+                      style={{
+                        color: darkMode ? "rgba(255, 255, 255, 0.7)" : "#666",
+                        marginRight: 8,
+                      }}
+                    />
+                    <Typography
+                      variant="body2"
+                      color={
+                        darkMode ? "rgba(255, 255, 255, 0.7)" : "text.secondary"
+                      }
+                      sx={{
+                        fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                        lineHeight: { xs: 1.4, sm: 1.5 },
+                      }}
+                    >
+                      Next milestone: {nextMilestone}
+                    </Typography>
+                  </Box>
+                </Grow>
+              )}
+            </Box>
+          </Grow>
+        )}
+      </Paper>
+    );
+  };
+
+  // Also add this animated progress bar for sentiment scores
+  const AnimatedSentimentBar = ({
+    sentimentScore,
+    sentimentLabel,
+    darkMode,
+    delay = 0,
+  }) => {
+    const [currentProgress, setCurrentProgress] = useState(0);
+
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        // Convert sentiment score (-1 to 1) to percentage (0 to 100)
+        const targetProgress = Math.min(
+          100,
+          Math.max(0, ((sentimentScore || 0) + 1) * 50)
+        );
+
+        const duration = 1500;
+        const steps = 50;
+        const stepValue = targetProgress / steps;
+        const stepTime = duration / steps;
+
+        let currentStep = 0;
+
+        const animate = () => {
+          if (currentStep <= steps) {
+            const newProgress = Math.min(
+              Math.round(currentStep * stepValue),
+              targetProgress
+            );
+            setCurrentProgress(newProgress);
+            currentStep++;
+            setTimeout(animate, stepTime);
+          }
+        };
+
+        animate();
+      }, delay);
+
+      return () => clearTimeout(timer);
+    }, [sentimentScore, delay]);
+
+    return (
+      <Box>
+        <Typography
+          variant="subtitle2"
+          fontWeight="600"
+          gutterBottom
+          sx={{ color: darkMode ? "#fff" : undefined }}
+        >
+          Emotional Tone
+        </Typography>
+
+        <Box
+          display="flex"
+          alignItems="center"
+          justifyContent="space-between"
+          mt={1}
+        >
+          <Box
+            sx={{
+              width: "80%",
+              height: 8,
+              bgcolor: darkMode ? "rgba(0, 0, 0, 0.3)" : "#f0f0f0",
+              borderRadius: 4,
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            {/* Gradient background */}
+            <Box
+              sx={{
+                position: "absolute",
+                width: "100%",
+                height: "100%",
+                background:
+                  "linear-gradient(90deg, #ff6b6b 0%, #ffcc80 33%, #81c784 66%, #64b5f6 100%)",
+              }}
+            />
+            {/* Animated indicator */}
+            <Box
+              sx={{
+                position: "absolute",
+                left: `${currentProgress}%`,
+                transform: "translateX(-50%)",
+                bottom: -14,
+                width: 3,
+                height: 14,
+                backgroundColor: darkMode ? "#fff" : "#000",
+                transition: "left 1.5s cubic-bezier(0.4, 0, 0.2, 1)",
+              }}
+            />
+          </Box>
+          <Typography
+            variant="body2"
+            fontWeight="bold"
+            sx={{
+              px: 1.5,
+              py: 0.5,
+              borderRadius: 1,
+              bgcolor: darkMode
+                ? "rgba(255, 255, 255, 0.1)"
+                : "rgba(0,0,0,0.08)",
+              color: darkMode ? "#fff" : undefined,
+            }}
+          >
+            {sentimentScore ? sentimentScore.toFixed(1) : "0.0"}
+          </Typography>
+        </Box>
+
+        <Typography
+          variant="body2"
+          color={darkMode ? "rgba(255, 255, 255, 0.7)" : "text.secondary"}
+          textAlign="center"
+          mt={2}
+          fontWeight={500}
+          sx={{
+            opacity: 0,
+            animation: `fadeIn 0.6s ease-out ${delay + 1000}ms both`,
+            "@keyframes fadeIn": {
+              "0%": { opacity: 0, transform: "translateY(10px)" },
+              "100%": { opacity: 1, transform: "translateY(0)" },
+            },
+          }}
+        >
+          {sentimentLabel || "Neutral"}
+        </Typography>
+      </Box>
+    );
+  };
+
   const getProgressPhaseMessage = () => {
     if (importProgress < 40) return "Starting import process...";
     if (importProgress < 70) return "Processing messages...";
@@ -1530,164 +1896,12 @@ const ImportChat = () => {
                   />
 
                   {/* Connection Score */}
-                  <Paper
-                    variant="outlined"
-                    sx={{
-                      p: { xs: 2, sm: 3 },
-                      mb: 3,
-                      background: darkMode
-                        ? darkGradient
-                        : "linear-gradient(135deg, #f5f7fa 0%, #e8edf5 100%)",
-                      borderRadius: 2,
-                      borderColor: darkMode
-                        ? "rgba(255, 255, 255, 0.1)"
-                        : undefined,
-                    }}
-                  >
-                    <Box
-                      display="flex"
-                      justifyContent="space-between"
-                      alignItems="center"
-                    >
-                      <Box sx={{ maxWidth: { xs: "65%", sm: "70%" } }}>
-                        <Typography
-                          variant="subtitle1"
-                          fontWeight="600"
-                          gutterBottom
-                          sx={{ color: darkMode ? "#fff" : undefined }}
-                        >
-                          Connection Score
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          color={
-                            darkMode
-                              ? "rgba(255, 255, 255, .7)"
-                              : "text.secondary"
-                          }
-                        >
-                          Based on your conversation patterns, engagement level,
-                          and sentiment
-                        </Typography>
-                      </Box>
-                      <Box
-                        sx={{
-                          width: { xs: 64, sm: 80 },
-                          height: { xs: 64, sm: 80 },
-                          borderRadius: "50%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          background: `conic-gradient(${
-                            darkMode ? "#6366f1" : "#3f51b5"
-                          } ${
-                            (importAnalysis?.connectionScore || 0) * 3.6
-                          }deg, ${
-                            darkMode ? "rgba(255, 255, 255, 0.1)" : "#e0e0e0"
-                          } 0deg)`,
-                          position: "relative",
-                          "&::after": {
-                            content: '""',
-                            position: "absolute",
-                            width: { xs: "85%", sm: "87%" },
-                            height: { xs: "85%", sm: "87%" },
-                            borderRadius: "50%",
-                            background: darkMode
-                              ? "rgba(0, 0, 0, 0.4)"
-                              : "#fff",
-                          },
-                        }}
-                      >
-                        <Typography
-                          variant="h5"
-                          fontWeight="bold"
-                          color={darkMode ? "#6366f1" : "primary"}
-                          sx={{
-                            position: "relative",
-                            zIndex: 1,
-                            fontSize: { xs: "1.25rem", sm: "1.5rem" },
-                          }}
-                        >
-                          {importAnalysis?.connectionScore || 0}
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    {/* Relationship Level */}
-                    {importAnalysis?.relationshipLevel && (
-                      <Box
-                        mt={2}
-                        pt={2}
-                        borderTop={1}
-                        borderColor={
-                          darkMode ? "rgba(255, 255, 255, 0.1)" : "divider"
-                        }
-                      >
-                        <Box
-                          display="flex"
-                          justifyContent="space-between"
-                          alignItems="center"
-                        >
-                          <Typography
-                            variant="body2"
-                            fontWeight="500"
-                            sx={{ color: darkMode ? "#fff" : undefined }}
-                          >
-                            Relationship Level
-                          </Typography>
-                          <Box
-                            sx={{
-                              px: { xs: 1.5, sm: 2 },
-                              py: 0.5,
-                              backgroundColor: darkMode
-                                ? "rgba(99, 102, 241, 0.3)"
-                                : "primary.light",
-                              color: darkMode ? "#fff" : "primary.contrastText",
-                              borderRadius: 5,
-                              display: "flex",
-                              alignItems: "center",
-                              border: darkMode
-                                ? "1px solid rgba(99, 102, 241, 0.5)"
-                                : "none",
-                            }}
-                          >
-                            <Typography variant="body2" fontWeight="bold">
-                              Level {importAnalysis.relationshipLevel}
-                            </Typography>
-                          </Box>
-                        </Box>
-
-                        {/* Next Milestone */}
-                        {importAnalysis?.nextMilestone && (
-                          <Box mt={1.5} display="flex" alignItems="center">
-                            <ArrowRight
-                              size={16}
-                              style={{
-                                color: darkMode
-                                  ? "rgba(255, 255, 255, 0.7)"
-                                  : "#666",
-                                marginRight: 8,
-                              }}
-                            />
-                            <Typography
-                              variant="body2"
-                              color={
-                                darkMode
-                                  ? "rgba(255, 255, 255, 0.7)"
-                                  : "text.secondary"
-                              }
-                              sx={{
-                                fontSize: { xs: "0.75rem", sm: "0.875rem" },
-                                lineHeight: { xs: 1.4, sm: 1.5 },
-                              }}
-                            >
-                              Next milestone: {importAnalysis.nextMilestone}
-                            </Typography>
-                          </Box>
-                        )}
-                      </Box>
-                    )}
-                  </Paper>
+                  <AnimatedConnectionScore
+                    connectionScore={importAnalysis?.connectionScore}
+                    relationshipLevel={importAnalysis?.relationshipLevel}
+                    darkMode={darkMode}
+                    nextMilestone={importAnalysis?.nextMilestone}
+                  />
 
                   {/* Sentiment and Communication Balance */}
                   <Box
@@ -1696,108 +1910,29 @@ const ImportChat = () => {
                     gap={3}
                     mb={3}
                   >
-                    {/* Sentiment Score */}
+                    {/* Animated Sentiment Score */}
                     <Paper
                       variant="outlined"
                       sx={{
                         p: 2.5,
                         borderRadius: 2,
-                        background: darkMode ? darkGradient : undefined,
+                        background: darkMode
+                          ? "linear-gradient(222deg, #0009 0%, #1c345c 100%)"
+                          : undefined,
                         borderColor: darkMode
                           ? "rgba(255, 255, 255, 0.1)"
                           : undefined,
                       }}
                     >
-                      <Typography
-                        variant="subtitle2"
-                        fontWeight="600"
-                        gutterBottom
-                        sx={{ color: darkMode ? "#fff" : undefined }}
-                      >
-                        Emotional Tone
-                      </Typography>
-
-                      <Box
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="space-between"
-                        mt={1}
-                      >
-                        <Box
-                          sx={{
-                            width: "80%",
-                            height: 8,
-                            bgcolor: darkMode
-                              ? "rgba(0, 0, 0, 0.3)"
-                              : "#f0f0f0",
-                            borderRadius: 4,
-                            position: "relative",
-                            overflow: "hidden",
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              position: "absolute",
-                              width: "100%",
-                              height: "100%",
-                              background:
-                                "linear-gradient(90deg, #ff6b6b 0%, #ffcc80 33%, #81c784 66%, #64b5f6 100%)",
-                            }}
-                          />
-                          <Box
-                            sx={{
-                              position: "absolute",
-                              left: `${Math.min(
-                                100,
-                                Math.max(
-                                  0,
-                                  ((importAnalysis?.sentimentScore || 0) + 1) *
-                                    50
-                                )
-                              )}%`,
-                              transform: "translateX(-50%)",
-                              bottom: -14,
-                              width: 3,
-                              height: 14,
-                              backgroundColor: darkMode ? "#fff" : "#000",
-                            }}
-                          />
-                        </Box>
-                        <Typography
-                          variant="body2"
-                          fontWeight="bold"
-                          sx={{
-                            px: 1.5,
-                            py: 0.5,
-                            borderRadius: 1,
-                            bgcolor: darkMode
-                              ? "rgba(255, 255, 255, 0.1)"
-                              : "rgba(0,0,0,0.08)",
-                            color: darkMode ? "#fff" : undefined,
-                          }}
-                        >
-                          {importAnalysis?.sentimentScore
-                            ? importAnalysis.sentimentScore.toFixed(1)
-                            : "0.0"}
-                        </Typography>
-                      </Box>
-
-                      <Typography
-                        variant="body2"
-                        color={
-                          darkMode
-                            ? "rgba(255, 255, 255, 0.7)"
-                            : "text.secondary"
-                        }
-                        textAlign="center"
-                        mt={2}
-                        fontWeight={500}
-                      >
-                        {importAnalysis?.sentimentLabel || "Neutral"}
-                      </Typography>
+                      <AnimatedSentimentBar
+                        sentimentScore={importAnalysis?.sentimentScore}
+                        sentimentLabel={importAnalysis?.sentimentLabel}
+                        darkMode={darkMode}
+                        delay={1000}
+                      />
                     </Paper>
 
-                    {/* Communication Balance */}
+                    {/* Communication Balance - keep existing code */}
                     <Paper
                       variant="outlined"
                       sx={{
