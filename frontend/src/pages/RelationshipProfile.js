@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import styled, { keyframes } from "styled-components";
 import {
   Calendar,
@@ -14,47 +20,31 @@ import {
   Zap,
   ArrowRight,
 } from "lucide-react";
-import { useSearchParams } from "react-router-dom"; // Add this import
+import { useSearchParams } from "react-router-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import { relationshipService, conversationService } from "../services/api";
 import { Upload } from "lucide-react";
 import { Button } from "@mui/material";
-import ProfilePhotoUpload from "../components/ProfilePhotoUpload"; // Import from separate file
-import RelationshipQA from "../components/RelationshipQA";
+import ProfilePhotoUpload from "../components/ProfilePhotoUpload";
 import QuestionAnswerIcon from "@mui/icons-material/QuestionAnswer";
 import { useTheme } from "../contexts/ThemeContext";
 import RelationshipTypeAnalysis from "../components/RelationshipTypeAnalysis";
 import EnhancedImportBanner from "../components/EnhancedImportBanner";
 import AnimatedInsightsPrompt from "../components/AnimatedInsightsPrompt";
 
-// Animations
-const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
-
-const pulse = keyframes`
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
-`;
-
-const shimmer = keyframes`
-  0% { background-position: -80px 0; }
-  100% { background-position: 80px 0; }
-`;
-
-// Styled Components
 const PageContainer = styled.div`
   max-width: 900px;
   margin: 0 auto;
-  padding: 1.5rem; /* Increased from 1rem for more breathing room */
+  padding: 1.5rem;
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   color: ${(props) => (props.darkMode ? "#ffffff" : "#1a202c")};
-  animation: ${fadeIn} 0.5s ease-out;
+  animation: ${keyframes`
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  `} 0.5s ease-out;
 
   @media (max-width: 640px) {
-    padding: 1.25rem; /* Ensure adequate padding even on small screens */
+    padding: 1.25rem;
   }
 
   @media (min-width: 768px) {
@@ -208,7 +198,7 @@ const MetricsContainer = styled.div`
 `;
 
 // Updated MetricCard component to support dark mode
-const MetricCard = styled.div`
+const MetricCard = React.memo(styled.div`
   background: ${(props) =>
     props.darkMode
       ? "linear-gradient(145deg, #1f2937, #111827)"
@@ -288,7 +278,7 @@ const MetricCard = styled.div`
   @media (min-width: 768px) {
     padding: 1.5rem;
   }
-`;
+`);
 
 const SectionCard = styled.div`
   background-color: ${(props) => (props.darkMode ? "#1e1e1e" : "white")};
@@ -406,6 +396,44 @@ const FieldGroup = styled.div`
     line-height: 1.5;
     font-size: 0.938rem;
     word-break: break-word;
+  }
+
+  @media (min-width: 768px) {
+    margin-bottom: 1.5rem;
+  }
+`;
+
+const NextMilestoneField = styled.div`
+  margin-bottom: 1.25rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  .field-label {
+    font-size: 0.813rem;
+    color: ${(props) => (props.darkMode ? "#9ca3af" : "#6b7280")};
+    margin-bottom: 0.375rem;
+    font-weight: 500;
+
+    @media (min-width: 768px) {
+      font-size: 0.875rem;
+    }
+  }
+
+  .field-value {
+    font-weight: 500;
+    color: ${(props) => (props.darkMode ? "#ffffff" : "#111827")} !important;
+    line-height: 1.5;
+    font-size: 0.938rem;
+    word-break: break-word;
+    /* Add some visual enhancement for the milestone */
+    padding: 0.75rem;
+    background: ${(props) =>
+      props.darkMode ? "rgba(99, 102, 241, 0.1)" : "rgba(99, 102, 241, 0.05)"};
+    border-radius: 8px;
+    border-left: 3px solid
+      ${(props) => (props.darkMode ? "#6366f1" : "#4f46e5")};
   }
 
   @media (min-width: 768px) {
@@ -790,17 +818,6 @@ const ViewMoreLink = styled.button`
   }
 `;
 
-const LoadingShimmer = styled.div`
-  background: #f6f7f8;
-  background: linear-gradient(to right, #f6f7f8 8%, #edeef1 18%, #f6f7f8 33%);
-  background-size: 800px 104px;
-  animation: ${shimmer} 1.5s infinite linear;
-  height: ${(props) => props.height || "16px"};
-  width: ${(props) => props.width || "100%"};
-  border-radius: ${(props) => (props.rounded ? "50%" : "4px")};
-  margin-bottom: ${(props) => props.mb || "0"};
-`;
-
 const LoadingContainer = styled.div`
   text-align: center;
   padding: 2rem 0;
@@ -1042,7 +1059,7 @@ const PhotoAvatar = styled.div`
 
 // Main Component
 const RelationshipProfile = () => {
-  const { darkMode } = useTheme(); // Import useTheme at the top
+  const { darkMode } = useTheme();
   const [relationship, setRelationship] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [memories, setMemories] = useState([]);
@@ -1057,76 +1074,70 @@ const RelationshipProfile = () => {
   });
   const [animateMetrics, setAnimateMetrics] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+  const [showImportBanner, setShowImportBanner] = useState(false);
+  const [hasImportedData, setHasImportedData] = useState(false);
+  const [updateNotification, setUpdateNotification] = useState(false);
 
   const { relationshipId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const [showImportBanner, setShowImportBanner] = useState(false);
-  const [hasImportedData, setHasImportedData] = useState(false);
+  // Use refs to track if data has been loaded to prevent unnecessary refetches
+  const dataLoadedRef = useRef(false);
+  const lastRefreshTimeRef = useRef(0);
 
   useEffect(() => {
-    // Determine if we have any analysis data yet
+    if (!relationship) return;
+
     const hasAnalysisData =
       relationship?.topicDistribution &&
       relationship.topicDistribution.length > 0;
 
-    // Show banner if no data exists (after a delay for better UX)
+    setHasImportedData(hasAnalysisData);
+
     if (!hasAnalysisData) {
       const timer = setTimeout(() => {
         setShowImportBanner(true);
-      }, 1500); // Show after 1.5 seconds
-
+      }, 1500);
       return () => clearTimeout(timer);
     }
-
-    setHasImportedData(hasAnalysisData);
   }, [relationship]);
 
-  useEffect(() => {
-    // Check if there's a refresh parameter in the URL
-    const refreshParam = searchParams.get("refresh");
-
-    if (refreshParam) {
-      console.log("Refresh parameter detected, reloading data");
-      refreshRelationshipData();
-
-      // Optionally, clean up the URL to remove the query parameter
-      // This prevents refreshing if the user manually refreshes the page
-      navigate(`/relationships/${relationshipId}`, { replace: true });
-    }
-  }, [searchParams, relationshipId, navigate]);
-
-  useEffect(() => {
-    const fetchRelationshipData = async () => {
+  const fetchRelationshipData = useCallback(
+    async (forceRefresh = false) => {
       try {
         setLoading(true);
         setError(null);
 
-        // Fetch relationship data
-        const relationshipRes = await relationshipService.getProfileById(
-          relationshipId
-        );
-        console.log("frontend relation", relationshipRes);
+        // Check if we should skip this fetch
+        const now = Date.now();
+        if (
+          !forceRefresh &&
+          dataLoadedRef.current &&
+          now - lastRefreshTimeRef.current < 5000
+        ) {
+          setLoading(false);
+          return;
+        }
+
+        lastRefreshTimeRef.current = now;
+
+        // Use Promise.all for parallel requests
+        const [relationshipRes, conversationsRes] = await Promise.all([
+          relationshipService.getProfileById(relationshipId),
+          conversationService.getAll(relationshipId),
+        ]);
+
         setRelationship(relationshipRes.data);
-        console.log(
-          "Topic distribution data:",
-          relationshipRes.data.topicDistribution
-        );
-
-        // Fetch conversations
-        const conversationsRes = await conversationService.getAll(
-          relationshipId
-        );
         setConversations(conversationsRes.data);
+        dataLoadedRef.current = true;
 
-        // Fetch memories
+        // Fetch memories separately (non-critical)
         try {
           const memoriesUrl = `${
             process.env.REACT_APP_API_URL || "http://localhost:5000/api"
           }/relationships/${relationshipId}/memories`;
           const token = localStorage.getItem("token");
-          console.log("memories...", memoriesUrl);
 
           const memoriesRes = await fetch(memoriesUrl, {
             headers: {
@@ -1137,7 +1148,6 @@ const RelationshipProfile = () => {
 
           if (memoriesRes.ok) {
             const data = await memoriesRes.json();
-            console.log("memoryres", data);
             setMemories(data);
           } else {
             console.warn(
@@ -1150,22 +1160,25 @@ const RelationshipProfile = () => {
           setMemories([]);
         }
       } catch (err) {
-        console.error(
-          "Error details:",
-          err.response ? err.response.data : err.message
-        );
+        console.error("Error fetching relationship data:", err);
         setError(`Failed to load relationship data: ${err.message}`);
       } finally {
         setLoading(false);
-        // Animate metrics after data loads
         setTimeout(() => setAnimateMetrics(true), 300);
       }
-    };
-
-    if (relationshipId) {
+    },
+    [relationshipId]
+  );
+  useEffect(() => {
+    const refreshParam = searchParams.get("refresh");
+    if (refreshParam) {
+      console.log("Refresh parameter detected, reloading data");
+      fetchRelationshipData(true);
+      navigate(`/relationships/${relationshipId}`, { replace: true });
+    } else if (!dataLoadedRef.current) {
       fetchRelationshipData();
     }
-  }, [relationshipId]);
+  }, [searchParams, relationshipId, navigate, fetchRelationshipData]);
 
   useEffect(() => {
     // Check if we need to refresh data (when returning from import page)
@@ -1177,30 +1190,28 @@ const RelationshipProfile = () => {
   }, []);
 
   useEffect(() => {
-    // Check for refresh signal from localStorage (set by ImportChat)
     const updatedRelationshipId = localStorage.getItem(
       "relationship_data_updated"
     );
     if (updatedRelationshipId === relationshipId) {
       console.log("Import detected, refreshing relationship data");
       localStorage.removeItem("relationship_data_updated");
-      refreshRelationshipData();
+      fetchRelationshipData(true);
     }
 
-    // Set up interval to periodically check for updates
-    const checkIntervalId = setInterval(() => {
+    const checkInterval = setInterval(() => {
       const updatedId = localStorage.getItem("relationship_data_updated");
       if (updatedId === relationshipId) {
         console.log(
           "Import detected during interval check, refreshing relationship data"
         );
         localStorage.removeItem("relationship_data_updated");
-        refreshRelationshipData();
+        fetchRelationshipData(true);
       }
-    }, 3000); // Check every 3 seconds
+    }, 3000);
 
-    return () => clearInterval(checkIntervalId);
-  }, [relationshipId]);
+    return () => clearInterval(checkInterval);
+  }, [relationshipId, fetchRelationshipData]);
 
   const refreshRelationshipData = async () => {
     try {
@@ -1278,42 +1289,46 @@ const RelationshipProfile = () => {
     }
   };
 
-  const handlePhotoUpload = (photoPath) => {
-    if (relationship) {
-      // Update local state with new photo path
-      setRelationship({
-        ...relationship,
-        photo: photoPath,
-      });
-    }
-  };
+  const handlePhotoUpload = useCallback(
+    (photoPath) => {
+      if (relationship) {
+        setRelationship((prev) => ({
+          ...prev,
+          photo: photoPath,
+        }));
+      }
+    },
+    [relationship]
+  );
 
-  const handleImportChat = () => {
+  const handleImportChat = useCallback(() => {
     sessionStorage.setItem("refreshRelationshipData", "true");
     sessionStorage.setItem("returnToRelationship", relationshipId);
     navigate(`/relationships/${relationshipId}/import`);
-  };
+  }, [relationshipId, navigate]);
 
-  const handleCloseBanner = () => {
+  const handleCloseBanner = useCallback(() => {
     setShowImportBanner(false);
-    // Store in localStorage to not show again for some time
     localStorage.setItem(`hideBanner_${relationshipId}`, Date.now());
-  };
+  }, [relationshipId]);
 
-  const toggleSection = (section) => {
-    setExpandedSections({
-      ...expandedSections,
-      [section]: !expandedSections[section],
-    });
-  };
+  const toggleSection = useCallback((section) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  }, []);
 
-  const startNewSession = () => {
+  const startNewSession = useCallback(() => {
     navigate(`/conversations/new/${relationshipId}`);
-  };
+  }, [navigate, relationshipId]);
 
-  const viewConversation = (conversationId) => {
-    navigate(`/conversations/${conversationId}`);
-  };
+  const viewConversation = useCallback(
+    (conversationId) => {
+      navigate(`/conversations/${conversationId}`);
+    },
+    [navigate]
+  );
 
   // Field component for consistent styling
   const Field = ({ label, value }) => (
@@ -1365,70 +1380,62 @@ const RelationshipProfile = () => {
   };
 
   // Function to extract memories by emotion
-  const getMemoriesByEmotion = (emotion) => {
-    if (!memories || memories.length === 0) {
-      return [];
-    }
+  const getMemoriesByEmotion = useCallback(
+    (emotion) => {
+      if (!memories || memories.length === 0) return [];
 
-    let filteredMemories = [];
+      let filteredMemories = [];
 
-    if (emotion === "growth") {
-      // First look for explicit Growth emotion
-      filteredMemories = memories.filter(
-        (memory) => memory.emotion === "Growth"
-      );
-
-      // Fallback to keyword-based if no results
-      if (filteredMemories.length === 0) {
+      if (emotion === "growth") {
+        filteredMemories = memories.filter(
+          (memory) => memory.emotion === "Growth"
+        );
+        if (filteredMemories.length === 0) {
+          filteredMemories = memories.filter(
+            (memory) =>
+              memory.content.toLowerCase().includes("health") ||
+              memory.content.toLowerCase().includes("education") ||
+              memory.content.toLowerCase().includes("hobbies")
+          );
+        }
+      } else if (emotion === "positive") {
         filteredMemories = memories.filter(
           (memory) =>
-            memory.content.toLowerCase().includes("health") ||
-            memory.content.toLowerCase().includes("education") ||
-            memory.content.toLowerCase().includes("hobbies")
+            memory.emotion === "Joy" ||
+            memory.emotion === "Love" ||
+            memory.emotion === "Positive"
         );
-      }
-    } else if (emotion === "positive") {
-      // First look for positive emotions
-      filteredMemories = memories.filter(
-        (memory) =>
-          memory.emotion === "Joy" ||
-          memory.emotion === "Love" ||
-          memory.emotion === "Positive"
-      );
-
-      // Fallback to sentiment score if no results
-      if (filteredMemories.length === 0) {
+        if (filteredMemories.length === 0) {
+          filteredMemories = memories.filter(
+            (memory) =>
+              memory.sentiment > 0.001 ||
+              memory.content.toLowerCase().includes("hobbies") ||
+              memory.content.toLowerCase().includes("enjoy")
+          );
+        }
+      } else if (emotion === "negative") {
         filteredMemories = memories.filter(
           (memory) =>
-            memory.sentiment > 0.001 ||
-            memory.content.toLowerCase().includes("hobbies") ||
-            memory.content.toLowerCase().includes("enjoy")
+            memory.emotion === "Sadness" ||
+            memory.emotion === "Anger" ||
+            memory.emotion === "Challenge" ||
+            memory.emotion === "Negative"
         );
+        if (filteredMemories.length === 0) {
+          filteredMemories = memories.filter(
+            (memory) =>
+              memory.sentiment < -0.001 ||
+              memory.content.toLowerCase().includes("financial") ||
+              memory.content.toLowerCase().includes("work") ||
+              memory.content.toLowerCase().includes("conflict")
+          );
+        }
       }
-    } else if (emotion === "negative") {
-      // First look for negative emotions
-      filteredMemories = memories.filter(
-        (memory) =>
-          memory.emotion === "Sadness" ||
-          memory.emotion === "Anger" ||
-          memory.emotion === "Challenge" ||
-          memory.emotion === "Negative"
-      );
 
-      // Fallback to sentiment and content
-      if (filteredMemories.length === 0) {
-        filteredMemories = memories.filter(
-          (memory) =>
-            memory.sentiment < -0.001 ||
-            memory.content.toLowerCase().includes("financial") ||
-            memory.content.toLowerCase().includes("work") ||
-            memory.content.toLowerCase().includes("conflict")
-        );
-      }
-    }
-
-    return filteredMemories.map((memory) => memory.content).slice(0, 3);
-  };
+      return filteredMemories.map((memory) => memory.content).slice(0, 3);
+    },
+    [memories]
+  );
 
   // Function to get insights by type
   const getInsightsByType = (type) => {
@@ -1439,37 +1446,27 @@ const RelationshipProfile = () => {
   };
 
   // Calculate sentiment display text
-  const getSentimentText = (score) => {
+  const getSentimentText = useCallback((score) => {
     if (score >= 0.7) return "Very Positive";
     if (score >= 0.3) return "Positive";
     if (score >= -0.3) return "Neutral";
     if (score >= -0.7) return "Challenging";
     return "Very Challenging";
-  };
-
-  // Calculate reciprocity display text
-  const getReciprocityText = (ratio) => {
-    if (ratio === undefined || ratio === null) return "Unknown";
-    const percentage = Math.round(ratio * 100);
-    if (percentage >= 45 && percentage <= 55) return "Balanced (50/50)";
-    if (percentage > 55)
-      return `You give more (${percentage}/${100 - percentage})`;
-    return `They give more (${percentage}/${100 - percentage})`;
-  };
+  }, []);
 
   // Get accent colors for metrics
-  const getMetricColor = (type) => {
+  const getMetricColor = useCallback((type) => {
     switch (type) {
       case "sentiment":
-        return "#10b981"; // green
+        return "#10b981";
       case "depth":
-        return "#6366f1"; // indigo
+        return "#6366f1";
       case "balance":
-        return "#8b5cf6"; // purple
+        return "#8b5cf6";
       default:
-        return "#6366f1"; // default indigo
+        return "#6366f1";
     }
-  };
+  }, []);
 
   const getMemoryStyling = (emotion) => {
     switch (emotion) {
@@ -1507,30 +1504,22 @@ const RelationshipProfile = () => {
   };
 
   // Filter conversations based on active tab
-  // In your frontend React component where you filter conversations
-  const filteredConversations = Array.isArray(conversations)
-    ? conversations.filter((conversation) => {
-        if (activeTab === "all") return true;
+  const filteredConversations = useMemo(() => {
+    if (!Array.isArray(conversations)) return [];
 
-        // For "Completed" tab, include both completed and analyzed statuses
-        if (activeTab === "completed")
-          return (
-            conversation.status === "completed" ||
-            conversation.status === "analyzed"
-          );
-
-        // For other tabs, match exactly
-        return conversation.status === activeTab;
-      })
-    : [];
-
-  // Get first initial for avatar
-  const getInitial = (name) => {
-    return name ? name.charAt(0).toUpperCase() : "?";
-  };
+    return conversations.filter((conversation) => {
+      if (activeTab === "all") return true;
+      if (activeTab === "completed")
+        return (
+          conversation.status === "completed" ||
+          conversation.status === "analyzed"
+        );
+      return conversation.status === activeTab;
+    });
+  }, [conversations, activeTab]);
 
   // Format date for display
-  const formatDate = (dateString) => {
+  const formatDate = useCallback((dateString) => {
     if (!dateString) return "Unknown date";
     const date = new Date(dateString);
     return new Intl.DateTimeFormat("en-US", {
@@ -1538,16 +1527,190 @@ const RelationshipProfile = () => {
       day: "numeric",
       year: "numeric",
     }).format(date);
-  };
+  }, []);
 
   // Function to determine emoji for sentiment
-  const getSentimentEmoji = (score) => {
+  const getSentimentEmoji = useCallback((score) => {
     if (score >= 0.7) return "😍";
     if (score >= 0.3) return "😊";
     if (score >= -0.3) return "😐";
     if (score >= -0.7) return "😕";
     return "😞";
+  }, []);
+
+  const connectionScoreDisplay = useMemo(() => {
+    if (!relationship)
+      return { emoji: "😐", text: "Unknown", color: "#6b7280", score: 0 };
+
+    const score =
+      relationship.gamification?.connectionScore ||
+      relationship.connectionScore ||
+      50;
+
+    let emoji, text, color;
+    if (score >= 85) {
+      emoji = "💖";
+      text = "Exceptional";
+      color = "#10b981";
+    } else if (score >= 70) {
+      emoji = "😍";
+      text = "Very Strong";
+      color = "#059669";
+    } else if (score >= 55) {
+      emoji = "😊";
+      text = "Good";
+      color = "#6366f1";
+    } else if (score >= 40) {
+      emoji = "😐";
+      text = "Developing";
+      color = "#f59e0b";
+    } else {
+      emoji = "😕";
+      text = "Needs Work";
+      color = "#ef4444";
+    }
+
+    return { emoji, text, color, score };
+  }, [relationship]);
+
+  // Memoized relationship level display
+  const relationshipLevelDisplay = useMemo(() => {
+    if (!relationship)
+      return { level: 1, name: "Getting to Know", progress: 10 };
+
+    const level =
+      relationship.gamification?.relationshipLevel ||
+      relationship.relationshipLevel ||
+      1;
+
+    const levelNames = {
+      1: "Getting to Know",
+      2: "Casual Contact",
+      3: "Regular Friend",
+      4: "Good Friend",
+      5: "Close Friend",
+      6: "Very Close",
+      7: "Deep Connection",
+      8: "Intimate Bond",
+      9: "Life Partner",
+      10: "Soulmate",
+    };
+
+    return {
+      level,
+      name: levelNames[level] || "Undefined",
+      progress: (level / 10) * 100,
+    };
+  }, [relationship]);
+
+  const getChallengesBadges = (relationship) => {
+    return (
+      relationship.gamification?.challengesBadges ||
+      relationship.challengesBadges ||
+      []
+    );
   };
+
+  const MemoizedMetricCard = React.memo(
+    ({ accentColor, darkMode, style, children }) => (
+      <MetricCard accentColor={accentColor} darkMode={darkMode} style={style}>
+        {children}
+      </MetricCard>
+    )
+  );
+
+  const MetricsSection = React.memo(() => (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr",
+        gap: "1rem",
+        marginBottom: "1.5rem",
+      }}
+    >
+      <MemoizedMetricCard
+        accentColor={connectionScoreDisplay.color}
+        darkMode={darkMode}
+        style={{
+          transform: animateMetrics ? "translateY(0)" : "translateY(20px)",
+          opacity: animateMetrics ? 1 : 0,
+          transition: "all 0.5s ease 0.1s",
+        }}
+      >
+        <div className="metric-header">
+          <Heart size={20} className="metric-icon" />
+          <div className="metric-label">Connection Score</div>
+        </div>
+        <div className="metric-value">
+          {`${connectionScoreDisplay.emoji} ${connectionScoreDisplay.score}/100`}
+        </div>
+        <div className="metric-description">
+          {connectionScoreDisplay.text} connection based on your interactions
+        </div>
+      </MemoizedMetricCard>
+
+      <MemoizedMetricCard
+        accentColor={getMetricColor("depth")}
+        darkMode={darkMode}
+        style={{
+          transform: animateMetrics ? "translateY(0)" : "translateY(20px)",
+          opacity: animateMetrics ? 1 : 0,
+          transition: "all 0.5s ease 0.2s",
+        }}
+      >
+        <div className="metric-header">
+          <BarChart2 size={20} className="metric-icon" />
+          <div className="metric-label">Relationship Level</div>
+        </div>
+        <div className="metric-value">
+          Level {relationshipLevelDisplay.level}
+        </div>
+        <div className="metric-description">
+          {relationshipLevelDisplay.name} -{" "}
+          {relationshipLevelDisplay.progress.toFixed(0)}% to next level
+        </div>
+      </MemoizedMetricCard>
+
+      <MemoizedMetricCard
+        accentColor={getMetricColor("balance")}
+        darkMode={darkMode}
+        style={{
+          transform: animateMetrics ? "translateY(0)" : "translateY(20px)",
+          opacity: animateMetrics ? 1 : 0,
+          transition: "all 0.5s ease 0.3s",
+        }}
+      >
+        <div className="metric-header">
+          <PieChart size={20} className="metric-icon" />
+          <div className="metric-label">Emotional Tone</div>
+        </div>
+        <div className="metric-value">
+          {(() => {
+            if (relationship?.metrics?.sentimentScore !== undefined) {
+              const score = relationship.metrics.sentimentScore;
+              return `${getSentimentEmoji(score)} ${getSentimentText(score)}`;
+            } else if (relationship?.metrics?.emotionalVolatility) {
+              const volatility = relationship.metrics.emotionalVolatility;
+              const emojiMap = {
+                Stable: "😊 Stable",
+                Swingy: "😐 Variable",
+                Erratic: "😕 Unpredictable",
+              };
+              return emojiMap[volatility] || `😐 ${volatility}`;
+            }
+            return "❓ Not enough data";
+          })()}
+        </div>
+        <div className="metric-description">
+          {relationship?.metrics?.sentimentScore !== undefined
+            ? `Based on sentiment analysis of ${conversations.length} conversations`
+            : relationship?.metrics?.emotionalVolatility
+            ? "Based on emotional patterns in conversations"
+            : "Need more conversations to analyze"}
+        </div>
+      </MemoizedMetricCard>
+    </div>
+  ));
 
   if (loading) {
     return (
@@ -1662,96 +1825,44 @@ const RelationshipProfile = () => {
           )}
 
           {/* Metrics Section */}
-          <MetricsContainer>
-            <MetricCard
-              accentColor={getMetricColor("sentiment")}
-              darkMode={darkMode}
-              style={{
-                transform: animateMetrics
-                  ? "translateY(0)"
-                  : "translateY(20px)",
-                opacity: animateMetrics ? 1 : 0,
-                transition: "all 0.5s ease 0.1s",
-              }}
-            >
-              <div className="metric-header">
-                <Heart size={20} className="metric-icon" />
-                <div className="metric-label">Emotional Tone</div>
-              </div>
-              <div className="metric-value">
-                {relationship.metrics?.emotionalVolatility !== undefined
-                  ? `${getSentimentEmoji(
-                      relationship.metrics.emotionalVolatility
-                    )} ${getSentimentText(
-                      relationship.metrics.emotionalVolatility
-                    )}`
-                  : "Not enough data"}
-              </div>
-              <div className="metric-description">
-                {relationship.metrics?.emotionalVolatility !== undefined
-                  ? `Based on ${conversations.length} conversations`
-                  : "Need more conversations to analyze"}
-              </div>
-            </MetricCard>
+          <MetricsSection />
 
-            <MetricCard
-              accentColor={getMetricColor("depth")}
-              darkMode={darkMode}
-              style={{
-                transform: animateMetrics
-                  ? "translateY(0)"
-                  : "translateY(20px)",
-                opacity: animateMetrics ? 1 : 0,
-                transition: "all 0.5s ease 0.2s",
-              }}
-            >
-              <div className="metric-header">
-                <BarChart2 size={20} className="metric-icon" />
-                <div className="metric-label">Connection Depth</div>
-              </div>
-              <div className="metric-value">
-                {relationship.metrics?.depthScore !== undefined
-                  ? `${relationship.metrics.depthScore.toFixed(1)}/10`
-                  : "Not enough data"}
-              </div>
-              <div className="metric-description">
-                {relationship.metrics?.depthScore !== undefined
-                  ? relationship.metrics.depthScore >= 7
-                    ? "Deep meaningful connection"
-                    : relationship.metrics.depthScore >= 4
-                    ? "Developing connection"
-                    : "Surface-level connection"
-                  : "Need more interactions to assess"}
-              </div>
-            </MetricCard>
+          {/* Add Challenges/Badges Section after metrics */}
+          {getChallengesBadges(relationship).length > 0 && (
+            <SectionCard darkMode={darkMode} style={{ marginTop: "1rem" }}>
+              <SectionContentInner darkMode={darkMode}>
+                <FieldGroup>
+                  <div className="field-label">Earned Badges</div>
+                  <TagsContainer>
+                    {getChallengesBadges(relationship).map((badge, index) => (
+                      <BadgeTag
+                        key={index}
+                        bgColor={darkMode ? "#1e40af" : "#dbeafe"}
+                        textColor={darkMode ? "#93c5fd" : "#1e40af"}
+                      >
+                        🏆 {badge}
+                      </BadgeTag>
+                    ))}
+                  </TagsContainer>
+                </FieldGroup>
 
-            <MetricCard
-              accentColor={getMetricColor("balance")}
-              darkMode={darkMode}
-              style={{
-                transform: animateMetrics
-                  ? "translateY(0)"
-                  : "translateY(20px)",
-                opacity: animateMetrics ? 1 : 0,
-                transition: "all 0.5s ease 0.3s",
-              }}
-            >
-              <div className="metric-header">
-                <PieChart size={20} className="metric-icon" />
-                <div className="metric-label">Reciprocity Balance</div>
-              </div>
-              <div className="metric-value">
-                {relationship.metrics?.reciprocityRatio !== undefined
-                  ? getReciprocityText(relationship.metrics.reciprocityRatio)
-                  : "Not enough data"}
-              </div>
-              <div className="metric-description">
-                {relationship.metrics?.reciprocityRatio !== undefined
-                  ? "Based on conversation patterns and support exchange"
-                  : "Need more interactions to assess balance"}
-              </div>
-            </MetricCard>
-          </MetricsContainer>
+                {relationship.gamification?.nextMilestone && (
+                  <FieldGroup>
+                    <div className="field-value">
+                      {relationship.gamification?.nextMilestone && (
+                        <NextMilestoneField darkMode={darkMode}>
+                          <div className="field-label">Next Milestone</div>
+                          <div className="field-value">
+                            🎯 {relationship.gamification.nextMilestone}
+                          </div>
+                        </NextMilestoneField>
+                      )}
+                    </div>
+                  </FieldGroup>
+                )}
+              </SectionContentInner>
+            </SectionCard>
+          )}
 
           {/* Relationship Type-Specific Analysis */}
           <RelationshipTypeAnalysis
@@ -2236,12 +2347,6 @@ const RelationshipProfile = () => {
             </SectionContent>
           </SectionCard>
 
-          {/* Add the Relationship QA component */}
-          {/* <RelationshipQA 
-              relationshipId={relationshipId}
-              relationshipName={relationship?.contactName}
-            /> */}
-
           {/* Action Buttons (Import and Ask Questions) */}
           <ButtonGroup>
             <Button
@@ -2301,4 +2406,4 @@ const RelationshipProfile = () => {
   );
 };
 
-export default RelationshipProfile;
+export default React.memo(RelationshipProfile);

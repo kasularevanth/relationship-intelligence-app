@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ChevronDown, Upload } from "lucide-react";
 import { relationshipService } from "../services/api";
@@ -32,33 +32,89 @@ const RelationshipTypeAnalysis = ({
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Enhanced function to determine if we have meaningful analysis data
+  const hasAnalysisData = useMemo(() => {
+    // If no analysis object at all
+    if (!analysis) {
+      return false;
+    }
+
+    // Check if the API returned "No conversations available for analysis"
+    if (
+      analysis.message &&
+      analysis.message.includes("No conversations available")
+    ) {
+      return false;
+    }
+
+    // Check if metrics object exists and has meaningful data
+    if (!analysis.metrics || typeof analysis.metrics !== "object") {
+      return false;
+    }
+
+    // Check if metrics object is empty
+    const metricsKeys = Object.keys(analysis.metrics);
+    if (metricsKeys.length === 0) {
+      return false;
+    }
+
+    // Check if all metric values are null, undefined, or "N/A"
+    const hasValidMetrics = metricsKeys.some((key) => {
+      const value = analysis.metrics[key];
+      if (value === null || value === undefined || value === "N/A") {
+        return false;
+      }
+      if (typeof value === "string" && value.trim() === "") {
+        return false;
+      }
+      return true;
+    });
+
+    if (!hasValidMetrics) {
+      return false;
+    }
+
+    // Check if we have meaningful insights or recommendations
+    const hasValidInsights =
+      analysis.insights &&
+      Array.isArray(analysis.insights) &&
+      analysis.insights.length > 0 &&
+      !analysis.insights.every(
+        (insight) =>
+          !insight ||
+          insight.trim() === "" ||
+          insight.toLowerCase().includes("no conversations") ||
+          insight.toLowerCase().includes("import more")
+      );
+
+    const hasValidRecommendations =
+      analysis.recommendations &&
+      Array.isArray(analysis.recommendations) &&
+      analysis.recommendations.length > 0 &&
+      !analysis.recommendations.every(
+        (rec) =>
+          !rec ||
+          rec.trim() === "" ||
+          rec.toLowerCase().includes("no conversations") ||
+          rec.toLowerCase().includes("import more")
+      );
+
+    // We consider we have data if we have valid metrics OR valid insights/recommendations
+    return hasValidMetrics || hasValidInsights || hasValidRecommendations;
+  }, [analysis]);
+
   useEffect(() => {
     // Fetch relationship type-specific analysis if the relationship ID is available
     if (relationshipId && relationship?.relationshipType) {
       fetchAnalysis();
     }
-
-    // Show the import animation after 3 seconds if no analysis data
-    const timer = setTimeout(() => {
-      if (
-        !analysis ||
-        !analysis.metrics ||
-        Object.keys(analysis.metrics).length === 0
-      ) {
-        setShowImportAnimation(true);
-      }
-    }, 3000);
-
-    return () => clearTimeout(timer);
   }, [relationshipId, relationship?.relationshipType]);
 
   const fetchAnalysis = async () => {
     try {
       setLoading(true);
 
-      // Call the API endpoint for relationship type analysis with timestamp to bust cache
       const timestamp = Date.now();
-
       const response = await relationshipService.getTypeAnalysis(
         relationshipId,
         {
@@ -70,29 +126,27 @@ const RelationshipTypeAnalysis = ({
         }
       );
 
-      console.log("topic-anlysis", response);
-
-      if (response.data && response.data.success) {
+      if (response.data) {
         setAnalysis(response.data);
+      } else {
+        setAnalysis(null);
       }
 
       setLoading(false);
     } catch (error) {
       console.error("Error fetching relationship type analysis:", error);
       setLoading(false);
+      setAnalysis(null);
     }
   };
 
   const handleImportChat = () => {
-    // Add a subtle animation or highlight effect before navigating
-    setShowImportAnimation(false); // Hide any visible animations
+    setShowImportAnimation(false);
 
-    // Add a little delay for visual feedback
     setTimeout(() => {
       sessionStorage.setItem("refreshRelationshipData", "true");
       sessionStorage.setItem("returnToRelationship", relationshipId);
 
-      // Use provided onImportClick if available, otherwise navigate
       if (typeof onImportClick === "function") {
         onImportClick();
       } else {
@@ -105,55 +159,29 @@ const RelationshipTypeAnalysis = ({
     setExpanded(!expanded);
   };
 
-  // Normalize relationship type for styling consistency
-  const normalizeRelationshipType = (type) => {
-    if (!type) return "other";
-
-    type = type.toLowerCase();
-
-    if (type === "partner") return "romantic";
-    if (type === "friend") return "friendship";
-    if (type === "colleague") return "professional";
-    if (["mentor", "mentee", "acquaintance", "other"].includes(type))
-      return "mentor/other";
-
-    return type;
-  };
-
-  const normalizedType = normalizeRelationshipType(
-    relationship?.relationshipType
-  );
-
   // Get color based on relationship type for styling
   const getRelationshipColor = (type, isDarkMode) => {
     switch (type?.toLowerCase()) {
       case "romantic":
       case "partner":
-        return isDarkMode ? "#9f1239" : "#fb7185"; // Rose
+        return isDarkMode ? "#9f1239" : "#fb7185";
       case "friendship":
       case "friend":
-        return isDarkMode ? "#1d4ed8" : "#3b82f6"; // Blue
+        return isDarkMode ? "#1d4ed8" : "#3b82f6";
       case "professional":
       case "colleague":
-        return isDarkMode ? "#0f766e" : "#14b8a6"; // Teal
+        return isDarkMode ? "#0f766e" : "#14b8a6";
       case "family":
-        return isDarkMode ? "#a16207" : "#eab308"; // Yellow
+        return isDarkMode ? "#a16207" : "#eab308";
       case "mentor":
       case "mentee":
       case "acquaintance":
       case "other":
-        return isDarkMode ? "#7e22ce" : "#a855f7"; // Purple
+        return isDarkMode ? "#7e22ce" : "#a855f7";
       default:
-        return isDarkMode ? "#4f46e5" : "#6366f1"; // Indigo
+        return isDarkMode ? "#4f46e5" : "#6366f1";
     }
   };
-
-  // Determine if we have any analysis data yet
-  const hasAnalysisData =
-    analysis &&
-    Object.keys(analysis).length > 0 &&
-    analysis.metrics &&
-    Object.keys(analysis.metrics).length > 0;
 
   // Get section title based on relationship type
   const getRelationshipTitle = (type) => {
@@ -191,7 +219,7 @@ const RelationshipTypeAnalysis = ({
     // On mobile, we need much more height for recommendations
     if (isMobile) {
       // If we have analysis data with recommendations, allow much more height
-      if (hasAnalysisData && analysis.recommendations?.length > 0) {
+      if (hasAnalysisData && analysis?.recommendations?.length > 0) {
         return "none"; // Remove height constraint completely on mobile
       }
       return "3000px"; // Fallback for mobile
@@ -263,7 +291,22 @@ const RelationshipTypeAnalysis = ({
             }),
         }}
       >
-        {!hasAnalysisData && relationship && !hideImportBanner && (
+        {/* Show loading state */}
+        {loading && (
+          <div style={{ padding: "24px 20px", textAlign: "center" }}>
+            <div
+              style={{
+                color: darkMode ? "#9ca3af" : "#6b7280",
+                fontSize: "0.875rem",
+              }}
+            >
+              Analyzing relationship patterns...
+            </div>
+          </div>
+        )}
+
+        {/* Show empty state when no meaningful analysis data exists */}
+        {!loading && !hasAnalysisData && relationship && (
           <div style={{ padding: "24px 20px" }}>
             <RelationshipAnalyticsEmptyState
               relationshipType={relationship?.relationshipType}
@@ -273,7 +316,8 @@ const RelationshipTypeAnalysis = ({
           </div>
         )}
 
-        {hasAnalysisData && (
+        {/* Show metrics only when we have meaningful analysis data */}
+        {!loading && hasAnalysisData && (
           <div
             style={{
               padding: "24px 20px",
