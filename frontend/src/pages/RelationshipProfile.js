@@ -76,53 +76,6 @@ const AvatarContainer = styled.div`
   }
 `;
 
-const AvatarDot = styled.div`
-  position: absolute;
-  bottom: 5px;
-  right: 5px;
-  width: 16px;
-  height: 16px;
-  background-color: #10b981;
-  border-radius: 50%;
-  border: 3px solid white;
-  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2);
-`;
-
-const Avatar = styled.div`
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.5),
-    0 0 0 1px rgba(99, 102, 241, 0.1);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-
-  &:hover {
-    transform: translateY(-3px) scale(1.02);
-    box-shadow: 0 15px 30px -5px rgba(99, 102, 241, 0.5),
-      0 0 0 1px rgba(99, 102, 241, 0.1);
-  }
-
-  span {
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: white;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  @media (min-width: 640px) {
-    width: 120px;
-    height: 120px;
-
-    span {
-      font-size: 3rem;
-    }
-  }
-`;
-
 const ProfileInfo = styled.div`
   flex: 1;
 

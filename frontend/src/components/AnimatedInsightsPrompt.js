@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import styled, { keyframes, css } from "styled-components";
+import styled, { keyframes } from "styled-components";
 import {
-  Heart,
   BarChart2,
   PieChart,
   MessageCircle,
@@ -10,20 +9,8 @@ import {
   Zap,
   ChevronRight,
   Clock,
-  ArrowRight,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
-
-// Keyframe animations
-const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
-
-const fadeOut = keyframes`
-  from { opacity: 1; transform: translateY(0); }
-  to { opacity: 0; transform: translateY(20px); }
-`;
 
 const slideRight = keyframes`
   from { transform: translateX(0); }
