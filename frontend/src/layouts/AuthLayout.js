@@ -2,9 +2,7 @@
 import React from "react";
 import { Outlet, Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { Box, Container, Paper, Typography } from "@mui/material";
-import CircularProgress from "@mui/material/CircularProgress";
-import { padding } from "@mui/system";
+import { Box, CircularProgress, Typography } from "@mui/material"; // Added Typography
 
 const AuthLayout = () => {
   const { currentUser, loading } = useAuth();
@@ -14,14 +12,13 @@ const AuthLayout = () => {
       <Box
         sx={{
           display: "flex",
-          p: 0,
-          m: 0,
           justifyContent: "center",
           alignItems: "center",
           height: "100vh",
+          backgroundColor: "var(--primary-bg)",
         }}
       >
-        <CircularProgress />
+        <CircularProgress sx={{ color: "var(--text-primary)" }} />
       </Box>
     );
   }
@@ -31,32 +28,49 @@ const AuthLayout = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
+  // Pure auth layout - no sidebar, no navigation
   return (
     <Box
       sx={{
-        minHeight: "100vh",
+        width: "100vw",
+        height: "100vh",
+        backgroundColor: "var(--primary-bg)",
         display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: (theme) => theme.palette.grey[100],
+        flexDirection: "column",
+        margin: 0,
+        padding: 0,
+        overflow: "hidden",
+        position: "relative", // Added for positioning the logo
       }}
     >
-      <Container maxWidth="sm">
-        <Paper
-          elevation={6}
+      {/* Logo Header */}
+      {/* Logo Header */}
+      <Box
+        sx={{
+          position: "absolute",
+          top: { xs: "20px", md: "var(--auth-logo-text-top-padding)" }, // Use CSS variable
+          left: { xs: "20px", md: "var(--auth-logo-text-left-padding)" }, // Use CSS variable
+          zIndex: 10, 
+        }}
+      >
+        <Typography
           sx={{
-            p: 0,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
+            fontFamily: "var(--auth-logo-text-font-family)",
+            fontWeight: "var(--auth-logo-text-font-weight)",
+            fontSize: { xs: "30px", md: "var(--auth-logo-text-font-size)" }, // Responsive font size
+            lineHeight: { xs: "39px", md: "var(--auth-logo-text-line-height)" }, // Responsive line height
+            letterSpacing: "var(--auth-logo-text-letter-spacing)",
+            background: "var(--auth-logo-text-gradient)", // Changed to use the new gradient variable
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            textAlign: "left",
           }}
         >
-          {/* <Typography component="h1" variant="h4" sx={{ mb: 4 }}>
-            Relationship Intelligence
-          </Typography> */}
-          <Outlet />
-        </Paper>
-      </Container>
+          SoulSync
+        </Typography>
+      </Box>
+      <Outlet />
     </Box>
   );
 };

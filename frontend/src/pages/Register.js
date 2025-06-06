@@ -3,49 +3,74 @@ import React, { useState, useEffect } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { useApp } from "../contexts/AppContext"; // Import useApp
 import {
   Alert,
   Box,
   Button,
-  TextField,
   Typography,
   CircularProgress,
-  InputAdornment,
-  Paper,
+  IconButton,
   useMediaQuery,
   useTheme as useMuiTheme,
-  IconButton,
-  Divider,
 } from "@mui/material";
-import GoogleIcon from "@mui/icons-material/Google";
-import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
-import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
-import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
-import CalendarTodayOutlinedIcon from "@mui/icons-material/CalendarTodayOutlined";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import FacebookIcon from "@mui/icons-material/Facebook";
+import TwitterIcon from "@mui/icons-material/Twitter";
+import InstagramIcon from "@mui/icons-material/Instagram";
+import LinkedInIcon from "@mui/icons-material/LinkedIn";
+
+// Custom Google Icon Component for authentic look
+const GoogleIcon = ({ size = 12 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 12 12"
+    fill="none"
+    style={{
+      verticalAlign: "middle",
+      display: "inline-block",
+      flexShrink: 0,
+    }}
+  >
+    <path
+      d="M10.8 6.13636C10.8 5.72727 10.7636 5.34545 10.6909 4.96364H6V7.09091H8.8C8.68182 7.69091 8.32727 8.2 7.8 8.52727V9.9H9.38182C10.2545 9.09091 10.8 7.74545 10.8 6.13636Z"
+      fill="#4285F4"
+    />
+    <path
+      d="M6 11.25C7.425 11.25 8.61818 10.7727 9.38182 9.9L7.8 8.52727C7.35 8.81818 6.72727 9.00909 6 9.00909C4.62273 9.00909 3.45455 8.19091 3.04091 7.04545H1.40909V8.46818C2.16818 9.975 3.94091 11.25 6 11.25Z"
+      fill="#34A853"
+    />
+    <path
+      d="M3.04091 7.04545C2.95909 6.75455 2.90909 6.45 2.90909 6.13636C2.90909 5.82273 2.95909 5.51818 3.04091 5.22727V3.80455H1.40909C1.0909 4.43182 0.909091 5.155 0.909091 5.92727C0.909091 6.69955 1.0909 7.42273 1.40909 8.04955L3.04091 7.04545Z"
+      fill="#FBBC05"
+    />
+    <path
+      d="M6 3.26364C6.79091 3.26364 7.50909 3.55455 8.07273 4.09091L9.48182 2.68182C8.61364 1.86364 7.42045 1.36364 6 1.36364C3.94091 1.36364 2.16818 2.63864 1.40909 4.14545L3.04091 5.56818C3.45455 4.42273 4.62273 3.60455 6 3.60455V3.26364Z"
+      fill="#EA4335"
+    />
+  </svg>
+);
 
 const Register = () => {
+  // Form state - only the 3 required fields
   const [formData, setFormData] = useState({
-    name: "",
-    age: "",
     email: "",
+    name: "",
     password: "",
-    confirmPassword: "",
   });
 
   const [errors, setErrors] = useState({
-    name: "",
-    age: "",
     email: "",
+    name: "",
     password: "",
-    confirmPassword: "",
   });
 
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [focusedInput, setFocusedInput] = useState(null);
   const [passwordStrength, setPasswordStrength] = useState({
     length: false,
     uppercase: false,
@@ -54,33 +79,31 @@ const Register = () => {
     special: false,
   });
 
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
+  const { markOnboardingAsCompleted } = useApp(); // Get the function from AppContext
   const { darkMode } = useTheme();
   const muiTheme = useMuiTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("sm"));
 
-  // Colors and other functions remain the same
-  const accentColor = darkMode ? "#4aeabc" : "#30a58b";
-  const headerBgColor = darkMode ? "#121212" : "#ffffff";
-  const formBgColor = darkMode ? "#121212" : "#ffffff";
-  const inputBgColor = darkMode ? "#1e1e1e" : "#f7f7f7";
-  const inputBorderColor = darkMode ? "#333333" : "#e0e0e0";
-  const textColor = darkMode ? "#4aeabc" : "#30a58b";
-  const subtitleColor = darkMode ? "#aaaaaa" : "#757575";
-  const iconColor = darkMode ? "#4aeabc" : "#30a58b";
-  const formHelperTextColor = "#ff4444";
-  const buttonColor = darkMode ? "#4aeabc" : "#30a58b";
+  useEffect(() => {
+    // Apply theme class to body
+    if (darkMode) {
+      document.body.classList.add("dark-mode-auth");
+      document.body.classList.remove("light-mode-auth");
+    } else {
+      document.body.classList.add("light-mode-auth");
+      document.body.classList.remove("dark-mode-auth");
+    }
+    document.body.setAttribute("data-page-type", "auth");
 
-  // Validate email format
-  const isValidEmail = (email) => {
-    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return regex.test(email);
-  };
+    return () => {
+      document.body.classList.remove("dark-mode-auth", "light-mode-auth");
+      document.body.removeAttribute("data-page-type");
+    };
+  }, [darkMode]);
 
-  // Validate password strength
+  // Track password strength in real-time
   useEffect(() => {
     const password = formData.password;
     setPasswordStrength({
@@ -88,73 +111,166 @@ const Register = () => {
       uppercase: /[A-Z]/.test(password),
       lowercase: /[a-z]/.test(password),
       number: /[0-9]/.test(password),
-      special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+      special: /[!@#$%^&*(),.?":{}|<>_\-+=[\]\\/~`]/.test(password),
     });
   }, [formData.password]);
 
-  // Add this in both Login.js and Register.js right at the start of the return statement
-  useEffect(() => {
-    // Add a class to the body when on auth pages
-    if (isMobile && darkMode) {
-      document.body.classList.add("dark-mode-auth");
-      // Set page-specific data attribute
-      document.body.setAttribute("data-page-type", "auth");
-    }
+  // Comprehensive email validation (returns boolean)
+  const isValidEmail = (email) => {
+    const basicRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!basicRegex.test(email)) return false;
 
-    return () => {
-      // Clean up when component unmounts
-      document.body.classList.remove("dark-mode-auth");
-      document.body.removeAttribute("data-page-type");
+    // Additional length checks
+    if (email.length > 254 || email.length < 5) return false;
+
+    const parts = email.split("@");
+    if (parts.length !== 2) return false;
+
+    const [localPart, domainPart] = parts;
+
+    // Local part checks
+    if (localPart.length === 0 || localPart.length > 64) return false;
+    if (localPart.startsWith(".") || localPart.endsWith(".")) return false;
+    if (localPart.includes("..")) return false;
+
+    // Domain part checks
+    if (domainPart.length === 0 || domainPart.length > 253) return false;
+    if (domainPart.startsWith("-") || domainPart.endsWith("-")) return false;
+    if (domainPart.startsWith(".") || domainPart.endsWith(".")) return false;
+    if (domainPart.includes("..")) return false;
+
+    // TLD validation
+    const domainParts = domainPart.split(".");
+    const tld = domainParts[domainParts.length - 1];
+    if (tld.length < 2 || !/^[a-zA-Z]+$/.test(tld)) return false;
+
+    // Prevent all-numeric domains
+    if (/^\d+$/.test(domainParts[0])) return false;
+
+    return true;
+  };
+
+  // Check for common email domain typos
+  const hasCommonDomainTypo = (email) => {
+    const domain = email.split("@")[1]?.toLowerCase();
+    if (!domain) return false;
+
+    const commonTypos = {
+      "gmail.co": "gmail.com",
+      "gmail.om": "gmail.com",
+      "gmai.com": "gmail.com",
+      "gmial.com": "gmail.com",
+      "gmail.cm": "gmail.com",
+      "yahoo.co": "yahoo.com",
+      "yahoo.om": "yahoo.com",
+      "yaho.com": "yahoo.com",
+      "hotmail.co": "hotmail.com",
+      "hotmail.om": "hotmail.com",
+      "outlook.co": "outlook.com",
+      "outlook.om": "outlook.com",
+      "live.co": "live.com",
+      "icloud.co": "icloud.com",
     };
-  }, [isMobile, darkMode]);
+
+    return commonTypos.hasOwnProperty(domain) ? commonTypos[domain] : false;
+  };
+
+  // Validate name format
+  const isValidName = (name) => {
+    const regex = /^[a-zA-Z\s'-]{2,50}$/;
+    return regex.test(name.trim());
+  };
+
+  // Check if password meets all requirements
+  const isPasswordValid = () => {
+    return Object.values(passwordStrength).every(Boolean);
+  };
 
   // Toggle password visibility
   const handleTogglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
 
-  const handleToggleConfirmPasswordVisibility = () => {
-    setShowConfirmPassword(!showConfirmPassword);
-  };
-
   const handleChange = (e) => {
     const { name, value } = e.target;
+    const processedValue = name === "email" ? value.toLowerCase() : value;
 
     setFormData({
       ...formData,
-      [name]: value,
+      [name]: processedValue,
     });
 
-    // Clear field-specific error when user types
+    // Clear field-specific error when user starts typing
     if (errors[name]) {
       setErrors({
         ...errors,
         [name]: "",
       });
     }
+
+    // Clear general error when user starts making changes
+    if (error) {
+      setError("");
+    }
   };
 
-  // Validate individual fields
+  // Simplified field validation with helpful typo detection
   const validateField = (name, value) => {
     switch (name) {
-      case "name":
-        return value.trim() ? "" : "Name is required";
       case "email":
-        if (!value.trim()) return "Email is required";
-        return isValidEmail(value) ? "" : "Invalid email format";
+        const trimmedEmail = value.trim().toLowerCase();
+
+        if (!trimmedEmail) return "Email address is required";
+
+        // Check for common domain typos first (better UX)
+        if (trimmedEmail.includes("@")) {
+          const [localPart] = trimmedEmail.split("@");
+          const suggestedDomain = hasCommonDomainTypo(trimmedEmail);
+          if (suggestedDomain) {
+            return `Did you mean ${localPart}@${suggestedDomain}?`;
+          }
+        }
+
+        // Single validation check for all other cases
+        if (!isValidEmail(trimmedEmail)) {
+          return "Please enter a valid email address";
+        }
+
+        return "";
+
+      case "name":
+        if (!value.trim()) return "Full name is required";
+        if (value.trim().length < 2)
+          return "Name must be at least 2 characters";
+        if (value.trim().length > 50)
+          return "Name must be less than 50 characters";
+        if (!isValidName(value))
+          return "Name can only contain letters, spaces, hyphens, and apostrophes";
+        return "";
+
       case "password":
         if (!value) return "Password is required";
         if (value.length < 8) return "Password must be at least 8 characters";
+        if (value.length > 128)
+          return "Password must be less than 128 characters";
+        if (!/[A-Z]/.test(value))
+          return "Password must contain at least one uppercase letter";
+        if (!/[a-z]/.test(value))
+          return "Password must contain at least one lowercase letter";
+        if (!/[0-9]/.test(value))
+          return "Password must contain at least one number";
+        if (!/[!@#$%^&*(),.?":{}|<>_\-+=[\]\\/~`]/.test(value))
+          return "Password must contain at least one special character";
+        if (/\s/.test(value)) return "Password cannot contain spaces";
+
+        // Check for common weak patterns
+        if (/(.)\1{2,}/.test(value))
+          return "Password cannot have 3 or more repeated characters";
+        if (/123|abc|password|qwerty/i.test(value))
+          return "Password contains common patterns that are not allowed";
+
         return "";
-      case "confirmPassword":
-        if (!value) return "Please confirm your password";
-        if (value !== formData.password) return "Passwords do not match";
-        return "";
-      case "age":
-        if (value && (isNaN(value) || value < 1 || value > 120)) {
-          return "Please enter a valid age";
-        }
-        return "";
+
       default:
         return "";
     }
@@ -163,49 +279,66 @@ const Register = () => {
   // Validate all fields before submission
   const validateForm = () => {
     const newErrors = {
-      name: validateField("name", formData.name),
       email: validateField("email", formData.email),
+      name: validateField("name", formData.name),
       password: validateField("password", formData.password),
-      confirmPassword: validateField(
-        "confirmPassword",
-        formData.confirmPassword
-      ),
-      age: validateField("age", formData.age),
     };
 
     setErrors(newErrors);
 
-    // Check if there are any errors
+    if (!newErrors.password && !isPasswordValid()) {
+      newErrors.password = "Password must meet all security requirements";
+      setErrors(newErrors);
+    }
+
     return !Object.values(newErrors).some((error) => error);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
 
-    // Validate all fields
     const isValid = validateForm();
-    if (!isValid) return;
+    if (!isValid) {
+      setError("Please fix the errors above before submitting");
+      return;
+    }
+
+    if (!isPasswordValid()) {
+      setError("Password must meet all security requirements");
+      return;
+    }
 
     try {
-      setError("");
       setLoading(true);
-      console.log("Submitting registration for:", formData.email);
-      await register(
-        formData.name,
-        formData.email,
-        formData.password,
-        formData.age
-      );
-      navigate("/dashboard");
+      const cleanedData = {
+        name: formData.name.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+      };
+      await register(cleanedData.name, cleanedData.email, cleanedData.password);
+      markOnboardingAsCompleted(); // Mark onboarding as completed
+      // After successful registration, redirect to login page with a success message
+      navigate("/login?registered=true"); 
     } catch (err) {
       console.error("Registration error:", err);
-      setError(err.response?.data?.message || "Failed to create an account");
+      if (err.response?.status === 409) {
+        setError("An account with this email already exists");
+      } else if (err.response?.status === 400) {
+        setError(err.response?.data?.message || "Invalid registration data");
+      } else if (err.response?.status === 429) {
+        setError("Too many registration attempts. Please try again later");
+      } else {
+        setError(
+          err.response?.data?.message ||
+            "Failed to create account. Please try again"
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle field blur for validation
   const handleBlur = (e) => {
     const { name, value } = e.target;
     const fieldError = validateField(name, value);
@@ -213,6 +346,15 @@ const Register = () => {
       ...errors,
       [name]: fieldError,
     });
+    setFocusedInput(null);
+
+    if (error && !fieldError) {
+      setError("");
+    }
+  };
+
+  const handleFocus = (inputName) => {
+    setFocusedInput(inputName);
   };
 
   const handleGoogleSignup = () => {
@@ -221,600 +363,609 @@ const Register = () => {
     }/auth/google`;
   };
 
-  // Calculate if all password requirements are met
-  const isPasswordValid = Object.values(passwordStrength).every(Boolean);
-  const passwordRequirementsMet =
-    Object.values(passwordStrength).filter(Boolean).length;
-  const passwordStrengthPercent =
-    (passwordRequirementsMet / Object.values(passwordStrength).length) * 100;
-
   return (
     <Box
-      className="auth-page"
       sx={{
-        width: "100%",
+        width: "100vw",
         minHeight: "100vh",
+        height: "100vh",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: darkMode ? "#000000" : "#f5f5f5",
-        // Critical fix: remove any horizontal padding or margin
-        m: 0,
-        p: 0,
-        overflow: "hidden", // Prevent any overflow
-        position: "relative",
-        transition: "background-color 0.3s ease",
+        background: "var(--primary-bg)",
+        margin: 0,
+        padding: 0,
+        overflow: isMobile ? "auto" : "hidden",
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        fontFamily: "var(--font-family-secondary)",
       }}
     >
-      {/* Form Container */}
-      <Paper
-        elevation={0}
+      {/* Full Screen Container */}
+      <Box
         sx={{
-          width: isMobile ? "100vw" : "400px",
-          maxWidth: "100%",
-          backgroundColor: darkMode
-            ? isMobile
-              ? "#000000"
-              : "#121212"
-            : "#ffffff",
-          borderRadius: isMobile ? 0 : 4,
-          // Change this line to use !important
-          padding: isMobile ? "0 !important" : undefined,
-          overflow: "hidden",
-          border: "none",
-          boxShadow: "none",
-          mb: 0,
+          width: "100%",
+          height: "100%",
           display: "flex",
-          flexDirection: "column",
+          flexDirection: isMobile ? "column" : "row",
           alignItems: "center",
-          position: isMobile ? "absolute" : "relative",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          right: 0,
-          height: isMobile ? "100vh" : "auto",
-          maxHeight: isMobile ? "100vh" : "none",
-          overflowY: isMobile ? "auto" : "visible",
+          justifyContent: "center",
+          background: isMobile ? "var(--content-bg)" : "transparent",
+          padding: isMobile ? "20px" : "40px",
+          overflowY: "auto",
+          position: "relative",
         }}
       >
+
+        {/* Content Container */}
         <Box
           sx={{
-            width: "100%",
-            backgroundColor: darkMode ? "#121212" : "#ffffff",
-            p: 3,
+            width: isMobile ? "100%" : "var(--auth-card-width-desktop)", // Consistent width
+            maxWidth: "var(--auth-card-max-width-mobile)",
+            // height: isMobile ? "auto" : "var(--desktop-content-height)", // Let height be auto
+            backgroundColor: "var(--auth-card-background)", // Updated
+            // backdropFilter: "var(--auth-card-backdrop-blur)", // Removed
+            boxShadow: isMobile
+              ? "var(--content-shadow)" // Existing mobile shadow
+              : "var(--auth-card-box-shadow)", // Updated
+            borderRadius: "var(--auth-card-border-radius)", // Updated
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            textAlign: "center",
-          }}
-        >
-          {/* Lock Icon */}
-          <LockOutlinedIcon
-            sx={{
-              fontSize: 40,
-              color: accentColor,
-              mb: 1,
-            }}
-          />
-
-          {/* Title */}
-          <Typography
-            variant="h5"
-            component="h2"
-            sx={{
-              color: accentColor,
-              fontWeight: "bold",
-              mb: 0.5,
-              textAlign: "center",
-              width: "100%",
-            }}
-          >
-            Create Account
-          </Typography>
-
-          {/* Subtitle */}
-          <Typography
-            variant="body2" // Smaller subtitle
-            sx={{
-              color: subtitleColor,
-              textAlign: "center",
-              width: "100%",
-            }}
-          >
-            Join the circle
-          </Typography>
-        </Box>
-
-        <Box
-          sx={{
-            width: "100%",
-            p: 3,
-            backgroundColor: darkMode ? "#121212" : "#ffffff",
-            // Most important fix: set a specific height and make it scrollable
-            flex: 1,
-            overflowY: "auto",
+            justifyContent: "center", // Center content vertically if space allows
+            padding: isMobile ? "var(--auth-card-padding-mobile)" : "var(--auth-card-padding-desktop-register)",
+            gap: "var(--auth-card-gap-register)",
             position: "relative",
-            zIndex: 1, // Ensure form has higher z-index than the login link
+            // border: "var(--auth-card-border)", // Removed
+            marginBottom: isMobile ? "20px" : "0",
+            flexShrink: 0,
+            overflowY: "auto", // Allow scroll if content overflows
           }}
         >
-          {error && (
-            <Alert
-              severity="error"
-              sx={{
-                mb: 2,
-                backgroundColor: darkMode
-                  ? "rgba(211, 47, 47, 0.2)"
-                  : undefined,
-                color: darkMode ? "#ff7777" : undefined,
-              }}
-            >
-              {error}
-            </Alert>
-          )}
-
+          {/* Components Container */}
           <Box
-            component="form"
-            onSubmit={handleSubmit}
-            noValidate
             sx={{
-              width: "100%",
+              width: isMobile ? "100%" : "var(--desktop-component-width)",
+              maxWidth: isMobile
+                ? "var(--component-width)"
+                : "var(--desktop-component-width)",
+              height: "auto", // Changed from 655px to auto for desktop
               display: "flex",
               flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "20px",
+              padding: "0px",
             }}
           >
-            {/* Full Name Field */}
-            <TextField
-              fullWidth
-              id="name"
-              name="name"
-              placeholder="Full Name"
-              value={formData.name}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              autoComplete="name"
-              error={!!errors.name}
-              helperText={errors.name}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <PersonOutlineIcon
-                      sx={{ color: errors.name ? "#ff4444" : iconColor }}
-                    />
-                  </InputAdornment>
-                ),
-              }}
-              sx={inputStyle(
-                darkMode,
-                accentColor,
-                inputBgColor,
-                inputBorderColor
-              )}
-            />
-
-            {/* Age Field */}
-            <TextField
-              fullWidth
-              id="age"
-              name="age"
-              placeholder="Age"
-              value={formData.age}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              type="number"
-              error={!!errors.age}
-              helperText={errors.age}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <CalendarTodayOutlinedIcon
-                      sx={{ color: errors.age ? "#ff4444" : iconColor }}
-                    />
-                  </InputAdornment>
-                ),
-              }}
-              sx={inputStyle(
-                darkMode,
-                accentColor,
-                inputBgColor,
-                inputBorderColor
-              )}
-            />
-
-            {/* Email Field */}
-            <TextField
-              fullWidth
-              id="email"
-              name="email"
-              placeholder="Email"
-              value={formData.email}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              autoComplete="email"
-              error={!!errors.email}
-              helperText={errors.email}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <EmailOutlinedIcon
-                      sx={{ color: errors.email ? "#ff4444" : iconColor }}
-                    />
-                  </InputAdornment>
-                ),
-              }}
-              sx={inputStyle(
-                darkMode,
-                accentColor,
-                inputBgColor,
-                inputBorderColor
-              )}
-            />
-
-            {/* Password Field */}
-            <TextField
-              fullWidth
-              id="password"
-              name="password"
-              placeholder="Password"
-              type={showPassword ? "text" : "password"}
-              value={formData.password}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              autoComplete="new-password"
-              error={!!errors.password}
-              helperText={errors.password}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LockOutlinedIcon
-                      sx={{ color: errors.password ? "#ff4444" : iconColor }}
-                    />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="toggle password visibility"
-                      onClick={handleTogglePasswordVisibility}
-                      edge="end"
-                      sx={{ color: darkMode ? "#aaaaaa" : "#666666" }}
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-              sx={inputStyle(
-                darkMode,
-                accentColor,
-                inputBgColor,
-                inputBorderColor
-              )}
-            />
-
-            {/* Password Strength Indicator */}
-            {formData.password && (
-              <Box sx={{ mb: 2 }}>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-                  <Box
-                    sx={{
-                      height: 4,
-                      flexGrow: 1,
-                      borderRadius: 2,
-                      backgroundColor: darkMode ? "#333" : "#e0e0e0",
-                      position: "relative",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        height: "100%",
-                        width: `${passwordStrengthPercent}%`,
-                        backgroundColor:
-                          passwordStrengthPercent < 40
-                            ? "#ff4444"
-                            : passwordStrengthPercent < 80
-                            ? "#ffbb33"
-                            : accentColor,
-                        transition: "width 0.3s ease",
-                      }}
-                    />
-                  </Box>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      ml: 1,
-                      color: darkMode ? "#aaaaaa" : "#666666",
-                      minWidth: "70px",
-                      textAlign: "right",
-                    }}
-                  >
-                    {passwordStrengthPercent === 0
-                      ? "Very Weak"
-                      : passwordStrengthPercent < 40
-                      ? "Weak"
-                      : passwordStrengthPercent < 80
-                      ? "Moderate"
-                      : "Strong"}
-                  </Typography>
-                </Box>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: darkMode ? "#aaaaaa" : "#666666",
-                    display: "block",
-                    mb: 0.5,
-                    fontWeight: "bold",
-                  }}
-                >
-                  Password must:
-                </Typography>
-                <Box
-                  sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}
-                >
-                  <PasswordRequirement
-                    text="Be at least 8 characters long"
-                    met={passwordStrength.length}
-                    darkMode={darkMode}
-                    accentColor={accentColor}
-                  />
-                  <PasswordRequirement
-                    text="Include uppercase letters (A-Z)"
-                    met={passwordStrength.uppercase}
-                    darkMode={darkMode}
-                    accentColor={accentColor}
-                  />
-                  <PasswordRequirement
-                    text="Include lowercase letters (a-z)"
-                    met={passwordStrength.lowercase}
-                    darkMode={darkMode}
-                    accentColor={accentColor}
-                  />
-                  <PasswordRequirement
-                    text="Include at least one number (0-9)"
-                    met={passwordStrength.number}
-                    darkMode={darkMode}
-                    accentColor={accentColor}
-                  />
-                  <PasswordRequirement
-                    text="Include at least one special character (!@#$%^&*)"
-                    met={passwordStrength.special}
-                    darkMode={darkMode}
-                    accentColor={accentColor}
-                  />
-                </Box>
-              </Box>
-            )}
-
-            {/* Confirm Password Field */}
-            <TextField
-              fullWidth
-              id="confirmPassword"
-              name="confirmPassword"
-              placeholder="Confirm Password"
-              type={showConfirmPassword ? "text" : "password"}
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              error={!!errors.confirmPassword}
-              helperText={errors.confirmPassword}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LockOutlinedIcon
-                      sx={{
-                        color: errors.confirmPassword ? "#ff4444" : iconColor,
-                      }}
-                    />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="toggle confirm password visibility"
-                      onClick={handleToggleConfirmPasswordVisibility}
-                      edge="end"
-                      sx={{ color: darkMode ? "#aaaaaa" : "#666666" }}
-                    >
-                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-              sx={inputStyle(
-                darkMode,
-                accentColor,
-                inputBgColor,
-                inputBorderColor
-              )}
-            />
-
-            {/* Sign Up Button */}
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              disabled={loading}
-              sx={{
-                mt: 2,
-                mb: 2, // Reduced bottom margin to make room for Google button
-                backgroundColor: buttonColor,
-                color: "#ffffff",
-                borderRadius: 6,
-                py: 1.5,
-                fontWeight: "bold",
-                fontSize: "1rem",
-                textTransform: "none",
-                "&:hover": {
-                  backgroundColor: darkMode ? "#3dd9aa" : "#278f77",
-                },
-                "&:disabled": {
-                  backgroundColor: darkMode
-                    ? "rgba(74, 234, 188, 0.7)"
-                    : "rgba(48, 165, 139, 0.7)",
-                  color: "#ffffff",
-                },
-              }}
-            >
-              {loading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                "Sign Up"
-              )}
-            </Button>
-
-            {/* Divider for visual separation */}
-            <Divider sx={{ my: 2, width: "100%" }}>
-              <Typography variant="caption" sx={{ color: subtitleColor }}>
-                OR
-              </Typography>
-            </Divider>
-
-            {/* Google signup button */}
-            <Button
-              onClick={handleGoogleSignup}
-              variant="outlined"
-              fullWidth
-              sx={{
-                height: 48,
-                backgroundColor: darkMode ? "#1e1e1e" : "white",
-                color: darkMode ? "#ffffff" : "rgba(0, 0, 0, 0.54)",
-                border: darkMode ? "1px solid #333" : "1px solid #ddd",
-                borderRadius: 24,
-                fontWeight: 500,
-                textTransform: "none",
-                fontSize: "14px",
-                mb: 2, // Reduced bottom margin
-                boxShadow: "none",
-                "&:hover": {
-                  backgroundColor: darkMode ? "#252525" : "#f5f5f5",
-                  boxShadow: "none",
-                },
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <GoogleIcon sx={{ color: "#4285F4", mr: 1, fontSize: 20 }} />
-              Sign up with Google
-            </Button>
-
-            {/* Login link - placed directly after Google signup */}
+            {/* Header Section */}
             <Box
               sx={{
                 width: "100%",
-                textAlign: "center",
-                mt: 1,
-                mb: 2,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "20px",
               }}
             >
+              {/* Title */}
               <Typography
-                variant="body2"
                 sx={{
-                  color: textColor,
+                  fontFamily: "var(--font-family-secondary)",
+                  fontWeight: 600,
+                  fontSize: isMobile ? "18px" : "22px",
+                  lineHeight: "17px",
+                  color: "var(--text-secondary)",
                   textAlign: "center",
-                  pb: 2,
+                  width: "100%",
                 }}
               >
-                Already have an account?{" "}
-                <RouterLink
-                  to="/login"
-                  style={{
-                    color: textColor,
-                    textDecoration: "none",
-                    fontWeight: "bold",
+                Create an account
+              </Typography>
+
+              {/* Google Button */}
+              <Button
+                onClick={handleGoogleSignup}
+                sx={{
+                  width: "100%",
+                  height: isMobile ? "36px" : "40px",
+                  border: "0.42px solid var(--google-border)",
+                  borderRadius: isMobile ? "25px" : "25px",
+                  background: "var(--google-bg)",
+                  color: "var(--google-text)",
+                  fontFamily: "var(--font-family-secondary)",
+                  fontWeight: 500,
+                  fontSize: isMobile ? "10px" : "12px",
+                  lineHeight: isMobile ? "10px" : "11px",
+                  textTransform: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: isMobile ? "8px" : "6.73px",
+                  padding: "0 10px",
+                  minHeight: isMobile ? "36px" : "40px",
+                  "&:hover": {
+                    background: "var(--google-hover-bg)",
+                    border: "0.42px solid var(--google-border)",
+                  },
+                }}
+              >
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    width: isMobile ? "12px" : "14.76px",
+                    height: isMobile ? "12px" : "14.76px",
                   }}
                 >
-                  Login
-                </RouterLink>
-                {/* <Button
-      component={RouterLink}
-      to="/login"
-      variant="text"
-      sx={{
-        color: darkMode ? '#4aeabc' : '#30a58b',
-        textTransform: 'none',
-        fontWeight: 'bold',
-        ml: -1,
-        borderRadius: 'none'
-        
-      }}
-    >
-      Login
-    </Button> */}
-              </Typography>
+                  <GoogleIcon size={isMobile ? 12 : 14.76} />
+                </Box>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    lineHeight: 1,
+                  }}
+                >
+                  Create account with Google
+                </Box>
+              </Button>
+
+              {/* Divider */}
+              <Box
+                sx={{
+                  width: "167.94px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "9.68px",
+                }}
+              >
+                <Box
+                  sx={{
+                    flexGrow: 1,
+                    height: "0.63px",
+                    background: "var(--divider-color)",
+                    opacity: "var(--border-opacity)",
+                  }}
+                />
+                <Typography
+                  sx={{
+                    fontFamily: "var(--font-family-secondary)",
+                    fontWeight: 500,
+                    fontSize: isMobile ? "7.58px" : "12px",
+                    lineHeight: "11px",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  Or
+                </Typography>
+                <Box
+                  sx={{
+                    flexGrow: 1,
+                    height: "0.63px",
+                    background: "var(--divider-color)",
+                    opacity: "var(--border-opacity)",
+                  }}
+                />
+              </Box>
+            </Box>
+
+            {/* Input Section */}
+            <Box
+              sx={{
+                width: "100%",
+                display: "flex",
+                flexDirection: "column",
+                gap: "20px",
+              }}
+            >
+              {error && (
+                <Alert
+                  severity="error"
+                  sx={{
+                    backgroundColor: "var(--alert-error-bg)",
+                    color: "var(--alert-error-text)",
+                    fontSize: "12px",
+                  }}
+                >
+                  {error}
+                </Alert>
+              )}
+
+              <Box
+                component="form"
+                onSubmit={handleSubmit}
+                noValidate
+                sx={{
+                  width: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "20px",
+                }}
+              >
+                {/* Email Field */}
+                <Box
+                  sx={{
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontFamily: "var(--font-family-secondary)",
+                      fontWeight: 500,
+                      fontSize: isMobile ? "12px" : "18px",
+                      lineHeight: "11px",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    Email Address
+                  </Typography>
+                  <Box
+                    sx={{
+                      width: "100%",
+                      height: isMobile ? "36px" : "40px",
+                      border: `0.8px solid ${
+                        focusedInput === "email"
+                          ? "var(--input-border-focus)"
+                          : errors.email
+                          ? "var(--input-border-error)"
+                          : "var(--input-border)"
+                      }`,
+                      borderRadius: "2.52539px",
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "10px",
+                      background: "var(--input-bg)",
+                    }}
+                  >
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="Enter your email address"
+                      value={formData.email}
+                      onChange={handleChange}
+                      onFocus={() => handleFocus("email")}
+                      onBlur={handleBlur}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        outline: "none",
+                        color: "var(--input-text)",
+                        width: "100%",
+                        height: "100%",
+                        fontSize: isMobile ? "12px" : "15px",
+                        fontFamily: "var(--font-family-secondary)",
+                        fontWeight: 300,
+                      }}
+                    />
+                  </Box>
+                  {errors.email && (
+                    <Typography
+                      sx={{
+                        color: "var(--input-border-error)",
+                        fontSize: "12px",
+                      }}
+                    >
+                      {errors.email}
+                    </Typography>
+                  )}
+                </Box>
+
+                {/* Full Name Field */}
+                <Box
+                  sx={{
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontFamily: "var(--font-family-secondary)",
+                      fontWeight: 500,
+                      fontSize: isMobile ? "12px" : "18px",
+                      lineHeight: "11px",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    Full Name
+                  </Typography>
+                  <Box
+                    sx={{
+                      width: "100%",
+                      height: isMobile ? "36px" : "40px",
+                      border: `0.8px solid ${
+                        focusedInput === "name"
+                          ? "var(--input-border-focus)"
+                          : errors.name
+                          ? "var(--input-border-error)"
+                          : "var(--input-border)"
+                      }`,
+                      borderRadius: "2.52539px",
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "10px",
+                      background: "var(--input-bg)",
+                    }}
+                  >
+                    <input
+                      id="name"
+                      name="name"
+                      type="text"
+                      placeholder="Enter your full name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      onFocus={() => handleFocus("name")}
+                      onBlur={handleBlur}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        outline: "none",
+                        color: "var(--input-text)",
+                        width: "100%",
+                        height: "100%",
+                        fontSize: isMobile ? "12px" : "15px",
+                        fontFamily: "var(--font-family-secondary)",
+                        fontWeight: 300,
+                      }}
+                    />
+                  </Box>
+                  {errors.name && (
+                    <Typography
+                      sx={{
+                        color: "var(--input-border-error)",
+                        fontSize: "12px",
+                      }}
+                    >
+                      {errors.name}
+                    </Typography>
+                  )}
+                </Box>
+
+                {/* Password Field */}
+                <Box
+                  sx={{
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontFamily: "var(--font-family-secondary)",
+                      fontWeight: 500,
+                      fontSize: isMobile
+                        ? "var(--font-size-label-mobile)"
+                        : "var(--font-size-label-desktop)",
+                      lineHeight: "11px",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    Password
+                  </Typography>
+                  <Box
+                    sx={{
+                      width: "100%",
+                      height: isMobile ? "36px" : "40px",
+                      border: `0.8px solid ${
+                        focusedInput === "password"
+                          ? "var(--input-border-focus)"
+                          : errors.password
+                          ? "var(--input-border-error)"
+                          : "var(--input-border)"
+                      }`,
+                      borderRadius: "2.52539px",
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "10px",
+                      background: "var(--input-bg)",
+                    }}
+                  >
+                    <input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Create your password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      onFocus={() => handleFocus("password")}
+                      onBlur={handleBlur}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        outline: "none",
+                        color: "var(--input-text)",
+                        width: isMobile
+                          ? "calc(100% - 20px)"
+                          : "calc(100% - 18px)",
+                        height: "100%",
+                        fontSize: isMobile ? "12px" : "15px",
+                        fontFamily: "var(--font-family-secondary)",
+                        fontWeight: 300,
+                      }}
+                    />
+                    <IconButton
+                      onClick={handleTogglePasswordVisibility}
+                      size="small"
+                      sx={{
+                        color: "var(--text-primary)",
+                        width: "18px",
+                        height: "18px",
+                        padding: 0,
+                      }}
+                    >
+                      {showPassword ? (
+                        <VisibilityOff sx={{ fontSize: "14px" }} />
+                      ) : (
+                        <Visibility sx={{ fontSize: "14px" }} />
+                      )}
+                    </IconButton>
+                  </Box>
+                  {errors.password && (
+                    <Typography
+                      sx={{
+                        color: "var(--input-border-error)",
+                        fontSize: "12px",
+                      }}
+                    >
+                      {errors.password}
+                    </Typography>
+                  )}
+
+
+                </Box>
+
+                {/* Sign Up Button */}
+                <Box
+                  sx={{
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: isMobile ? "15px" : "26px",
+                    marginTop: isMobile ? "0" : "15px",
+                  }}
+                >
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    sx={{
+                      width: "100%",
+                      height: isMobile ? "36px" : "40px",
+                      background: "var(--button-gradient)",
+                      borderRadius: '25px',
+                      color: "var(--text-primary)",
+                      fontFamily: "var(--font-family-secondary)",
+                      fontWeight: 500,
+                      fontSize: isMobile ? "14px" : "16px",
+                      lineHeight: isMobile ? "21px" : "24px",
+                      textTransform: "none",
+                      border: "none",
+                      "&:hover": {
+                        background: "var(--button-gradient)",
+                        opacity: 0.9,
+                      },
+                      "&:disabled": {
+                        background: "var(--button-gradient)",
+                        opacity: 0.7,
+                        color: "var(--text-primary)",
+                      },
+                    }}
+                  >
+                    {loading ? (
+                      <CircularProgress size={16} color="inherit" />
+                    ) : (
+                      "Create an account"
+                    )}
+                  </Button>
+
+                  {/* Login Link */}
+                  <Typography
+                    sx={{
+                      fontFamily: "var(--font-family-secondary)",
+                      fontWeight: 400,
+                      fontSize: isMobile ? "12px" : "16px",
+                      lineHeight: "11px",
+                      color: "var(--text-tertiary)",
+                      textAlign: "center",
+                      letterSpacing: "0.005em",
+                    }}
+                  >
+                    Already have an account?{" "}
+                    <RouterLink
+                      to="/login"
+                      style={{
+                        color: "var(--text-tertiary)",
+                        textDecoration: "underline",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Login
+                    </RouterLink>
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+
+            {/* Social Icons */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: isMobile ? "10.1px" : "21.12px",
+                marginTop: "10px",
+              }}
+            >
+              <FacebookIcon
+                sx={{
+                  fontSize: isMobile ? "13.47px" : "28.16px",
+                  color: "var(--social-icon-color)",
+                }}
+              />
+              <TwitterIcon
+                sx={{
+                  fontSize: isMobile ? "13.47px" : "28.16px",
+                  color: "var(--social-icon-color)",
+                }}
+              />
+              <InstagramIcon
+                sx={{
+                  fontSize: isMobile ? "13.47px" : "28.16px",
+                  color: "var(--social-icon-color)",
+                }}
+              />
+              <LinkedInIcon
+                sx={{
+                  fontSize: isMobile ? "13.47px" : "28.16px",
+                  color: "var(--social-icon-color)",
+                }}
+              />
             </Box>
           </Box>
         </Box>
-
-        {/* Mobile-only bottom links */}
-      </Paper>
+      </Box>
     </Box>
   );
 };
 
-// Password requirement component
-const PasswordRequirement = ({ text, met, darkMode, accentColor }) => (
-  <Box sx={{ display: "flex", alignItems: "center" }}>
-    {met ? (
-      <CheckCircleOutlineIcon
-        sx={{ fontSize: 16, color: accentColor, mr: 1 }}
-      />
-    ) : (
-      <ErrorOutlineIcon
-        sx={{ fontSize: 16, color: darkMode ? "#aaaaaa" : "#666666", mr: 1 }}
-      />
-    )}
+// Password Requirement Component - Only used on mobile
+const PasswordRequirement = ({ text, met }) => (
+  <Box sx={{ display: "flex", alignItems: "center", py: 0.25 }}>
+    <Box
+      sx={{
+        width: 6,
+        height: 6,
+        borderRadius: "50%",
+        backgroundColor: met
+          ? "var(--password-good)"
+          : "var(--text-quaternary)",
+        mr: 1,
+        transition: "background-color 0.2s ease",
+      }}
+    />
     <Typography
       variant="caption"
       sx={{
-        color: met ? accentColor : darkMode ? "#aaaaaa" : "#666666",
+        color: met ? "var(--password-good)" : "var(--text-quaternary)",
+        fontSize: "10px",
+        lineHeight: 1.2,
+        transition: "color 0.2s ease",
       }}
     >
       {text}
     </Typography>
   </Box>
 );
-
-// Dynamic input field styling that adapts to dark/light mode
-const inputStyle = (darkMode, accentColor, inputBgColor, inputBorderColor) => ({
-  mb: 2,
-  "& .MuiOutlinedInput-root": {
-    color: darkMode ? "#ffffff" : "#333333", // Fixed text color for dark mode
-    backgroundColor: inputBgColor,
-    borderRadius: 10,
-    "& fieldset": {
-      borderColor: inputBorderColor,
-      borderWidth: 1,
-    },
-    "&:hover fieldset": {
-      borderColor: accentColor,
-    },
-    "&.Mui-focused fieldset": {
-      borderColor: accentColor,
-    },
-    "&.Mui-error fieldset": {
-      borderColor: "#ff4444",
-    },
-  },
-  "& .MuiInputBase-input": {
-    padding: "14px 14px 14px 0",
-    "&::placeholder": {
-      color: darkMode ? "#aaaaaa" : "#888888", // Fixed placeholder color
-      opacity: 0.7,
-    },
-  },
-  "& .MuiInputAdornment-root": {
-    marginLeft: 2,
-  },
-  "& .MuiFormHelperText-root": {
-    color: "#ff4444",
-    marginLeft: 0,
-    marginTop: 0.5,
-  },
-});
 
 export default Register;

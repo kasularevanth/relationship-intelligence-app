@@ -1,599 +1,497 @@
-// frontend/src/pages/NewRelationship.js
-import React, { useState } from "react";
+// frontend/src/components/NewRelationship.js
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import { useAuth } from "../contexts/AuthContext";
-import { useTheme } from "../contexts/ThemeContext"; // Add this import
 import {
   Box,
-  Button,
   Typography,
+  TextField,
+  Button,
   MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
-  FormHelperText,
-  Grid,
-  Paper,
-  Stepper,
-  Step,
-  StepLabel,
-  Alert,
-  CircularProgress,
+  Avatar,
+  IconButton,
   Container,
-  IconButton, // Add IconButton import
+  useTheme,
+  useMediaQuery,
+  Alert,
 } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack"; // Add this import
+import { styled } from "@mui/material/styles";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import AddAPhotoIcon from "@mui/icons-material/AddAPhoto";
+import PersonIcon from "@mui/icons-material/Person";
+import { useGlobal } from "../contexts/GlobalContext";
 
-// Import the VoiceInputField component
-import VoiceInputField from "../components/VoiceInputField";
-
-const relationshipTypes = [
-  "Family",
-  "Friend",
-  "Partner",
-  "Colleague",
-  "Mentor",
-  "Mentee",
-  "Acquaintance",
-  "Other",
+// Fixed relationship types
+const RELATIONSHIP_TYPES = [
+  { label: "Romantic", value: "partner" },
+  { label: "Family", value: "family" },
+  { label: "Friend", value: "friendship" },
+  { label: "Professional", value: "colleague" },
 ];
 
-const frequencyOptions = [
-  "Daily",
-  "Several times a week",
-  "Weekly",
-  "Monthly",
-  "Occasionally",
-  "Rarely",
-];
+// Styled components
+const PageContainer = styled(Box)({
+  backgroundColor: "var(--primary-bg)",
+  minHeight: "100vh",
+  color: "var(--text-primary)",
+  padding: 0,
+  width: "100%",
+});
+
+const HeaderContainer = styled(Box)({
+  display: "flex",
+  alignItems: "center",
+  padding: "20px",
+  position: "relative",
+  "@media (max-width: 768px)": {
+    padding: "16px",
+  },
+});
+
+const BackButton = styled(IconButton)({
+  color: "var(--text-primary)",
+  marginRight: "12px",
+  "&:hover": {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+});
+
+const HeaderTitle = styled(Typography)({
+  fontFamily: "var(--font-family-secondary)",
+  fontWeight: 600,
+  fontSize: "24px",
+  lineHeight: "32px",
+  color: "var(--text-primary)",
+  "@media (max-width: 768px)": {
+    fontSize: "20px",
+    lineHeight: "28px",
+  },
+});
+
+const FormContainer = styled(Container)({
+  maxWidth: "500px",
+  padding: "0 20px",
+  "@media (max-width: 768px)": {
+    padding: "0 16px",
+  },
+});
+
+const PhotoSection = styled(Box)({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  marginBottom: "40px",
+  "@media (max-width: 768px)": {
+    marginBottom: "32px",
+  },
+});
+
+const PhotoContainer = styled(Box)({
+  position: "relative",
+  marginBottom: "16px",
+});
+
+const ProfileAvatar = styled(Avatar)({
+  width: "120px",
+  height: "120px",
+  backgroundColor: "rgba(54, 110, 255, 0.2)",
+  border: "3px solid rgba(255, 255, 255, 0.1)",
+  "@media (max-width: 768px)": {
+    width: "100px",
+    height: "100px",
+  },
+});
+
+const PhotoUploadButton = styled(IconButton)({
+  position: "absolute",
+  bottom: "0px",
+  right: "0px",
+  backgroundColor: "#366EFF",
+  color: "#FFFFFF",
+  width: "36px",
+  height: "36px",
+  border: "3px solid var(--primary-bg)",
+  "&:hover": {
+    backgroundColor: "#2557E5",
+    transform: "scale(1.05)",
+  },
+  transition: "all 0.2s ease",
+  "@media (max-width: 768px)": {
+    width: "32px",
+    height: "32px",
+  },
+});
+
+const PhotoText = styled(Typography)({
+  fontFamily: "var(--font-family-secondary)",
+  fontSize: "14px",
+  color: "rgba(255, 255, 255, 0.7)",
+  textAlign: "center",
+});
+
+const FormSection = styled(Box)({
+  display: "flex",
+  flexDirection: "column",
+  gap: "24px",
+  marginBottom: "40px",
+});
+
+const FieldContainer = styled(Box)({
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
+});
+
+const FieldLabel = styled(Typography)({
+  fontFamily: "var(--font-family-secondary)",
+  fontWeight: 500,
+  fontSize: "16px",
+  color: "var(--text-primary)",
+  marginBottom: "4px",
+});
+
+const StyledTextField = styled(TextField)({
+  "& .MuiOutlinedInput-root": {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: "12px",
+    height: "50px",
+    fontSize: "16px",
+    fontFamily: "var(--font-family-secondary)",
+    color: "var(--text-primary)",
+    "& fieldset": {
+      border: "1px solid rgba(255, 255, 255, 0.2)",
+    },
+    "&:hover fieldset": {
+      border: "1px solid rgba(255, 255, 255, 0.3)",
+    },
+    "&.Mui-focused fieldset": {
+      border: "2px solid #366EFF",
+    },
+  },
+  "& .MuiOutlinedInput-input": {
+    padding: "12px 16px",
+    "&::placeholder": {
+      color: "rgba(255, 255, 255, 0.5)",
+      opacity: 1,
+    },
+  },
+  "& .MuiInputLabel-root": {
+    display: "none",
+  },
+});
+
+const StyledSelect = styled(TextField)({
+  "& .MuiOutlinedInput-root": {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: "12px",
+    height: "50px",
+    fontSize: "16px",
+    fontFamily: "var(--font-family-secondary)",
+    color: "var(--text-primary)",
+    "& fieldset": {
+      border: "1px solid rgba(255, 255, 255, 0.2)",
+    },
+    "&:hover fieldset": {
+      border: "1px solid rgba(255, 255, 255, 0.3)",
+    },
+    "&.Mui-focused fieldset": {
+      border: "2px solid #366EFF",
+    },
+  },
+  "& .MuiSelect-select": {
+    padding: "12px 16px",
+  },
+  "& .MuiInputLabel-root": {
+    display: "none",
+  },
+  "& .MuiSvgIcon-root": {
+    color: "rgba(255, 255, 255, 0.7)",
+  },
+});
+
+const ButtonContainer = styled(Box)({
+  display: "flex",
+  gap: "16px",
+  paddingTop: "20px",
+  paddingBottom: "40px",
+});
+
+const BackButtonStyled = styled(Button)({
+  flex: 1,
+  height: "52px",
+  backgroundColor: "transparent",
+  border: "1.5px solid rgba(255, 255, 255, 0.3)",
+  borderRadius: "12px",
+  color: "var(--text-primary)",
+  fontFamily: "var(--font-family-secondary)",
+  fontWeight: 500,
+  fontSize: "16px",
+  textTransform: "none",
+  "&:hover": {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    border: "1.5px solid rgba(255, 255, 255, 0.5)",
+    transform: "translateY(-2px)",
+  },
+  transition: "all 0.3s ease",
+});
+
+const NextButton = styled(Button)({
+  flex: 2,
+  height: "52px",
+  background: "linear-gradient(135deg, #366EFF 0%, #4E7FFF 100%)",
+  borderRadius: "12px",
+  color: "var(--text-primary)",
+  fontFamily: "var(--font-family-secondary)",
+  fontWeight: 600,
+  fontSize: "16px",
+  textTransform: "none",
+  border: "1px solid rgba(255, 255, 255, 0.1)",
+  "&:hover": {
+    background: "linear-gradient(135deg, #2557E5 0%, #366EFF 100%)",
+    transform: "translateY(-2px)",
+    boxShadow: "0 8px 25px rgba(54, 110, 255, 0.4)",
+  },
+  "&:disabled": {
+    background: "rgba(54, 110, 255, 0.3)",
+    color: "rgba(255, 255, 255, 0.5)",
+    transform: "none",
+    boxShadow: "none",
+  },
+  transition: "all 0.3s ease",
+});
+
+const HiddenFileInput = styled("input")({
+  display: "none",
+});
 
 const NewRelationship = () => {
-  const [activeStep, setActiveStep] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState({});
-  const { currentUser } = useAuth();
-  const { darkMode } = useTheme(); // Add this line to get dark mode state
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const { state, actions } = useGlobal();
 
   const [formData, setFormData] = useState({
-    name: "",
+    contactName: "",
     relationshipType: "",
-    contactInfo: "",
-    frequency: "",
-    howWeMet: "",
-    notes: "",
+    photoUrl: null,
   });
+  const [error, setError] = useState("");
+  const [photoFile, setPhotoFile] = useState(null);
+  const fileInputRef = useRef();
 
-  // Function to handle back to dashboard
-  const handleBackToDashboard = () => {
-    navigate("/dashboard");
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-
-    // Log to help debug
-    console.log(`Field updated: ${name} = ${value}`);
-
-    // Update the form data by preserving all other fields
-    setFormData((prevData) => ({
-      ...prevData,
-      [name]: value,
-    }));
-
-    // Clear any error for this field
-    if (fieldErrors[name]) {
-      setFieldErrors((prev) => ({
+  // Fill name from selected contact
+  useEffect(() => {
+    if (state.selectedContact?.name) {
+      setFormData((prev) => ({
         ...prev,
-        [name]: false,
+        contactName: state.selectedContact.name,
       }));
     }
-  };
+  }, [state.selectedContact]);
 
-  // Validate current step fields
-  const validateCurrentStep = () => {
-    const errors = {};
-    let isValid = true;
-
-    if (activeStep === 0) {
-      if (!formData.name.trim()) {
-        errors.name = true;
-        isValid = false;
-      }
-      if (!formData.relationshipType) {
-        errors.relationshipType = true;
-        isValid = false;
-      }
-    } else if (activeStep === 1) {
-      if (!formData.frequency) {
-        errors.frequency = true;
-        isValid = false;
-      }
-      if (!formData.howWeMet.trim()) {
-        errors.howWeMet = true;
-        isValid = false;
-      }
+  // Fill form data from global state
+  useEffect(() => {
+    if (state.formData) {
+      setFormData((prev) => ({
+        ...prev,
+        ...state.formData,
+      }));
     }
+  }, [state.formData]);
 
-    setFieldErrors(errors);
-    return isValid;
-  };
-
-  const handleNext = () => {
-    if (validateCurrentStep()) {
-      setActiveStep((prevStep) => prevStep + 1);
-      setError("");
-    } else {
-      setError("Please fill in all required fields");
-    }
-  };
-
-  const handleBack = () => {
-    setActiveStep((prevStep) => prevStep - 1);
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
     setError("");
   };
 
-  const validateBasicInfo = () => {
-    return formData.name && formData.relationshipType;
+  const handlePhotoClick = () => {
+    fileInputRef.current?.click();
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handlePhotoChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        setError("Please select a valid image file");
+        return;
+      }
 
-    if (!validateBasicInfo()) {
-      setError("Please fill in all required fields");
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError("Image size should be less than 5MB");
+        return;
+      }
+
+      setPhotoFile(file);
+
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setFormData((prev) => ({
+          ...prev,
+          photoUrl: e.target.result,
+        }));
+      };
+      reader.readAsDataURL(file);
+      setError("");
+    }
+  };
+
+  const handleSubmit = async () => {
+    // Validation
+    if (!formData.contactName.trim()) {
+      setError("Please enter a name");
+      return;
+    }
+
+    if (!formData.relationshipType) {
+      setError("Please select a relationship type");
       return;
     }
 
     try {
-      setLoading(true);
-      setError("");
+      // Create relationship object
+      const newRelationship = {
+        id: Date.now().toString(),
+        contactName: formData.contactName.trim(),
+        relationshipType: formData.relationshipType,
+        photoUrl: formData.photoUrl,
+        createdAt: new Date().toISOString(),
+        lastInteraction: new Date().toISOString(),
+      };
 
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/relationships`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`, // Make sure this is set
-          },
-        }
-      );
+      // Add to global state
+      actions.addRelationship?.(newRelationship);
 
-      // Navigate to the relationship profile page
-      navigate(`/relationships/${response.data._id}`);
+      // Reset form
+      setFormData({
+        contactName: "",
+        relationshipType: "",
+        photoUrl: null,
+      });
+      setPhotoFile(null);
+      actions.clearSelectedContact?.();
+
+      // Navigate to dashboard
+      navigate("/dashboard");
     } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.message || "Failed to create relationship");
-    } finally {
-      setLoading(false);
+      setError("Failed to create relationship. Please try again.");
     }
   };
 
-  // Function to determine if Next button should be disabled
-  const isNextButtonDisabled = () => {
-    if (activeStep === 0) {
-      return !formData.name || !formData.relationshipType;
-    } else if (activeStep === 1) {
-      return !formData.frequency || !formData.howWeMet;
-    }
-    return false;
+  const handleBack = () => {
+    navigate(-1);
   };
 
-  const steps = ["Basic Information", "Relationship Details", "Review"];
-
-  const getStepContent = (step) => {
-    switch (step) {
-      case 0:
-        return (
-          <Box>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                {/* Just use the VoiceInputField directly without the Box wrapper */}
-                <VoiceInputField
-                  required
-                  fullWidth
-                  id="name"
-                  name="name"
-                  label="Name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Enter name"
-                  error={!!fieldErrors.name}
-                  helperText={fieldErrors.name ? "Name is required" : ""}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <FormControl
-                  fullWidth
-                  required
-                  error={!!fieldErrors.relationshipType}
-                >
-                  <InputLabel id="relationshipType-label">
-                    Relationship Type
-                  </InputLabel>
-                  <Select
-                    labelId="relationshipType-label"
-                    id="relationshipType"
-                    name="relationshipType"
-                    value={formData.relationshipType}
-                    onChange={handleChange}
-                    label="Relationship Type"
-                  >
-                    {relationshipTypes.map((type) => (
-                      <MenuItem key={type} value={type}>
-                        {type}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {fieldErrors.relationshipType && (
-                    <FormHelperText>
-                      Relationship type is required
-                    </FormHelperText>
-                  )}
-                </FormControl>
-              </Grid>
-            </Grid>
-          </Box>
-        );
-      case 1:
-        return (
-          <Box>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <FormControl fullWidth required error={!!fieldErrors.frequency}>
-                  <InputLabel id="frequency-label">
-                    How often do you interact?
-                  </InputLabel>
-                  <Select
-                    labelId="frequency-label"
-                    id="frequency"
-                    name="frequency"
-                    value={formData.frequency || ""}
-                    onChange={handleChange}
-                    label="How often do you interact?"
-                  >
-                    {frequencyOptions.map((option) => (
-                      <MenuItem key={option} value={option}>
-                        {option}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {fieldErrors.frequency && (
-                    <FormHelperText>
-                      Please select how often you interact
-                    </FormHelperText>
-                  )}
-                </FormControl>
-              </Grid>
-              <Grid item xs={12}>
-                {/* Replace TextField with VoiceInputField for howWeMet */}
-                <VoiceInputField
-                  required
-                  fullWidth
-                  id="howWeMet"
-                  name="howWeMet"
-                  label="How did you meet?"
-                  multiline
-                  rows={3}
-                  value={formData.howWeMet}
-                  onChange={handleChange}
-                  placeholder="Enter or speak how you met"
-                  error={!!fieldErrors.howWeMet}
-                  helperText={
-                    fieldErrors.howWeMet ? "Please describe how you met" : ""
-                  }
-                />
-              </Grid>
-            </Grid>
-          </Box>
-        );
-      case 2:
-        return (
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Review Your Information
-            </Typography>
-            <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
-                  <Typography variant="subtitle2">Name:</Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography>{formData.name}</Typography>
-                </Grid>
-
-                <Grid item xs={6}>
-                  <Typography variant="subtitle2">
-                    Relationship Type:
-                  </Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography>{formData.relationshipType}</Typography>
-                </Grid>
-
-                {formData.contactInfo && (
-                  <>
-                    <Grid item xs={6}>
-                      <Typography variant="subtitle2">Contact Info:</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography>{formData.contactInfo}</Typography>
-                    </Grid>
-                  </>
-                )}
-
-                {formData.frequency && (
-                  <>
-                    <Grid item xs={6}>
-                      <Typography variant="subtitle2">
-                        Interaction Frequency:
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography>{formData.frequency}</Typography>
-                    </Grid>
-                  </>
-                )}
-
-                {formData.howWeMet && (
-                  <>
-                    <Grid item xs={6}>
-                      <Typography variant="subtitle2">How You Met:</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography>{formData.howWeMet}</Typography>
-                    </Grid>
-                  </>
-                )}
-
-                {formData.notes && (
-                  <>
-                    <Grid item xs={6}>
-                      <Typography variant="subtitle2">
-                        Additional Notes:
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography>{formData.notes}</Typography>
-                    </Grid>
-                  </>
-                )}
-              </Grid>
-            </Paper>
-          </Box>
-        );
-      default:
-        return "Unknown step";
-    }
+  const getInitials = (name) => {
+    if (!name) return "";
+    return name
+      .split(" ")
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
+
+  const isFormValid = formData.contactName.trim() && formData.relationshipType;
 
   return (
-    <Container
-      maxWidth="md"
-      sx={{
-        pb: 4, // Add padding at the bottom
-        px: { xs: 2, sm: 3 }, // Add responsive horizontal padding
-      }}
-    >
-      {/* Add back button and header section */}
-      <Box
-        sx={{
-          mt: { xs: 4, sm: 5 },
-          mb: 4,
-        }}
-      >
-        {/* Back Button Row */}
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            mb: 2,
-          }}
-        >
-          <IconButton
-            onClick={handleBackToDashboard}
-            sx={{
-              color: darkMode ? "#fff" : "#000",
-              backgroundColor: darkMode
-                ? "rgba(255,255,255,0.1)"
-                : "rgba(0,0,0,0.05)",
-              "&:hover": {
-                backgroundColor: darkMode
-                  ? "rgba(255,255,255,0.2)"
-                  : "rgba(0,0,0,0.1)",
-              },
-              borderRadius: 2,
-              p: 1,
-              mr: 2,
-            }}
-            aria-label="Back to dashboard"
-          >
-            <ArrowBackIcon />
-          </IconButton>
+    <PageContainer>
+      <HeaderContainer>
+        <BackButton onClick={handleBack}>
+          <ArrowBackIcon />
+        </BackButton>
+        <HeaderTitle>New Relationship</HeaderTitle>
+      </HeaderContainer>
 
-          <Typography
-            variant="body2"
-            sx={{
-              color: darkMode ? "rgba(255,255,255,0.7)" : "text.secondary",
-              fontSize: { xs: "0.875rem", sm: "1rem" },
-            }}
-          >
-            Back to Dashboard
-          </Typography>
-        </Box>
-
-        {/* Header Section */}
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            textAlign: "center",
-          }}
-        >
-          <Typography
-            component="h1"
-            variant="h4"
-            sx={{
-              color: darkMode ? "#fff" : "#000",
-              fontWeight: 600,
-              fontSize: { xs: "1.75rem", sm: "2.125rem" },
-            }}
-          >
-            Add New Relationship
-          </Typography>
-          <Typography
-            variant="body1"
-            sx={{
-              mt: 1,
-              color: darkMode ? "rgba(255,255,255,0.7)" : "text.secondary",
-              maxWidth: "90%",
-              fontSize: { xs: "0.875rem", sm: "1rem" },
-            }}
-          >
-            Create a profile for someone important in your life
-          </Typography>
-        </Box>
-      </Box>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-
-      {/* Update Paper component styling */}
-      <Paper
-        sx={{
-          p: { xs: 2, sm: 3 }, // Responsive padding
-          bgcolor: darkMode ? "#1e1e1e" : "#ffffff",
-          color: darkMode ? "#ffffff" : "inherit",
-          boxShadow: darkMode
-            ? "0 4px 20px rgba(0,0,0,0.4)"
-            : "0 1px 8px rgba(0,0,0,0.1)",
-          borderRadius: 2,
-          mx: "auto", // Center horizontally
-          width: "100%", // Full width of container
-          maxWidth: "100%", // Ensure it doesn't overflow
-        }}
-      >
-        <Stepper
-          activeStep={activeStep}
-          sx={{
-            pt: 3,
-            pb: 5,
-            "& .MuiStepLabel-label": {
-              color: darkMode ? "rgba(255,255,255,0.7)" : "inherit",
-            },
-            "& .MuiStepLabel-active": {
-              color: darkMode ? "#fff" : "primary.main",
-            },
-            "& .MuiStepIcon-root.Mui-active": {
-              color: darkMode ? "#6366f1" : "primary.main",
-            },
-            "& .MuiStepIcon-root.Mui-completed": {
-              color: darkMode ? "#4ade80" : "success.main",
-            },
-          }}
-        >
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-
-        <Box
-          component="form"
-          noValidate
-          sx={{
-            "& .MuiInputBase-root": {
-              color: darkMode ? "#fff" : "inherit",
-              "& fieldset": {
-                borderColor: darkMode
-                  ? "rgba(255,255,255,0.2)"
-                  : "rgba(0,0,0,0.23)",
-              },
-              "&:hover fieldset": {
-                borderColor: darkMode
-                  ? "rgba(255,255,255,0.4)"
-                  : "rgba(0,0,0,0.5)",
-              },
-            },
-            "& .MuiInputLabel-root": {
-              color: darkMode ? "rgba(255,255,255,0.7)" : "inherit",
-            },
-            "& .MuiSelect-icon": {
-              color: darkMode ? "rgba(255,255,255,0.5)" : "inherit",
-            },
-          }}
-        >
-          {getStepContent(activeStep)}
-
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "flex-end",
-              mt: 3,
-              mb: 1, // Add bottom margin
-            }}
-          >
-            {activeStep !== 0 && (
-              <Button
-                onClick={handleBack}
-                sx={{
-                  mr: 1,
-                  color: darkMode ? "rgba(255,255,255,0.8)" : "inherit",
-                }}
-              >
-                Back
-              </Button>
-            )}
-
-            {activeStep === steps.length - 1 ? (
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSubmit}
-                disabled={!validateBasicInfo() || loading}
-                sx={{
-                  bgcolor: darkMode ? "#6366f1" : "primary.main",
-                  "&:hover": {
-                    bgcolor: darkMode ? "#4f46e5" : "primary.dark",
-                  },
-                  px: 3, // Wider button
-                }}
-              >
-                {loading ? (
-                  <CircularProgress size={24} />
+      <FormContainer>
+        {/* Photo Section */}
+        <PhotoSection>
+          <PhotoContainer>
+            <ProfileAvatar src={formData.photoUrl}>
+              {!formData.photoUrl &&
+                (formData.contactName ? (
+                  getInitials(formData.contactName)
                 ) : (
-                  "Create Relationship"
-                )}
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                onClick={handleNext}
-                disabled={isNextButtonDisabled()}
-                sx={{
-                  bgcolor: darkMode ? "#6366f1" : "primary.main",
-                  "&:hover": {
-                    bgcolor: darkMode ? "#4f46e5" : "primary.dark",
-                  },
-                  px: 3, // Wider button
-                }}
-              >
-                Next
-              </Button>
-            )}
-          </Box>
-        </Box>
-      </Paper>
-    </Container>
+                  <PersonIcon sx={{ fontSize: 40 }} />
+                ))}
+            </ProfileAvatar>
+            <PhotoUploadButton onClick={handlePhotoClick}>
+              <AddAPhotoIcon sx={{ fontSize: isMobile ? 16 : 18 }} />
+            </PhotoUploadButton>
+          </PhotoContainer>
+          <PhotoText>Add photo (optional)</PhotoText>
+          <HiddenFileInput
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handlePhotoChange}
+          />
+        </PhotoSection>
+
+        {/* Form Section */}
+        <FormSection>
+          <FieldContainer>
+            <FieldLabel>Name *</FieldLabel>
+            <StyledTextField
+              placeholder="Enter person's name"
+              value={formData.contactName}
+              onChange={(e) => handleInputChange("contactName", e.target.value)}
+              variant="outlined"
+              fullWidth
+            />
+          </FieldContainer>
+
+          <FieldContainer>
+            <FieldLabel>Relationship Type *</FieldLabel>
+            <StyledSelect
+              select
+              value={formData.relationshipType}
+              onChange={(e) =>
+                handleInputChange("relationshipType", e.target.value)
+              }
+              placeholder="Select relationship type"
+              variant="outlined"
+              fullWidth
+            >
+              {RELATIONSHIP_TYPES.map((type) => (
+                <MenuItem key={type.value} value={type.value}>
+                  {type.label}
+                </MenuItem>
+              ))}
+            </StyledSelect>
+          </FieldContainer>
+        </FormSection>
+
+        {/* Error Alert */}
+        {error && (
+          <Alert
+            severity="error"
+            sx={{
+              marginBottom: "20px",
+              backgroundColor: "var(--alert-error-bg)",
+              color: "var(--alert-error-text)",
+              "& .MuiAlert-icon": {
+                color: "var(--alert-error-text)",
+              },
+            }}
+          >
+            {error}
+          </Alert>
+        )}
+
+        {/* Buttons */}
+        <ButtonContainer>
+          <BackButtonStyled onClick={handleBack}>Back</BackButtonStyled>
+          <NextButton onClick={handleSubmit} disabled={!isFormValid}>
+            Create Relationship
+          </NextButton>
+        </ButtonContainer>
+      </FormContainer>
+    </PageContainer>
   );
 };
 

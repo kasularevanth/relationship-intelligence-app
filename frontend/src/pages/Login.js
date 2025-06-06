@@ -1,8 +1,8 @@
-// frontend/src/pages/Login.js
 import React, { useState, useRef, useEffect } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { useApp } from "../contexts/AppContext"; // Import useApp
 
 import {
   Alert,
@@ -14,11 +14,44 @@ import {
   useMediaQuery,
   useTheme as useMuiTheme,
 } from "@mui/material";
-import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
-import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
-import GoogleIcon from "@mui/icons-material/Google";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
+import FacebookIcon from "@mui/icons-material/Facebook";
+import TwitterIcon from "@mui/icons-material/Twitter";
+import InstagramIcon from "@mui/icons-material/Instagram";
+import LinkedInIcon from "@mui/icons-material/LinkedIn";
+
+// Custom Google Icon Component for authentic look
+const GoogleIcon = ({ size = 12 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 12 12"
+    fill="none"
+    style={{
+      verticalAlign: "middle",
+      display: "inline-block",
+      flexShrink: 0,
+    }}
+  >
+    <path
+      d="M10.8 6.13636C10.8 5.72727 10.7636 5.34545 10.6909 4.96364H6V7.09091H8.8C8.68182 7.69091 8.32727 8.2 7.8 8.52727V9.9H9.38182C10.2545 9.09091 10.8 7.74545 10.8 6.13636Z"
+      fill="#4285F4"
+    />
+    <path
+      d="M6 11.25C7.425 11.25 8.61818 10.7727 9.38182 9.9L7.8 8.52727C7.35 8.81818 6.72727 9.00909 6 9.00909C4.62273 9.00909 3.45455 8.19091 3.04091 7.04545H1.40909V8.46818C2.16818 9.975 3.94091 11.25 6 11.25Z"
+      fill="#34A853"
+    />
+    <path
+      d="M3.04091 7.04545C2.95909 6.75455 2.90909 6.45 2.90909 6.13636C2.90909 5.82273 2.95909 5.51818 3.04091 5.22727V3.80455H1.40909C1.0909 4.43182 0.909091 5.155 0.909091 5.92727C0.909091 6.69955 1.0909 7.42273 1.40909 8.04955L3.04091 7.04545Z"
+      fill="#FBBC05"
+    />
+    <path
+      d="M6 3.26364C6.79091 3.26364 7.50909 3.55455 8.07273 4.09091L9.48182 2.68182C8.61364 1.86364 7.42045 1.36364 6 1.36364C3.94091 1.36364 2.16818 2.63864 1.40909 4.14545L3.04091 5.56818C3.45455 4.42273 4.62273 3.60455 6 3.60455V3.26364Z"
+      fill="#EA4335"
+    />
+  </svg>
+);
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -39,36 +72,26 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const { darkMode } = useTheme();
+  const { markOnboardingAsCompleted } = useApp(); // Get the function from AppContext
   const muiTheme = useMuiTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("sm"));
 
-  // Colors based on mode
-  const accentColor = darkMode ? "#4aeabc" : "#30a58b"; // Darker green for light mode
-  const bgColor = darkMode ? "#000000" : "#ffffff";
-  const headerBgColor = darkMode ? "#000000" : "#ffffff";
-  const formBgColor = darkMode ? "#1a1a1a" : "#ffffff";
-  const footerBgColor = darkMode ? "#000000" : "#ffffff";
-  const inputBgColor = darkMode ? "#333333" : "#f7f7f7";
-  const inputBorderColor = darkMode ? "#444444" : "#e0e0e0";
-  const textColor = darkMode ? "#4aeabc" : "#30a58b";
-  const subtitleColor = darkMode ? "#aaaaaa" : "#757575";
-  const inputTextColor = darkMode ? "#4aeabc" : "#333333";
-
-  // Add this in both Login.js and Register.js right at the start of the return statement
   useEffect(() => {
-    // Add a class to the body when on auth pages
-    if (isMobile && darkMode) {
+    // Apply theme class to body
+    if (darkMode) {
       document.body.classList.add("dark-mode-auth");
-      // Set page-specific data attribute
-      document.body.setAttribute("data-page-type", "auth");
+      document.body.classList.remove("light-mode-auth");
+    } else {
+      document.body.classList.add("light-mode-auth");
+      document.body.classList.remove("dark-mode-auth");
     }
+    document.body.setAttribute("data-page-type", "auth");
 
     return () => {
-      // Clean up when component unmounts
-      document.body.classList.remove("dark-mode-auth");
+      document.body.classList.remove("dark-mode-auth", "light-mode-auth");
       document.body.removeAttribute("data-page-type");
     };
-  }, [isMobile, darkMode]);
+  }, [darkMode]);
 
   // Toggle password visibility
   const handleTogglePasswordVisibility = () => {
@@ -99,12 +122,16 @@ const Login = () => {
     const { name, value } = e.target;
     setter(value);
 
-    // Clear field-specific error when user types
     if (errors[name]) {
       setErrors({
         ...errors,
         [name]: "",
       });
+    }
+
+    // Clear general error when user starts making changes
+    if (error) {
+      setError("");
     }
   };
 
@@ -140,14 +167,14 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate form
     if (!validateForm()) return;
 
     try {
       setError("");
       setLoading(true);
       await login(email, password);
-      navigate("/dashboard");
+      markOnboardingAsCompleted(); // Mark onboarding as completed
+      navigate("/");
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || "Failed to sign in");
@@ -164,362 +191,547 @@ const Login = () => {
 
   return (
     <Box
-      className="auth-page"
       sx={{
-        width: "100%",
+        width: "100vw",
         minHeight: "100vh",
+        height: "100vh",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: darkMode ? "#000000" : "#f5f5f5",
-        // Critical fix: remove any horizontal padding or margin
-        m: 0,
-        p: 0,
-        overflow: "hidden", // Prevent any overflow
-        position: "relative",
+        background: "var(--primary-bg)",
+        margin: 0,
+        padding: 0,
+        overflow: isMobile ? "auto" : "hidden",
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        fontFamily: "var(--font-family-secondary)",
       }}
     >
-      {/* Main Container - no margin/padding/radius on mobile */}
+
+
+      {/* Full Screen Container */}
       <Box
         sx={{
-          width: isMobile ? "100vw" : "400px", // Use viewport width on mobile
-          maxWidth: "100%",
+          width: "100%",
+          height: "100%",
           display: "flex",
           flexDirection: "column",
-          borderRadius: isMobile ? 0 : 4, // No radius on mobile
-          overflow: "hidden",
-          boxShadow: "none", // No shadow on either mode
-          backgroundColor: darkMode ? "#121212" : "#ffffff",
-          // Set position to make sure it covers full width
-          position: isMobile ? "absolute" : "relative",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          right: 0,
-          height: isMobile ? "100%" : "auto",
+          alignItems: "center",
+          justifyContent: "center",
+          background: isMobile ? "var(--content-bg)" : "transparent",
+          padding: isMobile ? "20px" : "40px",
+          overflowY: "auto",
+          position: "relative",
         }}
       >
-        {/* Header Section */}
+        {/* Mobile SoulSync Title */}
+        {isMobile && (
+          <Typography
+            sx={{
+              fontFamily: "var(--font-family-primary)",
+              fontWeight: 700,
+              fontSize: "30px",
+              lineHeight: "39px",
+              letterSpacing: "-0.165px",
+              background: "var(--brand-gradient)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              textAlign: "center",
+              marginBottom: "20px",
+              marginTop: "40px",
+            }}
+          >
+            SoulSync
+          </Typography>
+        )}
+
+        {/* Content Container */}
         <Box
           sx={{
-            width: "100%",
-            backgroundColor: darkMode ? "#121212" : "#ffffff",
-            pt: 6,
-            pb: 4,
+            width: isMobile ? "100%" : "var(--auth-card-width-desktop)",
+            maxWidth: "var(--auth-card-max-width-mobile)",
+            // height: isMobile ? "auto" : "var(--desktop-login-height)", // Let height be auto based on content
+            backgroundColor: "var(--auth-card-background)", // Updated
+            // backdropFilter: "var(--auth-card-backdrop-blur)", // Removed
+            boxShadow: isMobile
+              ? "var(--content-shadow)" // Existing mobile shadow, can be updated if spec provides mobile shadow
+              : "var(--auth-card-box-shadow)", // Updated
+            borderRadius: "var(--auth-card-border-radius)", // Updated
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            textAlign: "center",
+            padding: isMobile ? "var(--auth-card-padding-mobile)" : "var(--auth-card-padding-desktop)",
+            gap: "var(--auth-card-gap)",
+            position: "relative",
+            // border: "var(--auth-card-border)", // Removed
           }}
         >
-          {/* Lock Icon */}
-          <LockOutlinedIcon
-            sx={{
-              fontSize: 48,
-              color: accentColor,
-              mb: 2,
-            }}
-          />
-
-          {/* Welcome Back Title */}
-          <Typography
-            variant="h3"
-            component="h1"
-            sx={{
-              color: accentColor,
-              fontWeight: "bold",
-              mb: 1,
-              fontSize: { xs: "2.5rem", sm: "3rem" },
-              lineHeight: 1.1,
-              textAlign: "center",
-            }}
-          >
-            Welcome
-            <br />
-            Back!
-          </Typography>
-
-          {/* Subtitle */}
-          <Typography
-            variant="body1"
-            sx={{
-              color: subtitleColor,
-              textAlign: "center",
-            }}
-          >
-            Login to continue
-          </Typography>
-        </Box>
-
-        {/* Main Form Section */}
-        <Box
-          sx={{
-            width: "100%",
-            backgroundColor: darkMode ? "#121212" : "#ffffff",
-            p: 3,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-          }}
-        >
-          {error && (
-            <Alert
-              severity="error"
-              sx={{
-                width: "100%",
-                mb: 2,
-                backgroundColor: darkMode
-                  ? "rgba(211, 47, 47, 0.2)"
-                  : undefined,
-                color: darkMode ? "#ff7777" : undefined,
-              }}
-            >
-              {error}
-            </Alert>
-          )}
-
+          {/* Components Container */}
           <Box
-            component="form"
-            onSubmit={handleSubmit}
-            noValidate
             sx={{
-              width: "100%",
+              width: isMobile ? "100%" : "var(--desktop-component-width)",
+              maxWidth: isMobile
+                ? "var(--component-width)"
+                : "var(--desktop-component-width)",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
+              gap: "20px",
             }}
           >
-            {/* Email Input */}
+            {/* Header Section */}
             <Box
               sx={{
-                position: "relative",
                 width: "100%",
-                height: 56,
-                mb: 2,
-                borderRadius: 28,
-                backgroundColor: darkMode ? "#1e1e1e" : inputBgColor,
                 display: "flex",
+                flexDirection: "column",
                 alignItems: "center",
-                px: 3,
-                border:
-                  focusedInput === "email"
-                    ? `1px solid ${accentColor}`
-                    : errors.email
-                    ? "1px solid #ff4444"
-                    : darkMode
-                    ? "1px solid #333"
-                    : `1px solid ${inputBorderColor}`,
+                gap: "20px",
               }}
             >
-              <EmailOutlinedIcon
+              {/* Title */}
+              <Typography
                 sx={{
-                  color: accentColor,
-                  mr: 2,
-                  fontSize: 20,
-                }}
-              />
-              <input
-                ref={emailInputRef}
-                id="email"
-                name="email"
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => handleChange(e, setEmail)}
-                onFocus={() => handleFocus("email")}
-                onBlur={handleBlur}
-                style={{
-                  backgroundColor: "transparent",
-                  border: "none",
-                  outline: "none",
-                  color: darkMode ? "#ffffff" : inputTextColor,
+                  fontFamily: "var(--font-family-secondary)",
+                  fontWeight: 600,
+                  fontSize: isMobile
+                    ? "var(--font-size-title-mobile)"
+                    : "var(--font-size-title-desktop)",
+                  lineHeight: "17px",
+                  color: "var(--text-secondary)",
+                  textAlign: "center",
                   width: "100%",
-                  height: "100%",
-                  fontSize: "16px",
-                  fontFamily: "inherit",
-                }}
-              />
-            </Box>
-
-            {/* Password Input */}
-            <Box
-              sx={{
-                position: "relative",
-                width: "100%",
-                height: 56,
-                mb: 3,
-                borderRadius: 28,
-                backgroundColor: darkMode ? "#1e1e1e" : inputBgColor,
-                display: "flex",
-                alignItems: "center",
-                px: 3,
-                border:
-                  focusedInput === "password"
-                    ? `1px solid ${accentColor}`
-                    : errors.password
-                    ? "1px solid #ff4444"
-                    : darkMode
-                    ? "1px solid #333"
-                    : `1px solid ${inputBorderColor}`,
-              }}
-            >
-              <LockOutlinedIcon
-                sx={{
-                  color: accentColor,
-                  mr: 2,
-                  fontSize: 20,
-                }}
-              />
-              <input
-                ref={passwordInputRef}
-                id="password"
-                name="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => handleChange(e, setPassword)}
-                onFocus={() => handleFocus("password")}
-                onBlur={handleBlur}
-                style={{
-                  backgroundColor: "transparent",
-                  border: "none",
-                  outline: "none",
-                  color: darkMode ? "#ffffff" : inputTextColor,
-                  width: "100%",
-                  height: "100%",
-                  fontSize: "16px",
-                  fontFamily: "inherit",
-                }}
-              />
-              <IconButton
-                onClick={handleTogglePasswordVisibility}
-                size="small"
-                sx={{
-                  color: darkMode ? "#666" : "#aaaaaa",
-                  p: 0.5,
                 }}
               >
-                {showPassword ? (
-                  <VisibilityOff fontSize="small" />
-                ) : (
-                  <Visibility fontSize="small" />
-                )}
-              </IconButton>
+                Welcome Back
+              </Typography>
+
+              {/* Google Button */}
+              <Button
+                onClick={handleGoogleLogin}
+                sx={{
+                  width: "100%",
+                  height: isMobile
+                    ? "var(--input-height-mobile)"
+                    : "var(--input-height-desktop)",
+                  border: "0.42px solid var(--google-border)",
+                  borderRadius: '25px',
+                  background: "var(--google-bg)",
+                  color: "var(--google-text)",
+                  fontFamily: "var(--font-family-secondary)",
+                  fontWeight: 500,
+                  fontSize: isMobile
+                    ? "var(--font-size-google-mobile)"
+                    : "var(--font-size-google-desktop)",
+                  lineHeight: isMobile ? "10px" : "11px",
+                  textTransform: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: isMobile ? "8px" : "6.73px",
+                  padding: "0 10px",
+                  minHeight: isMobile
+                    ? "var(--input-height-mobile)"
+                    : "var(--input-height-desktop)",
+                  "&:hover": {
+                    background: "var(--google-hover-bg)",
+                    border: "0.42px solid var(--google-border)",
+                  },
+                }}
+              >
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <GoogleIcon size={isMobile ? 12 : 14.76} />
+                </Box>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    lineHeight: 1,
+                  }}
+                >
+                  Continue with Google
+                </Box>
+              </Button>
+
+              {/* Divider */}
+              <Box
+                sx={{
+                  width: "167.94px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "9.68px",
+                }}
+              >
+                <Box
+                  sx={{
+                    flexGrow: 1,
+                    height: "0.63px",
+                    background: "var(--divider-color)",
+                    opacity: "var(--border-opacity)",
+                  }}
+                />
+                <Typography
+                  sx={{
+                    fontFamily: "var(--font-family-secondary)",
+                    fontWeight: 500,
+                    fontSize: isMobile
+                      ? "var(--font-size-divider-mobile)"
+                      : "var(--font-size-divider-desktop)",
+                    lineHeight: "11px",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  Or
+                </Typography>
+                <Box
+                  sx={{
+                    flexGrow: 1,
+                    height: "0.63px",
+                    background: "var(--divider-color)",
+                    opacity: "var(--border-opacity)",
+                  }}
+                />
+              </Box>
             </Box>
 
-            {/* Login Button */}
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              disabled={loading}
+            {/* Input Section */}
+            <Box
               sx={{
-                height: 56,
-                backgroundColor: accentColor,
-                color: "#ffffff", // White text for better contrast
-                borderRadius: 28,
-                fontWeight: "bold",
-                fontSize: "1rem",
-                textTransform: "none",
-                boxShadow: "none",
-                mb: 2,
-                "&:hover": {
-                  backgroundColor: darkMode ? "#3dd9aa" : "#278f77",
-                  boxShadow: "none",
-                },
-                "&:disabled": {
-                  backgroundColor: darkMode
-                    ? "rgba(74, 234, 188, 0.7)"
-                    : "rgba(48, 165, 139, 0.7)",
-                  color: "#ffffff",
-                },
+                width: "100%",
+                display: "flex",
+                flexDirection: "column",
+                gap: isMobile ? "25px" : "20px",
               }}
             >
-              {loading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                "Login"
+              {error && (
+                <Alert
+                  severity="error"
+                  sx={{
+                    backgroundColor: "var(--alert-error-bg)",
+                    color: "var(--alert-error-text)",
+                  }}
+                >
+                  {error}
+                </Alert>
               )}
-            </Button>
-          </Box>
-        </Box>
 
-        {/* Footer Section */}
-        <Box
-          sx={{
-            width: "100%",
-            backgroundColor: darkMode ? "#121212" : "#ffffff",
-            p: 3,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-          }}
-        >
-          {/* Or login with text */}
-          <Typography
-            variant="body2"
-            sx={{
-              color: textColor,
-              mb: 2,
-              textAlign: "center",
-            }}
-          >
-            Or login with
-          </Typography>
+              <Box
+                component="form"
+                onSubmit={handleSubmit}
+                noValidate
+                sx={{
+                  width: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: isMobile ? "25px" : "20px",
+                }}
+              >
+                {/* Email Field */}
+                <Box
+                  sx={{
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontFamily: "var(--font-family-secondary)",
+                      fontWeight: 500,
+                      fontSize: isMobile
+                        ? "var(--font-size-label-mobile)"
+                        : "var(--font-size-label-desktop)",
+                      lineHeight: "11px",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    Email Address
+                  </Typography>
+                  <Box
+                    sx={{
+                      width: "100%",
+                      height: isMobile
+                        ? "var(--input-height-mobile)"
+                        : "var(--input-height-desktop)",
+                      border: `0.8px solid ${
+                        focusedInput === "email"
+                          ? "var(--input-border-focus)"
+                          : errors.email
+                          ? "var(--input-border-error)"
+                          : "var(--input-border)"
+                      }`,
+                      borderRadius: "var(--border-radius-input)",
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "10px",
+                      background: "var(--input-bg)",
+                    }}
+                  >
+                    <input
+                      ref={emailInputRef}
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="Enter your email address"
+                      value={email}
+                      onChange={(e) => handleChange(e, setEmail)}
+                      onFocus={() => handleFocus("email")}
+                      onBlur={handleBlur}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        outline: "none",
+                        color: "var(--input-text)",
+                        width: "100%",
+                        height: "100%",
+                        fontSize: isMobile
+                          ? "var(--font-size-input-mobile)"
+                          : "var(--font-size-input-desktop)",
+                        fontFamily: "var(--font-family-secondary)",
+                        fontWeight: 300,
+                      }}
+                    />
+                  </Box>
+                  {errors.email && (
+                    <Typography
+                      sx={{
+                        color: "var(--input-border-error)",
+                        fontSize: "12px",
+                      }}
+                    >
+                      {errors.email}
+                    </Typography>
+                  )}
+                </Box>
 
-          {/* Google Sign In Button */}
-          <Button
-            onClick={handleGoogleLogin}
-            variant="outlined"
-            sx={{
-              width: "240px",
-              height: 48,
-              backgroundColor: darkMode ? "#1e1e1e" : "white",
-              color: darkMode ? "#ffffff" : "rgba(0, 0, 0, 0.54)",
-              border: darkMode ? "1px solid #333" : "1px solid #ddd",
-              borderRadius: 24,
-              fontFamily: "Roboto, sans-serif",
-              fontWeight: 500,
-              textTransform: "none",
-              fontSize: "14px",
-              mb: 3,
-              boxShadow: "none",
-              "&:hover": {
-                backgroundColor: darkMode ? "#252525" : "#f5f5f5",
-                boxShadow: "none",
-              },
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <GoogleIcon sx={{ color: "#4285F4", mr: 1, fontSize: 20 }} />
-            Sign in with Google
-          </Button>
+                {/* Password Field */}
+                <Box
+                  sx={{
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontFamily: "var(--font-family-secondary)",
+                      fontWeight: 500,
+                      fontSize: isMobile
+                        ? "var(--font-size-label-mobile)"
+                        : "var(--font-size-label-desktop)",
+                      lineHeight: "11px",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    Password
+                  </Typography>
+                  <Box
+                    sx={{
+                      width: "100%",
+                      height: isMobile
+                        ? "var(--input-height-mobile)"
+                        : "var(--input-height-desktop)",
+                      border: `0.8px solid ${
+                        focusedInput === "password"
+                          ? "var(--input-border-focus)"
+                          : errors.password
+                          ? "var(--input-border-error)"
+                          : "var(--input-border)"
+                      }`,
+                      borderRadius: "var(--border-radius-input)",
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "10px",
+                      background: "var(--input-bg)",
+                    }}
+                  >
+                    <input
+                      ref={passwordInputRef}
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => handleChange(e, setPassword)}
+                      onFocus={() => handleFocus("password")}
+                      onBlur={handleBlur}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        outline: "none",
+                        color: "var(--input-text)",
+                        width: "100%",
+                        height: "100%",
+                        fontSize: isMobile
+                          ? "var(--font-size-input-mobile)"
+                          : "var(--font-size-input-desktop)",
+                        fontFamily: "var(--font-family-secondary)",
+                        fontWeight: 300,
+                      }}
+                    />
+                    <IconButton
+                      onClick={handleTogglePasswordVisibility}
+                      size="small"
+                      sx={{
+                        color: "var(--text-primary)",
+                        width: "18px",
+                        height: "18px",
+                        padding: 0,
+                      }}
+                    >
+                      {showPassword ? (
+                        <VisibilityOff sx={{ fontSize: "14px" }} />
+                      ) : (
+                        <Visibility sx={{ fontSize: "14px" }} />
+                      )}
+                    </IconButton>
+                  </Box>
+                  {errors.password && (
+                    <Typography
+                      sx={{
+                        color: "var(--input-border-error)",
+                        fontSize: "12px",
+                      }}
+                    >
+                      {errors.password}
+                    </Typography>
+                  )}
+                </Box>
 
-          {/* Sign Up Link */}
-          <Typography
-            variant="body2"
-            sx={{
-              color: textColor,
-              textAlign: "center",
-              pb: 2,
-            }}
-          >
-            Don't have an account?{" "}
-            <RouterLink
-              to="/register"
-              style={{
-                color: textColor,
-                textDecoration: "none",
-                fontWeight: "bold",
+                {/* Login Button */}
+                <Box
+                  sx={{
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: isMobile ? "15px" : "26px",
+                  }}
+                >
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    sx={{
+                      width: "100%",
+                      height: isMobile
+                        ? "var(--input-height-mobile)"
+                        : "var(--input-height-desktop)",
+                      background: "var(--button-gradient)",
+                      borderRadius: '25px',
+                      color: "var(--text-primary)",
+                      fontFamily: "var(--font-family-secondary)",
+                      fontWeight: 500,
+                      fontSize: isMobile
+                        ? "var(--font-size-button-mobile)"
+                        : "var(--font-size-button-desktop)",
+                      lineHeight: isMobile ? "21px" : "24px",
+                      textTransform: "none",
+                      border: "none",
+                      "&:hover": {
+                        background: "var(--button-gradient)",
+                        opacity: 0.9,
+                      },
+                      "&:disabled": {
+                        background: "var(--button-gradient)",
+                        opacity: 0.7,
+                        color: "var(--text-primary)",
+                      },
+                    }}
+                  >
+                    {loading ? (
+                      <CircularProgress size={16} color="inherit" />
+                    ) : (
+                      "Login"
+                    )}
+                  </Button>
+
+                  {/* Sign Up Link */}
+                  <Typography
+                    sx={{
+                      fontFamily: "var(--font-family-secondary)",
+                      fontWeight: 400,
+                      fontSize: isMobile
+                        ? "var(--font-size-link-mobile)"
+                        : "var(--font-size-link-desktop)",
+                      lineHeight: "11px",
+                      color: "var(--text-tertiary)",
+                      textAlign: "center",
+                      letterSpacing: "0.005em",
+                    }}
+                  >
+                    Don't have an account?{" "}
+                    <RouterLink
+                      to="/register"
+                      style={{
+                        color: "var(--text-tertiary)",
+                        textDecoration: "underline",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Sign-up
+                    </RouterLink>
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+
+            {/* Social Icons */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: isMobile ? "10.1px" : "21.12px",
+                marginTop: "10px",
               }}
             >
-              Sign up
-            </RouterLink>
-          </Typography>
+              <FacebookIcon
+                sx={{
+                  fontSize: isMobile
+                    ? "var(--social-icon-size-mobile)"
+                    : "var(--social-icon-size-desktop)",
+                  color: "var(--social-icon-color)",
+                }}
+              />
+              <TwitterIcon
+                sx={{
+                  fontSize: isMobile
+                    ? "var(--social-icon-size-mobile)"
+                    : "var(--social-icon-size-desktop)",
+                  color: "var(--social-icon-color)",
+                }}
+              />
+              <InstagramIcon
+                sx={{
+                  fontSize: isMobile
+                    ? "var(--social-icon-size-mobile)"
+                    : "var(--social-icon-size-desktop)",
+                  color: "var(--social-icon-color)",
+                }}
+              />
+              <LinkedInIcon
+                sx={{
+                  fontSize: isMobile
+                    ? "var(--social-icon-size-mobile)"
+                    : "var(--social-icon-size-desktop)",
+                  color: "var(--social-icon-color)",
+                }}
+              />
+            </Box>
+          </Box>
         </Box>
       </Box>
     </Box>

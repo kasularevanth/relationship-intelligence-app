@@ -108,17 +108,17 @@ body.dark-mode-auth {
   color: #fff !important;
 }
 
-.dark-mode .MuiOutlinedInput-root {
+/* .dark-mode .MuiOutlinedInput-root {
   background-color: #000 !important;
-}
+} */
 
 .dark-mode .MuiOutlinedInput-root fieldset {
   border-color: #333 !important;
 }
-
+/* 
 .dark-mode .MuiTypography-root {
   color: #fff !important;
-}
+} */
 
 /* Direct selector for auth pages in dark mode */
 .dark-mode .auth-page > *,
