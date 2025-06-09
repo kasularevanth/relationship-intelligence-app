@@ -13,22 +13,27 @@ import {
   useTheme,
   useMediaQuery,
   Alert,
+  CircularProgress,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddAPhotoIcon from "@mui/icons-material/AddAPhoto";
 import PersonIcon from "@mui/icons-material/Person";
 import { useGlobal } from "../contexts/GlobalContext";
+import { relationshipService } from "../services/api";
+import { processImageFile } from "../utils/imageCompression"; // Import our compression utility
 
 // Fixed relationship types
 const RELATIONSHIP_TYPES = [
-  { label: "Romantic", value: "partner" },
+  { label: "Romantic", value: "romantic" },
+  { label: "Friendship", value: "friendship" },
+  { label: "Professional", value: "professional" },
   { label: "Family", value: "family" },
-  { label: "Friend", value: "friendship" },
-  { label: "Professional", value: "colleague" },
+  { label: "Mentor", value: "mentor" },
+  { label: "Other", value: "other" },
 ];
 
-// Styled components
+// Styled components (keeping the same as before)
 const PageContainer = styled(Box)({
   backgroundColor: "var(--primary-bg)",
   minHeight: "100vh",
@@ -231,6 +236,11 @@ const BackButtonStyled = styled(Button)({
     border: "1.5px solid rgba(255, 255, 255, 0.5)",
     transform: "translateY(-2px)",
   },
+  "&:disabled": {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    color: "rgba(255, 255, 255, 0.3)",
+    border: "1.5px solid rgba(255, 255, 255, 0.1)",
+  },
   transition: "all 0.3s ease",
 });
 
@@ -245,6 +255,10 @@ const NextButton = styled(Button)({
   fontSize: "16px",
   textTransform: "none",
   border: "1px solid rgba(255, 255, 255, 0.1)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "8px",
   "&:hover": {
     background: "linear-gradient(135deg, #2557E5 0%, #366EFF 100%)",
     transform: "translateY(-2px)",
@@ -275,7 +289,8 @@ const NewRelationship = () => {
     photoUrl: null,
   });
   const [error, setError] = useState("");
-  const [photoFile, setPhotoFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [imageProcessing, setImageProcessing] = useState(false); // New state for image compression
   const fileInputRef = useRef();
 
   // Fill name from selected contact
@@ -310,33 +325,41 @@ const NewRelationship = () => {
     fileInputRef.current?.click();
   };
 
-  const handlePhotoChange = (event) => {
+  // UPDATED: Enhanced photo handling with compression
+  const handlePhotoChange = async (event) => {
     const file = event.target.files[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith("image/")) {
-        setError("Please select a valid image file");
-        return;
-      }
+    if (!file) return;
 
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setError("Image size should be less than 5MB");
-        return;
-      }
+    setImageProcessing(true);
+    setError("");
 
-      setPhotoFile(file);
+    try {
+      console.log(
+        `Original file size: ${(file.size / 1024 / 1024).toFixed(2)}MB`
+      );
 
-      // Create preview URL
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setFormData((prev) => ({
-          ...prev,
-          photoUrl: e.target.result,
-        }));
-      };
-      reader.readAsDataURL(file);
-      setError("");
+      // Process and compress the image
+      const compressedBase64 = await processImageFile(file);
+
+      console.log(
+        `Compressed size: ${(
+          (compressedBase64.length * 0.75) /
+          1024 /
+          1024
+        ).toFixed(2)}MB`
+      );
+
+      setFormData((prev) => ({
+        ...prev,
+        photoUrl: compressedBase64,
+      }));
+    } catch (err) {
+      console.error("Image processing error:", err);
+      setError(
+        err.message || "Failed to process image. Please try a different image."
+      );
+    } finally {
+      setImageProcessing(false);
     }
   };
 
@@ -352,19 +375,43 @@ const NewRelationship = () => {
       return;
     }
 
+    if (imageProcessing) {
+      setError("Please wait for image processing to complete");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
     try {
-      // Create relationship object
-      const newRelationship = {
-        id: Date.now().toString(),
+      // Create relationship data for API
+      const relationshipData = {
         contactName: formData.contactName.trim(),
         relationshipType: formData.relationshipType,
-        photoUrl: formData.photoUrl,
-        createdAt: new Date().toISOString(),
-        lastInteraction: new Date().toISOString(),
+        photoUrl: formData.photoUrl, // Send compressed base64
       };
 
-      // Add to global state
-      actions.addRelationship?.(newRelationship);
+      console.log("Creating relationship with data:", {
+        ...relationshipData,
+        photoUrl: relationshipData.photoUrl
+          ? "Compressed image included"
+          : null,
+      });
+
+      // Call the backend API
+      const response = await relationshipService.create(relationshipData);
+
+      console.log("Relationship created successfully:", response.data);
+
+      // Update global state with the new relationship from backend
+      if (actions.addRelationship) {
+        actions.addRelationship(response.data);
+      }
+
+      // Refresh relationships list if available
+      if (actions.fetchRelationships) {
+        await actions.fetchRelationships();
+      }
 
       // Reset form
       setFormData({
@@ -372,13 +419,34 @@ const NewRelationship = () => {
         relationshipType: "",
         photoUrl: null,
       });
-      setPhotoFile(null);
-      actions.clearSelectedContact?.();
 
-      // Navigate to dashboard
-      navigate("/dashboard");
+      // Clear selected contact from global state
+      if (actions.clearSelectedContact) {
+        actions.clearSelectedContact();
+      }
+
+      // Navigate to the new relationship's profile or dashboard
+      const relationshipId = response.data.id || response.data._id;
+      if (relationshipId) {
+        navigate(`/relationship/${relationshipId}`);
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err) {
-      setError("Failed to create relationship. Please try again.");
+      console.error("Error creating relationship:", err);
+
+      // Handle specific error messages from backend
+      if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Failed to create relationship. Please try again.");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -396,12 +464,16 @@ const NewRelationship = () => {
       .slice(0, 2);
   };
 
-  const isFormValid = formData.contactName.trim() && formData.relationshipType;
+  const isFormValid =
+    formData.contactName.trim() &&
+    formData.relationshipType &&
+    !loading &&
+    !imageProcessing; // Also check image processing state
 
   return (
     <PageContainer>
       <HeaderContainer>
-        <BackButton onClick={handleBack}>
+        <BackButton onClick={handleBack} disabled={loading || imageProcessing}>
           <ArrowBackIcon />
         </BackButton>
         <HeaderTitle>New Relationship</HeaderTitle>
@@ -419,16 +491,26 @@ const NewRelationship = () => {
                   <PersonIcon sx={{ fontSize: 40 }} />
                 ))}
             </ProfileAvatar>
-            <PhotoUploadButton onClick={handlePhotoClick}>
-              <AddAPhotoIcon sx={{ fontSize: isMobile ? 16 : 18 }} />
+            <PhotoUploadButton
+              onClick={handlePhotoClick}
+              disabled={loading || imageProcessing}
+            >
+              {imageProcessing ? (
+                <CircularProgress size={isMobile ? 16 : 18} color="inherit" />
+              ) : (
+                <AddAPhotoIcon sx={{ fontSize: isMobile ? 16 : 18 }} />
+              )}
             </PhotoUploadButton>
           </PhotoContainer>
-          <PhotoText>Add photo (optional)</PhotoText>
+          <PhotoText>
+            {imageProcessing ? "Processing image..." : "Add photo (optional)"}
+          </PhotoText>
           <HiddenFileInput
             ref={fileInputRef}
             type="file"
             accept="image/*"
             onChange={handlePhotoChange}
+            disabled={loading || imageProcessing}
           />
         </PhotoSection>
 
@@ -442,6 +524,7 @@ const NewRelationship = () => {
               onChange={(e) => handleInputChange("contactName", e.target.value)}
               variant="outlined"
               fullWidth
+              disabled={loading || imageProcessing}
             />
           </FieldContainer>
 
@@ -456,6 +539,7 @@ const NewRelationship = () => {
               placeholder="Select relationship type"
               variant="outlined"
               fullWidth
+              disabled={loading || imageProcessing}
             >
               {RELATIONSHIP_TYPES.map((type) => (
                 <MenuItem key={type.value} value={type.value}>
@@ -485,9 +569,26 @@ const NewRelationship = () => {
 
         {/* Buttons */}
         <ButtonContainer>
-          <BackButtonStyled onClick={handleBack}>Back</BackButtonStyled>
+          <BackButtonStyled
+            onClick={handleBack}
+            disabled={loading || imageProcessing}
+          >
+            Back
+          </BackButtonStyled>
           <NextButton onClick={handleSubmit} disabled={!isFormValid}>
-            Create Relationship
+            {loading ? (
+              <>
+                <CircularProgress size={20} color="inherit" />
+                Creating...
+              </>
+            ) : imageProcessing ? (
+              <>
+                <CircularProgress size={20} color="inherit" />
+                Processing...
+              </>
+            ) : (
+              "Create Relationship"
+            )}
           </NextButton>
         </ButtonContainer>
       </FormContainer>

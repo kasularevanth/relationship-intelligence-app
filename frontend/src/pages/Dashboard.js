@@ -24,6 +24,8 @@ import FamilyRestroomIcon from "@mui/icons-material/FamilyRestroom";
 import WorkIcon from "@mui/icons-material/Work";
 import PeopleIcon from "@mui/icons-material/People";
 import PersonIcon from "@mui/icons-material/Person";
+import SchoolIcon from "@mui/icons-material/School";
+import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import SearchIcon from "@mui/icons-material/Search";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
@@ -36,19 +38,24 @@ import ContactSelectorModal from "../components/ContactSelectorModal";
 import DemoChatModal from "../components/DemoChatModal";
 import DemoAnalysisModal from "../components/DemoAnalysisModal";
 
-// Fixed relationship types
+// FIXED: Updated relationship types to match client requirements and backend enum
 const FIXED_RELATIONSHIP_TYPES = [
   "romantic",
-  "family",
-  "friend",
+  "friendship",
   "professional",
+  "family",
+  "mentor",
+  "other",
 ];
 
+// FIXED: Updated mapping to match new enum values
 const RELATIONSHIP_TYPE_MAPPING = {
-  romantic: ["romantic", "Partner"],
-  professional: ["professional", "colleague"],
+  romantic: ["romantic"],
+  friendship: ["friendship"],
+  professional: ["professional"],
   family: ["family"],
-  friend: ["Friend", "friendship"],
+  mentor: ["mentor"],
+  other: ["other"],
 };
 
 // Styled components using CSS variables
@@ -302,22 +309,25 @@ const ContentGrid = styled(Grid)({
   margin: 0,
 });
 
-// Helper function to get icon for relationship type
+// FIXED: Helper function to get icon for relationship type
 const getIconForType = (type) => {
   const lowerType = type.toLowerCase();
-  if (lowerType.includes("romantic") || lowerType.includes("partner")) {
-    return <FavoriteIcon />;
+  switch (lowerType) {
+    case "romantic":
+      return <FavoriteIcon />;
+    case "family":
+      return <FamilyRestroomIcon />;
+    case "friendship":
+      return <PeopleIcon />;
+    case "professional":
+      return <WorkIcon />;
+    case "mentor":
+      return <SchoolIcon />;
+    case "other":
+      return <MoreHorizIcon />;
+    default:
+      return <PersonIcon />;
   }
-  if (lowerType.includes("family")) {
-    return <FamilyRestroomIcon />;
-  }
-  if (lowerType.includes("friend")) {
-    return <PeopleIcon />;
-  }
-  if (lowerType.includes("professional")) {
-    return <WorkIcon />;
-  }
-  return <PersonIcon />;
 };
 
 // Memoized Components
@@ -329,8 +339,10 @@ const ContactItemMemo = React.memo(
 
     return (
       <CircularContactItem onClick={handleContactClick}>
-        <ContactAvatar src={contact.photoUrl}>
-          {!contact.photoUrl && getInitials(contact.contactName)}
+        <ContactAvatar src={contact.photoUrl || contact.photo}>
+          {!contact.photoUrl &&
+            !contact.photo &&
+            getInitials(contact.contactName)}
         </ContactAvatar>
         <ContactName>{contact.contactName}</ContactName>
         <TimeAgo>
@@ -467,11 +479,12 @@ const Dashboard = React.memo(() => {
     }
   }, []);
 
-  // Filters based on fixed relationship types
+  // FIXED: Filters based on updated relationship types
   const dynamicFilters = useMemo(() => {
     const baseFilters = [{ id: "all", label: "All", icon: <PeopleIcon /> }];
 
     const typeFilters = FIXED_RELATIONSHIP_TYPES.map((type) => {
+      // Capitalize first letter for display
       const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1);
       return {
         id: type,

@@ -167,6 +167,18 @@ export const getTheme = (darkMode) => {
           },
         },
       },
+      MuiMenu: {
+        styleOverrides: {
+          paper: {
+            backgroundColor: darkMode ? '#091024' : '#ffffff',
+            color: darkMode ? '#f5f5f5' : '#212121',
+            borderRadius: 12,
+            boxShadow: '0px 5px 5px -3px rgba(0,0,0,0.2),0px 8px 10px 1px rgba(0,0,0,0.14),0px 3px 14px 2px rgba(0,0,0,0.12)',
+            backgroundImage: 'none',
+            padding: '0px',
+          },
+        },
+      },
     },
   });
 

@@ -1,4 +1,4 @@
-// backend/models/Relationship.js - FIXED VERSION
+// backend/models/Relationship.js - REMOVED interactionFrequency
 
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
@@ -56,7 +56,6 @@ const insightSchema = new Schema({
   },
 });
 
-// FIXED: Updated metrics schema with proper validation
 const metricsSchema = new Schema({
   sentimentScore: {
     type: Number,
@@ -67,7 +66,7 @@ const metricsSchema = new Schema({
   depthScore: {
     type: Number,
     min: 1,
-    max: 5, // Keep max at 5 as defined
+    max: 5,
     default: 1,
   },
   reciprocityRatio: {
@@ -76,7 +75,6 @@ const metricsSchema = new Schema({
     max: 1,
     default: 0.5,
   },
-  // FIXED: emotionalVolatility should be enum, not number
   emotionalVolatility: {
     type: String,
     enum: ["Stable", "Swingy", "Erratic"],
@@ -86,7 +84,6 @@ const metricsSchema = new Schema({
     type: Date,
     default: Date.now,
   },
-  // NEW: Add additional professional metrics
   professionalTone: {
     type: String,
     enum: ["Very formal", "Formal", "Semi-formal", "Casual", "Very casual"],
@@ -159,7 +156,6 @@ const topicDistributionSchema = new Schema({
   },
 });
 
-// NEW: Add gamification schema
 const gamificationSchema = new Schema({
   connectionScore: {
     type: Number,
@@ -193,6 +189,7 @@ const gamificationSchema = new Schema({
 
 const relationshipSchema = new Schema(
   {
+    // REQUIRED FIELDS - Only these 4 fields for creation/validation
     user: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -206,21 +203,21 @@ const relationshipSchema = new Schema(
     relationshipType: {
       type: String,
       enum: [
-        "Family",
-        "Friend",
-        "Partner",
-        "Colleague",
-        "Mentor",
-        "Mentee",
-        "Acquaintance",
-        "Other",
+        "romantic",
+        "friendship",
+        "professional",
+        "family",
+        "mentor",
+        "other",
       ],
       required: true,
     },
     photo: {
       type: String,
-      default: null,
+      default: null, // Optional - maps to photoUrl from frontend
     },
+
+    // OPTIONAL FIELDS - Not used in creation/validation
     contactInfo: {
       type: String,
       trim: true,
@@ -228,18 +225,7 @@ const relationshipSchema = new Schema(
     loveLanguage: {
       type: String,
     },
-    interactionFrequency: {
-      type: String,
-      enum: [
-        "Daily",
-        "Several times a week",
-        "Weekly",
-        "Monthly",
-        "Occasionally",
-        "Rarely",
-      ],
-      default: "Not specified",
-    },
+    // REMOVED: interactionFrequency completely
     theirValues: {
       type: [String],
       default: [],
@@ -279,7 +265,6 @@ const relationshipSchema = new Schema(
       type: metricsSchema,
       default: {},
     },
-    // NEW: Add gamification data
     gamification: {
       type: gamificationSchema,
       default: {},
@@ -379,14 +364,13 @@ relationshipSchema.pre("save", function (next) {
   next();
 });
 
-// FIXED: Enhanced updateMetrics method with proper validation
+// Enhanced updateMetrics method with proper validation
 relationshipSchema.methods.updateMetrics = async function (newMetrics) {
   const { sentimentScore, depthScore, reciprocityRatio, emotionalVolatility } =
     newMetrics;
 
   // Calculate weighted averages for numeric metrics
   if (sentimentScore !== undefined) {
-    // Ensure sentimentScore is within bounds
     const validSentimentScore = Math.max(-1, Math.min(1, sentimentScore));
     this.metrics.sentimentScore =
       this.metrics.sentimentScore !== undefined
@@ -395,7 +379,6 @@ relationshipSchema.methods.updateMetrics = async function (newMetrics) {
   }
 
   if (depthScore !== undefined) {
-    // FIXED: Ensure depthScore is within bounds (1-5)
     const validDepthScore = Math.max(1, Math.min(5, depthScore));
     this.metrics.depthScore =
       this.metrics.depthScore !== undefined
@@ -407,7 +390,6 @@ relationshipSchema.methods.updateMetrics = async function (newMetrics) {
   }
 
   if (reciprocityRatio !== undefined) {
-    // Ensure reciprocityRatio is within bounds
     const validReciprocityRatio = Math.max(0, Math.min(1, reciprocityRatio));
     this.metrics.reciprocityRatio =
       this.metrics.reciprocityRatio !== undefined
@@ -415,9 +397,7 @@ relationshipSchema.methods.updateMetrics = async function (newMetrics) {
         : validReciprocityRatio;
   }
 
-  // FIXED: For categorical metrics, ensure valid enum values
   if (emotionalVolatility !== undefined) {
-    // Convert numeric to enum if needed
     if (typeof emotionalVolatility === "number") {
       if (emotionalVolatility <= 0.3) {
         this.metrics.emotionalVolatility = "Stable";
@@ -429,7 +409,7 @@ relationshipSchema.methods.updateMetrics = async function (newMetrics) {
     } else if (["Stable", "Swingy", "Erratic"].includes(emotionalVolatility)) {
       this.metrics.emotionalVolatility = emotionalVolatility;
     } else {
-      this.metrics.emotionalVolatility = "Stable"; // Default fallback
+      this.metrics.emotionalVolatility = "Stable";
     }
   }
 
@@ -439,7 +419,6 @@ relationshipSchema.methods.updateMetrics = async function (newMetrics) {
 
 // Method to add a new insight
 relationshipSchema.methods.addInsight = async function (insight) {
-  // Check if similar insight already exists
   const similarInsights = this.insights.filter(
     (existingInsight) =>
       existingInsight.text.toLowerCase().includes(insight.text.toLowerCase()) ||
@@ -447,10 +426,8 @@ relationshipSchema.methods.addInsight = async function (insight) {
   );
 
   if (similarInsights.length === 0) {
-    // No similar insights, add new one
     this.insights.push(insight);
   } else {
-    // Update existing insight if new one has higher confidence
     const existingInsight = similarInsights[0];
     if (insight.confidence > existingInsight.confidence) {
       existingInsight.text = insight.text;
@@ -460,7 +437,6 @@ relationshipSchema.methods.addInsight = async function (insight) {
     }
   }
 
-  // Limit to top N insights
   if (this.insights.length > 20) {
     this.insights.sort((a, b) => b.confidence - a.confidence);
     this.insights = this.insights.slice(0, 20);
@@ -471,22 +447,18 @@ relationshipSchema.methods.addInsight = async function (insight) {
 
 // Method to update topic distribution
 relationshipSchema.methods.updateTopicDistribution = async function (topics) {
-  // Merge new topics with existing ones
   topics.forEach((newTopic) => {
     const existingTopic = this.topicDistribution.find(
       (t) => t.name === newTopic.name
     );
     if (existingTopic) {
-      // Update existing topic percentage (weighted average)
       existingTopic.percentage =
         existingTopic.percentage * 0.7 + newTopic.percentage * 0.3;
     } else {
-      // Add new topic
       this.topicDistribution.push(newTopic);
     }
   });
 
-  // Normalize percentages to sum to 100%
   const total = this.topicDistribution.reduce(
     (sum, topic) => sum + topic.percentage,
     0

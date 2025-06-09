@@ -1,4 +1,5 @@
 // backend/controllers/relationshipController.js
+
 const Relationship = require("../models/Relationship");
 const User = require("../models/User");
 const Conversation = require("../models/Conversation");
@@ -45,7 +46,390 @@ const upload = multer({
   fileFilter: fileFilter,
 });
 
-// Upload photo controller
+// Helper function to save base64 image
+const saveBase64Image = (base64Data, relationshipId) => {
+  try {
+    // Check if it's a base64 image
+    if (!base64Data.startsWith("data:image/")) {
+      return base64Data; // Return as-is if not base64
+    }
+
+    // Extract the image type and data
+    const matches = base64Data.match(/^data:image\/([a-zA-Z]+);base64,(.+)$/);
+    if (!matches) {
+      throw new Error("Invalid base64 image format");
+    }
+
+    const imageType = matches[1];
+    const imageData = matches[2];
+
+    // Create upload directory if it doesn't exist
+    const uploadDir = path.join(__dirname, "../uploads/relationships");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    // Generate filename
+    const fileName = `${relationshipId}-${Date.now()}.${imageType}`;
+    const filePath = path.join(uploadDir, fileName);
+
+    // Save the file
+    fs.writeFileSync(filePath, imageData, "base64");
+
+    // Return the relative path for storing in database
+    return `/uploads/relationships/${fileName}`;
+  } catch (error) {
+    console.error("Error saving base64 image:", error);
+    return null;
+  }
+};
+
+// Create a new relationship - ONLY 4 FIELDS REQUIRED
+exports.createRelationship = async (req, res) => {
+  try {
+    // Get user ID from the auth middleware
+    if (!req.user || !req.user.id) {
+      return res
+        .status(401)
+        .json({ message: "User not authenticated or invalid user data" });
+    }
+
+    const userId = req.user.id;
+
+    // Extract ONLY the 4 fields we want from frontend
+    const { contactName, relationshipType, photoUrl } = req.body;
+
+    console.log("Creating relationship with data:", {
+      userId,
+      contactName,
+      relationshipType,
+      photoUrl: photoUrl ? "Photo provided" : "No photo",
+    });
+
+    // Validation - ONLY for the 4 required fields
+    if (!contactName || !contactName.trim()) {
+      return res.status(400).json({ message: "Contact name is required" });
+    }
+
+    if (!relationshipType) {
+      return res.status(400).json({ message: "Relationship type is required" });
+    }
+
+    // Validate relationshipType against allowed values
+    const allowedTypes = [
+      "romantic",
+      "friendship",
+      "professional",
+      "family",
+      "mentor",
+      "other",
+    ];
+    if (!allowedTypes.includes(relationshipType)) {
+      return res.status(400).json({
+        message:
+          "Invalid relationship type. Must be one of: " +
+          allowedTypes.join(", "),
+      });
+    }
+
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Create relationship with ONLY the 4 fields
+    // DO NOT set any other fields, including interactionFrequency
+    const relationshipData = {
+      user: userId,
+      contactName: contactName.trim(),
+      relationshipType: relationshipType,
+    };
+
+    // Only add photo if provided
+    if (photoUrl) {
+      relationshipData.photo = photoUrl;
+    }
+
+    console.log("Final relationship data for creation:", relationshipData);
+
+    const relationship = new Relationship(relationshipData);
+
+    // Save without triggering validation on other fields
+    await relationship.save();
+
+    // Handle photo upload if provided (base64 conversion)
+    if (photoUrl && photoUrl.startsWith("data:image/")) {
+      try {
+        const savedPhotoPath = saveBase64Image(photoUrl, relationship._id);
+        if (savedPhotoPath) {
+          relationship.photo = savedPhotoPath;
+          await relationship.save();
+        }
+      } catch (photoError) {
+        console.error("Error saving photo:", photoError);
+        // Continue even if photo save fails
+      }
+    }
+
+    // Add relationship to user's relationships array
+    if (!user.relationships) {
+      user.relationships = [];
+    }
+    user.relationships.push(relationship._id);
+    await user.save();
+
+    console.log("Relationship created successfully:", {
+      id: relationship._id,
+      contactName: relationship.contactName,
+      relationshipType: relationship.relationshipType,
+      hasPhoto: !!relationship.photo,
+    });
+
+    // Return the created relationship
+    res.status(201).json(relationship);
+  } catch (err) {
+    console.error("Error creating relationship:", err);
+
+    // Handle validation errors
+    if (err.name === "ValidationError") {
+      console.error("Validation errors:", err.errors);
+      const validationErrors = Object.values(err.errors).map((e) => e.message);
+      return res.status(400).json({
+        message: "Validation error",
+        errors: validationErrors,
+      });
+    }
+
+    // Handle duplicate key errors
+    if (err.code === 11000) {
+      return res.status(400).json({
+        message: "A relationship with this contact already exists",
+      });
+    }
+
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// Update relationship - ONLY handle the 4 main fields
+exports.updateRelationship = async (req, res) => {
+  try {
+    const relationshipId = req.params.id;
+
+    // Extract ONLY the fields that can be updated from frontend
+    const { contactName, relationshipType, photoUrl } = req.body;
+
+    console.log("Updating relationship with data:", {
+      relationshipId,
+      contactName,
+      relationshipType,
+      photoUrl: photoUrl ? "Photo provided" : "No photo",
+    });
+
+    // Find the relationship
+    const relationship = await Relationship.findById(relationshipId);
+
+    if (!relationship) {
+      return res.status(404).json({ message: "Relationship not found" });
+    }
+
+    // Check if user has permission to update this relationship
+    if (relationship.user.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to update this relationship" });
+    }
+
+    // Update only provided fields
+    if (contactName !== undefined) {
+      if (!contactName.trim()) {
+        return res
+          .status(400)
+          .json({ message: "Contact name cannot be empty" });
+      }
+      relationship.contactName = contactName.trim();
+    }
+
+    if (relationshipType !== undefined) {
+      const allowedTypes = [
+        "romantic",
+        "friendship",
+        "professional",
+        "family",
+        "mentor",
+        "other",
+      ];
+      if (!allowedTypes.includes(relationshipType)) {
+        return res.status(400).json({
+          message:
+            "Invalid relationship type. Must be one of: " +
+            allowedTypes.join(", "),
+        });
+      }
+      relationship.relationshipType = relationshipType;
+    }
+
+    if (photoUrl !== undefined) {
+      if (photoUrl) {
+        // Delete old photo if exists
+        if (relationship.photo && relationship.photo.startsWith("/uploads/")) {
+          try {
+            const oldPhotoPath = path.join(__dirname, "..", relationship.photo);
+            if (fs.existsSync(oldPhotoPath)) {
+              fs.unlinkSync(oldPhotoPath);
+            }
+          } catch (err) {
+            console.error("Error deleting old photo:", err);
+          }
+        }
+
+        // Save new photo
+        if (photoUrl.startsWith("data:image/")) {
+          const savedPhotoPath = saveBase64Image(photoUrl, relationshipId);
+          relationship.photo = savedPhotoPath;
+        } else {
+          relationship.photo = photoUrl;
+        }
+      } else {
+        // Remove photo if photoUrl is empty/null
+        if (relationship.photo && relationship.photo.startsWith("/uploads/")) {
+          try {
+            const oldPhotoPath = path.join(__dirname, "..", relationship.photo);
+            if (fs.existsSync(oldPhotoPath)) {
+              fs.unlinkSync(oldPhotoPath);
+            }
+          } catch (err) {
+            console.error("Error deleting photo:", err);
+          }
+        }
+        relationship.photo = null;
+      }
+    }
+
+    await relationship.save();
+
+    console.log("Relationship updated successfully:", {
+      id: relationship._id,
+      contactName: relationship.contactName,
+      relationshipType: relationship.relationshipType,
+      hasPhoto: !!relationship.photo,
+    });
+
+    res.json(relationship);
+  } catch (err) {
+    console.error("Error updating relationship:", err);
+
+    // Handle validation errors
+    if (err.name === "ValidationError") {
+      console.error("Validation errors:", err.errors);
+      const validationErrors = Object.values(err.errors).map((e) => e.message);
+      return res.status(400).json({
+        message: "Validation error",
+        errors: validationErrors,
+      });
+    }
+
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+// Update relationship - WITH PHOTO HANDLING
+exports.updateRelationship = async (req, res) => {
+  try {
+    const relationshipId = req.params.id;
+
+    // Extract only the fields that can be updated from frontend
+    const { contactName, relationshipType, photoUrl } = req.body;
+
+    console.log("Updating relationship with data:", req.body);
+
+    // Find the relationship
+    const relationship = await Relationship.findById(relationshipId);
+
+    if (!relationship) {
+      return res.status(404).json({ message: "Relationship not found" });
+    }
+
+    // Check if user has permission to update this relationship
+    if (relationship.user.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to update this relationship" });
+    }
+
+    // Update only provided fields
+    if (contactName !== undefined) {
+      if (!contactName.trim()) {
+        return res
+          .status(400)
+          .json({ message: "Contact name cannot be empty" });
+      }
+      relationship.contactName = contactName.trim();
+    }
+
+    if (relationshipType !== undefined) {
+      const allowedTypes = ["partner", "family", "friendship", "colleague"];
+      if (!allowedTypes.includes(relationshipType)) {
+        return res.status(400).json({ message: "Invalid relationship type" });
+      }
+      relationship.relationshipType = relationshipType;
+    }
+
+    if (photoUrl !== undefined) {
+      if (photoUrl) {
+        // Delete old photo if exists
+        if (relationship.photo && relationship.photo.startsWith("/uploads/")) {
+          try {
+            const oldPhotoPath = path.join(__dirname, "..", relationship.photo);
+            if (fs.existsSync(oldPhotoPath)) {
+              fs.unlinkSync(oldPhotoPath);
+            }
+          } catch (err) {
+            console.error("Error deleting old photo:", err);
+          }
+        }
+
+        // Save new photo
+        const savedPhotoPath = saveBase64Image(photoUrl, relationshipId);
+        relationship.photo = savedPhotoPath;
+      } else {
+        // Remove photo if photoUrl is empty/null
+        if (relationship.photo && relationship.photo.startsWith("/uploads/")) {
+          try {
+            const oldPhotoPath = path.join(__dirname, "..", relationship.photo);
+            if (fs.existsSync(oldPhotoPath)) {
+              fs.unlinkSync(oldPhotoPath);
+            }
+          } catch (err) {
+            console.error("Error deleting photo:", err);
+          }
+        }
+        relationship.photo = null;
+      }
+    }
+
+    await relationship.save();
+
+    console.log("Relationship updated successfully:", relationship);
+
+    res.json(relationship);
+  } catch (err) {
+    console.error("Error updating relationship:", err);
+
+    // Handle validation errors
+    if (err.name === "ValidationError") {
+      const validationErrors = Object.values(err.errors).map((e) => e.message);
+      return res.status(400).json({
+        message: "Validation error",
+        errors: validationErrors,
+      });
+    }
+
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// Upload photo controller (for existing relationships)
 exports.uploadPhoto = async (req, res) => {
   try {
     // Multer middleware handles the file upload
@@ -164,55 +548,6 @@ exports.deletePhoto = async (req, res) => {
   } catch (error) {
     console.error("Error deleting photo:", error);
     return res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// Create a new relationship
-exports.createRelationship = async (req, res) => {
-  try {
-    // Get user ID from the auth middleware
-    // Make sure req.user exists before trying to access its properties
-    if (!req.user || !req.user.id) {
-      return res
-        .status(401)
-        .json({ message: "User not authenticated or invalid user data" });
-    }
-
-    const userId = req.user.id;
-
-    // Extract relationship data from request body
-    const { name, relationshipType, contactInfo, frequency, howWeMet, notes } =
-      req.body;
-
-    // Check if user exists
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    // Create relationship
-    const relationship = new Relationship({
-      user: userId,
-      contactName: name,
-      relationshipType,
-      contactInfo,
-      interactionFrequency: frequency,
-      howWeMet,
-      notes,
-      topicDistribution: [], // Initialize with empty array
-    });
-
-    await relationship.save();
-
-    // Add relationship to user's relationships array
-    if (!user.relationships) {
-      user.relationships = [];
-    }
-    user.relationships.push(relationship._id);
-    await user.save();
-
-    res.status(201).json(relationship);
-  } catch (err) {
-    console.error("Error creating relationship:", err);
-    res.status(400).json({ message: err.message });
   }
 };
 
@@ -399,44 +734,6 @@ exports.getRelationship = async (req, res) => {
       return res.status(404).json({ message: "Relationship not found" });
     res.json(relationship);
   } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-exports.updateRelationship = async (req, res) => {
-  try {
-    const {
-      name,
-      relationshipType,
-      contactInfo,
-      frequency,
-      howWeMet,
-      notes,
-      metrics,
-    } = req.body;
-
-    const relationship = await Relationship.findById(req.params.id);
-
-    if (!relationship)
-      return res.status(404).json({ message: "Relationship not found" });
-
-    // Update fields if they are provided
-    if (name) relationship.contactName = name;
-    if (relationshipType) relationship.relationshipType = relationshipType;
-    if (contactInfo) relationship.contactInfo = contactInfo;
-    if (frequency) relationship.interactionFrequency = frequency;
-    if (howWeMet) relationship.howWeMet = howWeMet;
-    if (notes) relationship.notes = notes;
-
-    // Update metrics if provided
-    if (metrics) {
-      relationship.metrics = { ...relationship.metrics, ...metrics };
-    }
-
-    await relationship.save();
-    res.json(relationship);
-  } catch (err) {
-    console.error("Error updating relationship:", err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -690,67 +987,6 @@ exports.analyzeTopics = async (req, res) => {
     });
   }
 };
-
-// exports.recalculateMetrics = async (req, res) => {
-//   try {
-
-//     console.log("calculating the metrics in backend at chat import",req);
-//     const relationshipId = req.params.id;
-
-//     // Verify relationship belongs to user
-//     const relationship = await Relationship.findOne({
-//       _id: relationshipId,
-//       user: req.user.id
-//     });
-
-//     if (!relationship) {
-//       return res.status(404).json({ message: 'Relationship not found' });
-//     }
-
-//     // Recalculate metrics based on all conversations
-//     // This would include logic to:
-//     // 1. Count total messages
-//     // 2. Calculate response times
-//     // 3. Update topic distributions
-//     // 4. Any other metrics you track
-
-//     // Example code - adjust based on your actual data model
-//     const conversations = await Conversation.find({ relationshipId });
-//     console.log("Conversation with relationshipID",conversations);
-//     let totalMessages = 0;
-//     let responseTimeSum = 0;
-//     let responseTimeCount = 0;
-
-//     // Process all conversations to recalculate metrics
-//     conversations.forEach(conversation => {
-//       totalMessages += conversation.messages.length;
-
-//       // Calculate response times (example)
-//       for (let i = 1; i < conversation.messages.length; i++) {
-//         if (conversation.messages[i].sender !== conversation.messages[i-1].sender) {
-//           const responseTime = conversation.messages[i].timestamp - conversation.messages[i-1].timestamp;
-//           responseTimeSum += responseTime;
-//           responseTimeCount++;
-//         }
-//       }
-//     });
-
-//     // Update relationship metrics
-//     relationship.metrics = {
-//       ...relationship.metrics,
-//       totalMessages,
-//       averageResponseTime: responseTimeCount > 0 ? responseTimeSum / responseTimeCount : 0,
-//       lastUpdated: new Date()
-//     };
-
-//     await relationship.save();
-
-//     res.json({ success: true, message: 'Metrics recalculated successfully' });
-//   } catch (error) {
-//     console.error('Error recalculating metrics:', error);
-//     res.status(500).json({ message: 'Server error', error: error.message });
-//   }
-// };
 
 // Fix for relationshipController.js - recalculateMetrics function
 exports.recalculateMetrics = async (req, res) => {

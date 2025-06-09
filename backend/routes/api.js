@@ -7,7 +7,7 @@ const relationshipController = require("../controllers/relationshipController");
 const userController = require("../controllers/userController");
 const memoryController = require("../controllers/memoryController");
 const voiceController = require("../controllers/voiceController");
-const importController = require("../controllers/importController"); // Add this
+const importController = require("../controllers/importController");
 const multer = require("multer");
 const upload = multer({ storage: multer.memoryStorage() });
 const questionController = require("../controllers/questionController");
@@ -29,173 +29,40 @@ router.use((req, res, next) => {
 router.post("/users", userController.createUser);
 router.get("/users/:id", userController.getUser);
 
-// Relationship routes - Add auth middleware
+// Relationship routes - UPDATED ORDER FOR BETTER MATCHING
 router.post("/relationships", auth, relationshipController.createRelationship);
-
-router.get("/relationships/:id", auth, relationshipController.getRelationship);
 router.get("/relationships", auth, relationshipController.getUserRelationships);
-router.get(
-  "/users/:userId/relationships",
-  relationshipController.getUserRelationships
-);
+router.get("/relationships/:id", auth, relationshipController.getRelationship);
 router.put(
   "/relationships/:id",
   auth,
   relationshipController.updateRelationship
 );
+
+// Relationship profile routes
 router.get(
   "/relationships/:id/profile",
   auth,
   relationshipController.getRelationshipProfile
 );
+router.get("/relationships/:id/detailed-profile", auth, getDetailedProfile);
 
-// New route for analyzing topics
+// Relationship analysis routes
 router.post(
   "/relationships/:id/analyze-topics",
   auth,
   relationshipController.analyzeTopics
 );
-
-// Direct route for updating topic distribution
 router.post(
   "/relationships/:id/topics",
   auth,
   relationshipController.updateTopicDistribution
 );
-
 router.post(
   "/relationships/:id/recalculate-metrics",
   auth,
   relationshipController.recalculateMetrics
 );
-// Add type-specific analysis route
-router.get(
-  "/relationships/:relationshipId/type-analysis",
-  auth,
-  relationshipTypeAnalysisController.getTypeAnalysis
-);
-
-// Memory routes
-router.get(
-  "/relationships/:relationshipId/memories",
-  auth,
-  memoryController.getRelationshipMemories
-);
-router.post(
-  "/relationships/:relationshipId/memories",
-  auth,
-  memoryController.createMemory
-);
-
-router.post(
-  "/relationships/:id/photo",
-  auth,
-
-  relationshipController.uploadPhoto
-);
-router.delete(
-  "/relationships/:id/photo",
-  auth,
-  relationshipController.deletePhoto
-);
-
-// Question routes
-router.post("/relationships/question", auth, questionController.askQuestion);
-router.get(
-  "/relationships/:relationshipId/questions",
-  auth,
-  questionController.getQuestionHistory
-);
-// Add this to your backend/routes/api.js
-router.post(
-  "/relationships/:relationshipId/voice-question",
-  auth,
-  upload.single("audio"),
-  questionController.askQuestionVoice
-);
-// Detailed relationship profile endpoint
-router.get("/relationships/:id/detailed-profile", auth, getDetailedProfile);
-
-// Conversation routes - Add auth middleware
-router.post("/conversations", auth, conversationController.startConversation);
-router.post(
-  "/conversations/new/:relationshipId",
-  auth,
-  conversationController.startConversation
-);
-router.get("/conversations/:id", auth, conversationController.getConversation);
-router.post(
-  "/conversations/:id/message",
-  auth,
-  conversationController.addMessage
-);
-
-router.post(
-  "/conversations/:id/complete",
-  auth,
-  conversationController.completeConversation
-);
-router.get(
-  "/relationships/:relationshipId/conversations",
-  auth,
-  conversationController.getRelationshipConversations
-);
-// Add this to your routes/api.js
-router.get(
-  "/conversations/:conversationId/summary",
-  auth,
-  conversationController.getConversationSummary
-);
-
-// Voice recording routes - all protected by auth middleware
-router.post(
-  "/conversations/:conversationId/record/start",
-  auth,
-  voiceController.startRecording
-);
-
-router.post(
-  "/conversations/:conversationId/record/stop",
-  auth,
-  upload.single("audio"),
-  voiceController.stopRecording
-);
-
-router.get(
-  "/recordings/:recordingId/transcript",
-  auth,
-  voiceController.getTranscript
-);
-router.post(
-  "/recordings/:recordingId/question",
-  auth,
-  voiceController.processRelationshipQuestion
-);
-
-// Import routes - new
-router.post(
-  "/relationships/:relationshipId/import",
-  auth,
-  importController.importChat
-);
-router.get(
-  "/imports/:conversationId/status",
-  auth,
-  importController.getImportStatus
-);
-router.get(
-  "/imports/:conversationId/analysis",
-  auth,
-  importController.getImportAnalysis
-);
-
-// In routes/api.js
-
-// Replace this route:
-router.post("/:id/recalculate-metrics", auth, async (req, res) => {
-  // ...existing code
-});
-
 router.post("/relationships/:id/analyze", auth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -251,14 +118,132 @@ router.post("/relationships/:id/analyze", auth, async (req, res) => {
   }
 });
 
-// Add this to a routes file or your app.js
+// Type-specific analysis route
+router.get(
+  "/relationships/:relationshipId/type-analysis",
+  auth,
+  relationshipTypeAnalysisController.getTypeAnalysis
+);
+
+// Photo upload routes (for existing relationships - optional separate upload)
+router.post(
+  "/relationships/:id/photo",
+  auth,
+  relationshipController.uploadPhoto
+);
+router.delete(
+  "/relationships/:id/photo",
+  auth,
+  relationshipController.deletePhoto
+);
+
+// Legacy route for user relationships by user ID (if needed)
+router.get(
+  "/users/:userId/relationships",
+  relationshipController.getUserRelationships
+);
+
+// Memory routes
+router.get(
+  "/relationships/:relationshipId/memories",
+  auth,
+  memoryController.getRelationshipMemories
+);
+router.post(
+  "/relationships/:relationshipId/memories",
+  auth,
+  memoryController.createMemory
+);
+
+// Question routes
+router.post("/relationships/question", auth, questionController.askQuestion);
+router.get(
+  "/relationships/:relationshipId/questions",
+  auth,
+  questionController.getQuestionHistory
+);
+router.post(
+  "/relationships/:relationshipId/voice-question",
+  auth,
+  upload.single("audio"),
+  questionController.askQuestionVoice
+);
+
+// Conversation routes
+router.post("/conversations", auth, conversationController.startConversation);
+router.post(
+  "/conversations/new/:relationshipId",
+  auth,
+  conversationController.startConversation
+);
+router.get("/conversations/:id", auth, conversationController.getConversation);
+router.post(
+  "/conversations/:id/message",
+  auth,
+  conversationController.addMessage
+);
+router.post(
+  "/conversations/:id/complete",
+  auth,
+  conversationController.completeConversation
+);
+router.get(
+  "/relationships/:relationshipId/conversations",
+  auth,
+  conversationController.getRelationshipConversations
+);
+router.get(
+  "/conversations/:conversationId/summary",
+  auth,
+  conversationController.getConversationSummary
+);
+
+// Voice recording routes
+router.post(
+  "/conversations/:conversationId/record/start",
+  auth,
+  voiceController.startRecording
+);
+router.post(
+  "/conversations/:conversationId/record/stop",
+  auth,
+  upload.single("audio"),
+  voiceController.stopRecording
+);
+router.get(
+  "/recordings/:recordingId/transcript",
+  auth,
+  voiceController.getTranscript
+);
+router.post(
+  "/recordings/:recordingId/question",
+  auth,
+  voiceController.processRelationshipQuestion
+);
+
+// Import routes
+router.post(
+  "/relationships/:relationshipId/import",
+  auth,
+  importController.importChat
+);
+router.get(
+  "/imports/:conversationId/status",
+  auth,
+  importController.getImportStatus
+);
+router.get(
+  "/imports/:conversationId/analysis",
+  auth,
+  importController.getImportAnalysis
+);
+
+// Admin utility route for updating memory emotions
 router.get("/admin/update-memory-emotions", auth, async (req, res) => {
   try {
-    console.log("updated memories.........");
+    console.log("Updated memories.........");
+
     // Include the emotion determination function here
-    /**
-     * Determine specific emotion type based on content and sentiment score
-     */
     const determineEmotion = (content, sentimentScore) => {
       // Force lowercase for better text matching
       const lowerContent = content.toLowerCase();
