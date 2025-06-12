@@ -428,7 +428,7 @@ const NewRelationship = () => {
       // Navigate to the new relationship's profile or dashboard
       const relationshipId = response.data.id || response.data._id;
       if (relationshipId) {
-        navigate(`/relationship/${relationshipId}`);
+        navigate(`/relationship-circle/${relationshipId}`);
       } else {
         navigate("/dashboard");
       }

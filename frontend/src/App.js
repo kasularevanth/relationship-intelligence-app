@@ -44,7 +44,8 @@ import AuthCallback from "./pages/AuthCallback";
 import ImportChat from "./pages/ImportChat";
 import VoiceQuestionPage from "./pages/VoiceQuestionPage";
 import RelationshipSelectionPage from "./pages/RelationshipSelectionPage";
-import ReflectPage from "./pages/ReflectPage"; // New Reflect page
+import ReflectPage from "./pages/ReflectPage";
+import RelationshipAnalysisPage from "./pages/RelationshipAnalysisPage";
 
 // Layouts
 import MainLayout from "./layouts/MainLayout";
@@ -196,8 +197,18 @@ const AppContent = () => {
                 }
               />
 
+              {/* UPDATED: Dynamic relationship circle route - both with and without ID */}
               <Route
                 path="relationship-circle"
+                element={
+                  <ProtectedRoute>
+                    <RelationshipCircle />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="relationship-circle/:relationshipId"
                 element={
                   <ProtectedRoute>
                     <RelationshipCircle />
@@ -210,6 +221,16 @@ const AppContent = () => {
                 element={
                   <ProtectedRoute>
                     <RelationshipProfile />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* NEW: Relationship Analysis Page */}
+              <Route
+                path="relationship-circle/:relationshipId/analysis"
+                element={
+                  <ProtectedRoute>
+                    <RelationshipAnalysisPage />
                   </ProtectedRoute>
                 }
               />
@@ -229,7 +250,7 @@ const AppContent = () => {
               />
 
               <Route
-                path="relationships/:relationshipId/import"
+                path="relationship-circle/:relationshipId/import"
                 element={
                   <ProtectedRoute>
                     <ImportChat />

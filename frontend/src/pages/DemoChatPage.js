@@ -14,6 +14,8 @@ import FavoriteIcon from "@mui/icons-material/Favorite";
 import { useNavigate } from "react-router-dom";
 import HamburgerMenu from "../components/HamburgerMenu";
 import TopBar from "../components/TopBar";
+import menImage from "../assets/men.jpg";
+import womenImage from "../assets/women.jpg";
 
 // Main container with exact CSS positioning
 const MainContainer = styled(Box)(({ sidebarExpanded, isMobile }) => ({
@@ -657,8 +659,8 @@ const DemoChatPage = () => {
         <ContentContainer>
           <CoupleInfoSection>
             <AvatarContainer>
-              <CoupleAvatar alt="You" src="/path/to/avatar1.jpg" />
-              <OverlapAvatar alt="Jordan" src="/path/to/avatar2.jpg" />
+              <CoupleAvatar alt="You" src={menImage} />
+              <OverlapAvatar alt="Jordan" src={womenImage} />
             </AvatarContainer>
             <CoupleDetails>
               <CoupleNameContainer>

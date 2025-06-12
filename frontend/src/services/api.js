@@ -38,7 +38,7 @@ const refreshTokenRequest = async () => {
 // Import services
 export const importService = {
   importChat: (relationshipId, formData) => {
-    return api.post(`/relationships/${relationshipId}/import`, formData, {
+    return api.post(`/relationship-circle/${relationshipId}/import`, formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },

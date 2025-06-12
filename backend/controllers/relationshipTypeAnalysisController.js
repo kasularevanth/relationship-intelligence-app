@@ -1,4 +1,4 @@
-// backend/controllers/relationshipTypeAnalysisController.js
+// backend/controllers/relationshipTypeAnalysisController.js - COMPLETE VERSION
 const Relationship = require("../models/Relationship");
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
@@ -6,20 +6,19 @@ const MemoryNode = require("../models/MemoryNode");
 const OpenAI = require("openai");
 const config = require("../config");
 
-// Initialize OpenAI
+// Initialize OpenAI with GPT-4
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || config.OPENAI_API_KEY,
 });
 
 /**
- * Get relationship type-specific analysis
- * This endpoint analyzes conversation history based on relationship type
+ * Get relationship type-specific analysis with exact metrics
  */
 exports.getTypeAnalysis = async (req, res) => {
   try {
     const { relationshipId } = req.params;
 
-    // Add no-cache headers to ensure fresh data
+    // Add no-cache headers
     res.setHeader(
       "Cache-Control",
       "no-store, no-cache, must-revalidate, proxy-revalidate"
@@ -31,7 +30,7 @@ exports.getTypeAnalysis = async (req, res) => {
     const relationship = await Relationship.findOne({
       _id: relationshipId,
       user: req.user.id,
-    }).lean(); // Use lean() for better performance
+    }).lean();
 
     if (!relationship) {
       return res.status(404).json({
@@ -42,22 +41,17 @@ exports.getTypeAnalysis = async (req, res) => {
 
     console.log("Found relationship:", {
       id: relationship._id,
-      type: relationship.relationshipType, // This should be relationshipType, not type
+      type: relationship.relationshipType,
       contactName: relationship.contactName,
     });
 
     // Get all conversations for this relationship
-    // Use a timestamp parameter to force fresh lookup after import
-    const timestamp = req.query.timestamp || Date.now();
-    console.log(`Getting fresh conversations at timestamp: ${timestamp}`);
-
     const conversations = await Conversation.find({
       relationship: relationshipId,
     })
       .sort({ createdAt: -1 })
-      .lean(); // Use lean() for better performance
+      .lean();
 
-    // If no conversations exist, return empty analysis
     if (!conversations || conversations.length === 0) {
       console.log(`No conversations found for relationship ${relationshipId}`);
       return res.status(200).json({
@@ -66,17 +60,14 @@ exports.getTypeAnalysis = async (req, res) => {
         metrics: {},
         insights: [],
         recommendations: [],
-        timestamp: Date.now(), // Include timestamp for client-side cache busting
+        redFlags: [],
+        timestamp: Date.now(),
       });
     }
 
-    console.log(`Found ${conversations.length} conversations for analysis`);
-
     // Get messages from all conversations
     let allMessages = [];
-
     for (const conversation of conversations) {
-      // Handle both embedded messages and separate message documents
       if (conversation.messages && conversation.messages.length > 0) {
         allMessages = allMessages.concat(conversation.messages);
       } else {
@@ -84,7 +75,7 @@ exports.getTypeAnalysis = async (req, res) => {
           conversation: conversation._id,
         })
           .sort({ timestamp: 1 })
-          .lean(); // Use lean() for better performance
+          .lean();
 
         if (messages && messages.length > 0) {
           allMessages = allMessages.concat(messages);
@@ -100,23 +91,25 @@ exports.getTypeAnalysis = async (req, res) => {
         success: true,
         message: "Not enough messages for detailed analysis",
         messageCount: allMessages.length,
-        metrics: getBasicMetrics(relationship.relationshipType), // Fix: use relationshipType
+        conversationCount: conversations.length,
+        metrics: getBasicMetrics(relationship.relationshipType),
         insights: getBasicInsights(
           relationship.relationshipType,
           relationship.contactName
-        ), // Fix: use relationshipType
-        recommendations: getBasicRecommendations(relationship.relationshipType), // Fix: use relationshipType
+        ),
+        recommendations: getBasicRecommendations(relationship.relationshipType),
+        redFlags: [],
       });
     }
 
-    // Get relationship type-specific metrics
-    const metrics = await getRelationshipTypeMetrics(
+    // Get enhanced relationship type-specific metrics
+    const metrics = await getEnhancedRelationshipTypeMetrics(
       relationship.relationshipType,
       allMessages,
       relationship.contactName
     );
 
-    console.log("Generated metrics:", metrics);
+    console.log("Generated enhanced metrics:", Object.keys(metrics));
 
     // Get memories/insights related to this relationship
     const memories = await MemoryNode.find({
@@ -125,28 +118,30 @@ exports.getTypeAnalysis = async (req, res) => {
       .sort({ created: -1 })
       .limit(20);
 
-    // Generate insights using AI if we have enough data
+    // Generate AI insights using GPT-4
     let insights = [];
     let recommendations = [];
+    let redFlags = [];
 
-    if (allMessages.length >= 50) {
-      // Generate insights using AI based on message history
-      const aiAnalysis = await generateAIInsights(
+    if (allMessages.length >= 20) {
+      const aiAnalysis = await generateEnhancedAIInsights(
         relationship.relationshipType,
         relationship.contactName,
         allMessages,
-        memories
+        memories,
+        metrics
       );
 
       insights = aiAnalysis.insights || [];
       recommendations = aiAnalysis.recommendations || [];
+      redFlags = aiAnalysis.redFlags || [];
     } else {
-      // Use basic insights if not enough messages
       insights = getBasicInsights(
         relationship.relationshipType,
         relationship.contactName
       );
       recommendations = getBasicRecommendations(relationship.relationshipType);
+      redFlags = detectBasicRedFlags(relationship.relationshipType, metrics);
     }
 
     // Create the full analysis response
@@ -159,24 +154,15 @@ exports.getTypeAnalysis = async (req, res) => {
       metrics,
       insights,
       recommendations,
+      redFlags,
       lastUpdated: new Date(),
     };
 
-    console.log("Sending analysis response:", {
-      type: analysis.type,
-      messageCount: analysis.messageCount,
-      metricsKeys: Object.keys(analysis.metrics),
-    });
-
-    // Store analysis in relationship for future reference
-    // Since we used lean() earlier, we need to get a proper document to save
+    // Store analysis in relationship
     const relationshipDoc = await Relationship.findById(relationshipId);
     if (relationshipDoc) {
       relationshipDoc.typeAnalysis = analysis;
       await relationshipDoc.save();
-      console.log(
-        `Updated relationship ${relationshipId} with new analysis data`
-      );
     }
 
     return res.status(200).json(analysis);
@@ -191,264 +177,745 @@ exports.getTypeAnalysis = async (req, res) => {
 };
 
 /**
- * Generate metrics based on relationship type and message history
+ * Enhanced metrics generation with exact calculations
  */
-const getRelationshipTypeMetrics = async (
+const getEnhancedRelationshipTypeMetrics = async (
   relationshipType,
   messages,
   contactName
 ) => {
-  // Normalize type for consistent processing
   const normalizedType = normalizeRelationshipType(relationshipType);
-  console.log(
-    "Processing metrics for type:",
-    relationshipType,
-    "normalized to:",
-    normalizedType
-  );
+  console.log("Processing enhanced metrics for type:", normalizedType);
 
-  // Basic metrics calculated from message patterns
+  // Core analysis components
   const messageCounts = countMessagesByRole(messages);
-  const sentimentAnalysis = analyzeSentiment(messages);
-  const topicAnalysis = analyzeTopics(messages);
-  const responsePatterns = analyzeResponsePatterns(messages);
+  const sentimentAnalysis = enhancedSentimentAnalysis(messages);
+  const topicAnalysis = enhancedTopicAnalysis(messages);
+  const responsePatterns = enhancedResponsePatterns(messages);
+  const temporalAnalysis = analyzeTemporalPatterns(messages);
 
-  // Base metrics object with common fields
+  // Base metrics with enhanced calculations
   const baseMetrics = {
     messageCount: messages.length,
-    sentimentScore: sentimentAnalysis.overallScore,
+    sentimentScore: Math.round(sentimentAnalysis.overallScore * 100),
     sentimentLabel: sentimentAnalysis.label,
+    sentimentDistribution: sentimentAnalysis.distribution,
     userMessageCount: messageCounts.user,
     contactMessageCount: messageCounts.contact,
     messageRatio:
       messageCounts.contact > 0
-        ? (messageCounts.user / messageCounts.contact).toFixed(2)
+        ? Math.round((messageCounts.user / messageCounts.contact) * 100) / 100
         : "N/A",
     averageResponseTime: responsePatterns.averageResponseTime,
     topTopics: topicAnalysis.topTopics,
     communicationStyle: responsePatterns.communicationStyle,
+    messageDistribution: [
+      { name: "You", value: messageCounts.user, color: "#6366f1" },
+      {
+        name: contactName || "Contact",
+        value: messageCounts.contact,
+        color: "#8b5cf6",
+      },
+    ],
+    temporalPatterns: temporalAnalysis,
   };
-  console.log("Base metrics calculated:", baseMetrics);
 
-  // Add relationship type-specific metrics
+  // Relationship type-specific enhanced metrics
   switch (normalizedType) {
     case "romantic":
-      console.log("Calculating romantic metrics...");
       return {
         ...baseMetrics,
-        emotionalHealthScore: `${Math.round(sentimentAnalysis.overallScore * 100)}%`,
-        conflictFrequency: getConflictFrequency(messages),
-        attachmentStyle: getAttachmentStyle(messages, responsePatterns),
-        affectionLogisticsRatio: getAffectionLogisticsRatio(messages),
-        intimacyLevel: getIntimacyLevel(messages),
-        conflictResolutionPattern: getConflictResolutionPattern(messages),
-        emotionalExpressiveness: getEmotionalExpressiveness(messages),
+        ...calculateRomanticMetrics(
+          messages,
+          sentimentAnalysis,
+          responsePatterns,
+          temporalAnalysis
+        ),
       };
 
     case "friendship":
-      console.log("Calculating friendship metrics...");
       return {
         ...baseMetrics,
-        initiationBalance: getInitiationBalance(messageCounts, contactName),
-        humorDepthRatio: getHumorDepthRatio(messages),
-        vulnerabilityIndex: getVulnerabilityIndex(messages),
-        longestGap: getLongestCommunicationGap(messages),
-        supportPatterns: getSupportPatterns(messages),
-        topicDiversity: topicAnalysis.diversityScore,
-        engagementConsistency: getEngagementConsistency(messages),
+        ...calculateFriendshipMetrics(
+          messages,
+          messageCounts,
+          contactName,
+          topicAnalysis,
+          temporalAnalysis
+        ),
       };
 
     case "professional":
-      console.log("Calculating professional metrics...");
       return {
         ...baseMetrics,
-        professionalTone: getProfessionalTone(messages),
-        powerDynamic: getPowerDynamic(messages),
-        responseTime: getFormattedResponseTime(responsePatterns),
-        taskSocialRatio: getTaskSocialRatio(messages),
-        clarityIndex: getClarityIndex(messages),
-        boundaryMaintenance: getBoundaryMaintenance(messages),
-        collaborationStyle: getCollaborationStyle(messages),
+        ...calculateProfessionalMetrics(messages, responsePatterns),
       };
 
     case "family":
-      console.log("Calculating family metrics...");
       return {
         ...baseMetrics,
-        familyPattern: getFamilyPattern(messages),
-        emotionalWarmth: getEmotionalWarmth(messages),
-        familyRole: getFamilyRole(messages),
-        interactionFrequency: getInteractionFrequency(messages),
-        generationGap: getGenerationGap(messages),
-        traditionAutonomyBalance: getTraditionAutonomyBalance(messages),
-        supportNetwork: getSupportNetwork(messages),
+        ...calculateFamilyMetrics(
+          messages,
+          sentimentAnalysis,
+          temporalAnalysis
+        ),
       };
 
     case "mentor":
-      console.log("Calculating mentor metrics...");
       return {
         ...baseMetrics,
-        guidanceStyle: getGuidanceStyle(messages),
-        feedbackBalance: getFeedbackBalance(messages),
-        growthFocus: getGrowthFocus(messages),
-        followThrough: getFollowThrough(messages),
-        knowledgeTransfer: getKnowledgeTransfer(messages),
-        goalSetting: getGoalSetting(messages),
-        respectIndex: getRespectIndex(messages),
+        ...calculateMentorMetrics(messages, responsePatterns),
       };
 
     default:
-      console.log("Using default metrics...");
       return baseMetrics;
   }
 };
 
 /**
- * Generate AI-based insights using OpenAI
+ * ROMANTIC RELATIONSHIP METRICS
  */
-const generateAIInsights = async (
-  relationshipType,
-  contactName,
+const calculateRomanticMetrics = (
   messages,
-  memories
+  sentimentAnalysis,
+  responsePatterns,
+  temporalAnalysis
 ) => {
-  try {
-    // Normalize type
-    const normalizedType = normalizeRelationshipType(relationshipType);
+  // Emotional Health Score (0-100%)
+  const emotionalHealthScore = Math.max(
+    10,
+    Math.min(100, Math.round((sentimentAnalysis.overallScore + 1) * 40 + 20))
+  );
 
-    // Sample a subset of messages to stay within token limits
-    const messageSample = sampleMessages(messages, 30);
+  // Conflict Frequency Analysis
+  const conflictAnalysis = analyzeConflictPatterns(messages);
 
-    // Format messages for the AI
-    const messageText = messageSample
-      .map((msg) => {
-        const role = msg.role === "user" ? contactName : "You";
-        return `${role}: ${msg.content}`;
-      })
-      .join("\n");
+  // Attachment Style Detection
+  const attachmentAnalysis = detectAttachmentStyle(messages, responsePatterns);
 
-    // Format memories for the AI
-    const memoriesText =
-      memories.length > 0
-        ? memories.map((m) => m.content).join("\n")
-        : "No stored memories available.";
+  // Affection vs Logistics Ratio
+  const affectionLogisticsRatio = calculateAffectionLogisticsRatio(messages);
 
-    // Create prompt based on relationship type
-    const prompt = `You are a relationship intelligence expert analyzing a ${normalizedType} relationship between the user and ${contactName}.
-    
-RELATIONSHIP TYPE: ${normalizedType}
-NAME: ${contactName}
+  // Intimacy Level Detection
+  const intimacyAnalysis = analyzeIntimacyLevel(messages);
 
-CONVERSATION SAMPLE:
-${messageText}
+  // Conflict Repair Analysis
+  const conflictRepairAnalysis = analyzeConflictRepair(messages);
 
-STORED MEMORIES/INSIGHTS:
-${memoriesText}
+  return {
+    emotionalHealthScore,
+    emotionalHealthLabel: getEmotionalHealthLabel(emotionalHealthScore),
+    conflictFrequency: conflictAnalysis.frequency,
+    conflictFrequencyData: conflictAnalysis.data,
+    conflictDaysAverage: conflictAnalysis.averageDaysBetween,
+    attachmentStyle: attachmentAnalysis.primaryStyle,
+    attachmentStyleData: attachmentAnalysis.data,
+    affectionLogisticsRatio: `${affectionLogisticsRatio.affection}% / ${affectionLogisticsRatio.logistics}%`,
+    affectionLogisticsData: [
+      {
+        name: "Affection",
+        value: affectionLogisticsRatio.affection,
+        color: "#f43f5e",
+      },
+      {
+        name: "Logistics",
+        value: affectionLogisticsRatio.logistics,
+        color: "#8b5cf6",
+      },
+    ],
+    intimacyLevel: intimacyAnalysis.level,
+    intimacyScore: intimacyAnalysis.score,
+    lastIntimateConversation: intimacyAnalysis.lastIntimateConversation,
+    conflictResolutionPattern: conflictRepairAnalysis.pattern,
+    conflictResolutionRate: conflictRepairAnalysis.resolutionRate,
+    apologyFrequency: conflictRepairAnalysis.apologyData,
+  };
+};
 
-Based on this data, provide:
-1. 5 key insights about this ${normalizedType} relationship
-2. 3 personalized recommendations to improve the relationship
+/**
+ * FRIENDSHIP RELATIONSHIP METRICS
+ */
+const calculateFriendshipMetrics = (
+  messages,
+  messageCounts,
+  contactName,
+  topicAnalysis,
+  temporalAnalysis
+) => {
+  // Initiation Balance Analysis
+  const initiationAnalysis = analyzeInitiationBalance(
+    messages,
+    messageCounts,
+    contactName
+  );
 
-Focus specifically on patterns relevant to ${normalizedType} relationships, such as:
-${getPromptAddendumForType(normalizedType)}
+  // Humor vs Depth Analysis
+  const humorDepthAnalysis = analyzeHumorDepthBalance(messages);
 
-Format your response as JSON with "insights" and "recommendations" arrays.`;
+  // Vulnerability Analysis
+  const vulnerabilityAnalysis = analyzeVulnerabilityIndex(messages);
 
-    // Call OpenAI API
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a relationship analysis AI that provides helpful insights based on conversation patterns.",
-        },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.7,
-      response_format: { type: "json_object" },
+  // Communication Gaps Analysis
+  const gapAnalysis = analyzeCommunicationGaps(messages);
+
+  // Topic Diversity Analysis
+  const diversityAnalysis = analyzeTopicDiversity(topicAnalysis);
+
+  return {
+    initiationBalance: initiationAnalysis.description,
+    initiationData: [
+      { name: "You", value: initiationAnalysis.userPercent, color: "#6366f1" },
+      {
+        name: contactName || "Contact",
+        value: initiationAnalysis.contactPercent,
+        color: "#8b5cf6",
+      },
+    ],
+    initiationImbalanceLevel: initiationAnalysis.imbalanceLevel,
+    humorDepthRatio: `${humorDepthAnalysis.humor}% / ${humorDepthAnalysis.depth}%`,
+    humorDepthData: [
+      { name: "Humor", value: humorDepthAnalysis.humor, color: "#f59e0b" },
+      {
+        name: "Emotional Depth",
+        value: humorDepthAnalysis.depth,
+        color: "#8b5cf6",
+      },
+    ],
+    vulnerabilityIndex: vulnerabilityAnalysis.level,
+    vulnerabilityScore: vulnerabilityAnalysis.score,
+    longestGap: gapAnalysis.longestGap,
+    longestGapDays: gapAnalysis.longestGapDays,
+    averageGap: gapAnalysis.averageGap,
+    topicDiversity: diversityAnalysis.score,
+    topicDiversityLevel: diversityAnalysis.level,
+    engagementConsistency: temporalAnalysis.consistency,
+  };
+};
+
+/**
+ * PROFESSIONAL RELATIONSHIP METRICS
+ */
+const calculateProfessionalMetrics = (messages, responsePatterns) => {
+  // Professional Tone Analysis
+  const toneAnalysis = analyzeProfessionalTone(messages);
+
+  // Power Dynamics Analysis
+  const powerAnalysis = analyzePowerDynamics(messages);
+
+  // Apology/Praise/Blame Detection
+  const feedbackAnalysis = analyzeApologyPraiseBlame(messages);
+
+  // Task vs Emotional Labor Analysis
+  const laborAnalysis = analyzeTaskEmotionalLabor(messages);
+
+  return {
+    professionalTone: toneAnalysis.description,
+    professionalToneData: toneAnalysis.data,
+    professionalToneScore: toneAnalysis.score,
+    powerDynamic: powerAnalysis.description,
+    powerDynamicData: powerAnalysis.data,
+    responseTime: `You: ${responsePatterns.userAvgResponseTime} | Them: ${responsePatterns.contactAvgResponseTime}`,
+    responseTimeData: {
+      user: responsePatterns.userAvgResponseTime,
+      contact: responsePatterns.contactAvgResponseTime,
+      userMinutes: responsePatterns.userAvgMinutes,
+      contactMinutes: responsePatterns.contactAvgMinutes,
+    },
+    apologyPraiseRatio: feedbackAnalysis.description,
+    apologyPraiseData: feedbackAnalysis.data,
+    taskEmotionalRatio: `${laborAnalysis.task}% / ${laborAnalysis.emotional}%`,
+    taskEmotionalData: [
+      { name: "Task-focused", value: laborAnalysis.task, color: "#ef4444" },
+      {
+        name: "Relationship-building",
+        value: laborAnalysis.emotional,
+        color: "#10b981",
+      },
+    ],
+    clarityIndex: analyzeClarityIndex(messages),
+    boundaryMaintenance: analyzeBoundaryMaintenance(messages),
+  };
+};
+
+/**
+ * FAMILY RELATIONSHIP METRICS - Updated to match exact UI
+ */
+const calculateFamilyMetrics = (
+  messages,
+  sentimentAnalysis,
+  temporalAnalysis
+) => {
+  // Generational Tension Analysis
+  const generationalAnalysis = analyzeGenerationalTensions(messages);
+
+  // Role Analysis - matches "You express concern/support in 64% of messages"
+  const roleAnalysis = analyzeFamilyRole(messages);
+
+  // Tradition vs Autonomy Analysis
+  const autonomyAnalysis = analyzeTraditionAutonomy(messages);
+
+  // Emotional Warmth Analysis
+  const warmthAnalysis = analyzeEmotionalWarmth(messages);
+
+  // Communication Spikes Analysis
+  const spikesAnalysis = analyzeCommunicationSpikes(messages, temporalAnalysis);
+
+  return {
+    generationalTension: generationalAnalysis.level,
+    generationalTensionData: generationalAnalysis.data,
+    roleReflection: roleAnalysis.description,
+    roleSupport: roleAnalysis.supportPercentage,
+    traditionAutonomyTension: autonomyAnalysis.description,
+    traditionAutonomyData: [
+      {
+        name: "Traditional Values",
+        value: autonomyAnalysis.tradition,
+        color: "#dc2626",
+      },
+      {
+        name: "Autonomy/Independence",
+        value: autonomyAnalysis.autonomy,
+        color: "#2563eb",
+      },
+    ],
+    emotionalWarmth: warmthAnalysis.level,
+    emotionalWarmthScore: warmthAnalysis.score,
+    communicationSpikes: spikesAnalysis.description,
+    communicationSpikePatterns: spikesAnalysis.patterns,
+  };
+};
+
+/**
+ * MENTOR RELATIONSHIP METRICS
+ */
+const calculateMentorMetrics = (messages, responsePatterns) => {
+  // Reflective Listening Analysis - matches "You restate their advice in 40% of responses"
+  const reflectiveAnalysis = analyzeReflectiveListening(messages);
+
+  // Encouragement vs Accountability Analysis
+  const encouragementAnalysis = analyzeEncouragementAccountability(messages);
+
+  // Personal Growth Framing Analysis
+  const growthAnalysis = analyzePersonalGrowthFraming(messages);
+
+  // Goal Setting and Follow-up Analysis - matches "follow-up drops after 3 days"
+  const goalAnalysis = analyzeGoalSettingFollowup(messages);
+
+  // Affirmation vs Correction Analysis - matches "3:1" ratio
+  const affirmationAnalysis = analyzeAffirmationCorrection(messages);
+
+  return {
+    reflectiveListening: reflectiveAnalysis.description,
+    reflectiveListeningRate: reflectiveAnalysis.rate,
+    encouragementAccountability: encouragementAnalysis.description,
+    encouragementAccountabilityData: [
+      {
+        name: "Motivational",
+        value: encouragementAnalysis.motivational,
+        color: "#8b5cf6",
+      },
+      {
+        name: "Corrective",
+        value: encouragementAnalysis.corrective,
+        color: "#ec4899",
+      },
+    ],
+    personalGrowthFraming: growthAnalysis.description,
+    goalLanguageFrequency: growthAnalysis.frequency,
+    goalSettingFollowup: goalAnalysis.description,
+    followupDropoff: goalAnalysis.dropoffRate,
+    affirmationCorrectionRatio: affirmationAnalysis.ratio,
+    affirmationCorrectionData: affirmationAnalysis.data,
+  };
+};
+
+/**
+ * ===========================================
+ * DETAILED ANALYSIS FUNCTIONS
+ * ===========================================
+ */
+
+// Enhanced Sentiment Analysis
+const enhancedSentimentAnalysis = (messages) => {
+  const positiveWords = [
+    "love",
+    "happy",
+    "great",
+    "amazing",
+    "wonderful",
+    "fantastic",
+    "excellent",
+    "awesome",
+    "perfect",
+    "brilliant",
+    "beautiful",
+    "incredible",
+    "outstanding",
+    "thrilled",
+    "excited",
+    "grateful",
+    "appreciate",
+    "thankful",
+    "blessed",
+  ];
+
+  const negativeWords = [
+    "hate",
+    "angry",
+    "terrible",
+    "awful",
+    "horrible",
+    "disgusting",
+    "furious",
+    "devastated",
+    "heartbroken",
+    "disappointed",
+    "frustrated",
+    "annoyed",
+    "upset",
+    "sad",
+    "depressed",
+    "worried",
+    "anxious",
+    "stressed",
+    "overwhelmed",
+  ];
+
+  let sentiments = [];
+  let overallPositive = 0;
+  let overallNegative = 0;
+
+  messages.forEach((msg) => {
+    if (!msg.content) return;
+
+    const words = msg.content.toLowerCase().split(/\s+/);
+    let msgPositive = 0;
+    let msgNegative = 0;
+
+    words.forEach((word) => {
+      const cleanWord = word.replace(/[^\w]/g, "");
+      if (positiveWords.includes(cleanWord)) msgPositive++;
+      if (negativeWords.includes(cleanWord)) msgNegative++;
     });
 
-    // Parse the JSON response
-    try {
-      const content = response.choices[0].message.content;
-      const parsedResponse = JSON.parse(content);
+    const msgSentiment = msgPositive - msgNegative;
+    sentiments.push(msgSentiment);
+    overallPositive += msgPositive;
+    overallNegative += msgNegative;
+  });
 
-      return {
-        insights: parsedResponse.insights || [],
-        recommendations: parsedResponse.recommendations || [],
-      };
-    } catch (parseError) {
-      console.error("Error parsing AI response:", parseError);
+  const overallScore =
+    (overallPositive - overallNegative) /
+    Math.max(1, overallPositive + overallNegative);
+  const normalizedScore = Math.max(-1, Math.min(1, overallScore));
 
-      // Return basic insights if parsing fails
-      return {
-        insights: getBasicInsights(relationshipType, contactName),
-        recommendations: getBasicRecommendations(relationshipType),
-      };
-    }
-  } catch (error) {
-    console.error("Error generating AI insights:", error);
+  // Calculate distribution
+  const positive = sentiments.filter((s) => s > 0).length;
+  const negative = sentiments.filter((s) => s < 0).length;
+  const neutral = sentiments.filter((s) => s === 0).length;
+  const total = sentiments.length || 1;
 
-    // Return basic insights if API call fails
+  return {
+    overallScore: normalizedScore,
+    label: getSentimentLabel(normalizedScore),
+    distribution: [
+      {
+        name: "Positive",
+        value: Math.round((positive / total) * 100),
+        color: "#10b981",
+      },
+      {
+        name: "Neutral",
+        value: Math.round((neutral / total) * 100),
+        color: "#6b7280",
+      },
+      {
+        name: "Negative",
+        value: Math.round((negative / total) * 100),
+        color: "#ef4444",
+      },
+    ],
+    positiveCount: overallPositive,
+    negativeCount: overallNegative,
+    intensity: (overallPositive + overallNegative) / messages.length,
+  };
+};
+
+// Enhanced Topic Analysis
+const enhancedTopicAnalysis = (messages) => {
+  const topicKeywords = {
+    "Work & Career": [
+      "work",
+      "job",
+      "career",
+      "office",
+      "meeting",
+      "project",
+      "boss",
+      "colleague",
+      "deadline",
+      "promotion",
+    ],
+    "Family & Relationships": [
+      "family",
+      "kids",
+      "parents",
+      "mom",
+      "dad",
+      "sister",
+      "brother",
+      "relationship",
+      "dating",
+      "marriage",
+    ],
+    "Emotions & Feelings": [
+      "feel",
+      "emotion",
+      "happy",
+      "sad",
+      "angry",
+      "love",
+      "hate",
+      "excited",
+      "worried",
+      "stressed",
+    ],
+    "Plans & Future": [
+      "plan",
+      "future",
+      "tomorrow",
+      "weekend",
+      "vacation",
+      "goals",
+      "dreams",
+      "hoping",
+      "expecting",
+    ],
+    "Daily Activities": [
+      "eat",
+      "sleep",
+      "exercise",
+      "gym",
+      "shopping",
+      "cooking",
+      "cleaning",
+      "driving",
+      "walking",
+    ],
+    Entertainment: [
+      "movie",
+      "music",
+      "game",
+      "book",
+      "tv",
+      "netflix",
+      "youtube",
+      "party",
+      "concert",
+      "sports",
+    ],
+    "Health & Wellness": [
+      "health",
+      "doctor",
+      "medicine",
+      "sick",
+      "tired",
+      "energy",
+      "diet",
+      "fitness",
+      "mental",
+    ],
+    "Humor & Fun": [
+      "lol",
+      "haha",
+      "funny",
+      "joke",
+      "laugh",
+      "hilarious",
+      "😂",
+      "🤣",
+      "amusing",
+      "comedy",
+    ],
+    "Support & Care": [
+      "help",
+      "support",
+      "care",
+      "worry",
+      "concern",
+      "there for you",
+      "understand",
+      "listen",
+    ],
+    "Money & Finance": [
+      "money",
+      "pay",
+      "buy",
+      "expensive",
+      "cheap",
+      "budget",
+      "save",
+      "spend",
+      "cost",
+      "price",
+    ],
+    memes: ["meme", "lol", "haha", "funny", "hilarious", "joke", "😂", "🤣"],
+    Gossip: [
+      "did you hear",
+      "guess what",
+      "rumor",
+      "gossip",
+      "drama",
+      "scandal",
+      "secret",
+      "whisper",
+    ],
+    "Personal Life": [
+      "personal",
+      "private",
+      "life",
+      "feelings",
+      "thoughts",
+      "dreams",
+      "goals",
+      "struggles",
+    ],
+  };
+
+  const topicColors = {
+    "Work & Career": "#ef4444",
+    "Family & Relationships": "#f97316",
+    "Emotions & Feelings": "#ec4899",
+    "Plans & Future": "#8b5cf6",
+    "Daily Activities": "#06b6d4",
+    Entertainment: "#10b981",
+    "Health & Wellness": "#84cc16",
+    "Humor & Fun": "#f59e0b",
+    "Support & Care": "#6366f1",
+    "Money & Finance": "#14b8a6",
+    memes: "#ef4444",
+    Gossip: "#f59e0b",
+    "Personal Life": "#8b5cf6",
+  };
+
+  const topicCounts = {};
+  Object.keys(topicKeywords).forEach((topic) => {
+    topicCounts[topic] = 0;
+  });
+
+  // Analyze each message for topics
+  messages.forEach((msg) => {
+    if (!msg.content) return;
+    const content = msg.content.toLowerCase();
+
+    Object.entries(topicKeywords).forEach(([topic, keywords]) => {
+      let topicMentioned = false;
+      keywords.forEach((keyword) => {
+        if (content.includes(keyword) && !topicMentioned) {
+          topicCounts[topic]++;
+          topicMentioned = true;
+        }
+      });
+    });
+  });
+
+  // Create sorted topics with percentages
+  const totalMentions = Object.values(topicCounts).reduce(
+    (sum, count) => sum + count,
+    0
+  );
+  const sortedTopics = Object.entries(topicCounts)
+    .filter(([_, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([topic, count]) => ({
+      name: topic,
+      count,
+      percentage: Math.round((count / messages.length) * 100),
+      color: topicColors[topic] || "#6b7280",
+    }));
+
+  return {
+    topTopics: sortedTopics.slice(0, 6),
+    allTopics: sortedTopics,
+    totalMentions,
+    diversityScore: calculateTopicDiversity(topicCounts),
+  };
+};
+
+// Enhanced Response Patterns
+const enhancedResponsePatterns = (messages) => {
+  if (messages.length < 2) {
     return {
-      insights: getBasicInsights(relationshipType, contactName),
-      recommendations: getBasicRecommendations(relationshipType),
+      averageResponseTime: "Not enough data",
+      userAvgResponseTime: "Not enough data",
+      contactAvgResponseTime: "Not enough data",
+      userAvgMinutes: 0,
+      contactAvgMinutes: 0,
+      communicationStyle: "Not enough data",
     };
   }
-};
 
-/**
- * Get relationship type-specific prompt addendum for AI
- */
-const getPromptAddendumForType = (type) => {
-  switch (type) {
-    case "romantic":
-      return "- Emotional health indicators\n- Conflict patterns and resolution\n- Attachment styles\n- Balance of affection vs. practical communication\n- Intimacy and vulnerability";
+  const sortedMessages = [...messages].sort((a, b) => {
+    const timeA = new Date(a.timestamp || a.createdAt || 0);
+    const timeB = new Date(b.timestamp || b.createdAt || 0);
+    return timeA - timeB;
+  });
 
-    case "friendship":
-      return "- Communication initiation balance\n- Humor vs. emotional depth\n- Shared vulnerability\n- Consistency and reliability\n- Support patterns";
+  let userResponseTimes = [];
+  let contactResponseTimes = [];
 
-    case "professional":
-      return "- Professional tone and formality\n- Power dynamics\n- Task focus vs. relationship building\n- Response times and priorities\n- Clarity and effectiveness";
+  for (let i = 1; i < sortedMessages.length; i++) {
+    const prevMsg = sortedMessages[i - 1];
+    const currMsg = sortedMessages[i];
 
-    case "family":
-      return "- Family roles and dynamics\n- Emotional expression\n- Support patterns\n- Generational differences\n- Tradition vs. autonomy balance";
+    if (prevMsg.role === currMsg.role) continue;
 
-    case "mentor":
-      return "- Guidance and teaching style\n- Feedback balance (praise vs. criticism)\n- Growth focus areas\n- Goal setting and follow-through\n- Knowledge transfer effectiveness";
+    const prevTime = new Date(prevMsg.timestamp || prevMsg.createdAt || 0);
+    const currTime = new Date(currMsg.timestamp || currMsg.createdAt || 0);
 
-    default:
-      return "- Overall communication patterns\n- Emotional tone\n- Balance of give and take\n- Response patterns\n- Areas for improvement";
+    if (prevTime.getTime() === 0 || currTime.getTime() === 0) continue;
+
+    const timeDiff = (currTime - prevTime) / (1000 * 60); // minutes
+
+    if (timeDiff < 0 || timeDiff > 24 * 60 * 7) continue; // Skip invalid times
+
+    if (currMsg.role === "user") {
+      userResponseTimes.push(timeDiff);
+    } else {
+      contactResponseTimes.push(timeDiff);
+    }
   }
+
+  const userAvgMinutes =
+    userResponseTimes.length > 0
+      ? userResponseTimes.reduce((sum, time) => sum + time, 0) /
+        userResponseTimes.length
+      : 0;
+
+  const contactAvgMinutes =
+    contactResponseTimes.length > 0
+      ? contactResponseTimes.reduce((sum, time) => sum + time, 0) /
+        contactResponseTimes.length
+      : 0;
+
+  return {
+    averageResponseTime: formatResponseTime(
+      (userAvgMinutes + contactAvgMinutes) / 2
+    ),
+    userAvgResponseTime: formatResponseTime(userAvgMinutes),
+    contactAvgResponseTime: formatResponseTime(contactAvgMinutes),
+    userAvgMinutes,
+    contactAvgMinutes,
+    communicationStyle: determineCommunicationStyle(
+      userResponseTimes.length,
+      contactResponseTimes.length,
+      userAvgMinutes,
+      contactAvgMinutes
+    ),
+  };
 };
 
-/**
- * Normalize relationship type for consistent handling
- */
-const normalizeRelationshipType = (type) => {
-  if (!type) return "other";
-
-  type = type.toLowerCase();
-
-  if (type === "partner" || type.includes("romantic")) return "romantic";
-  if (type === "friend" || type.includes("friendship")) return "friendship";
-  if (
-    type === "colleague" ||
-    type.includes("professional") ||
-    type.includes("work")
-  )
-    return "professional";
-  if (type === "family" || type.includes("family")) return "family";
-  if (type === "mentor" || type === "mentee" || type.includes("mentor"))
-    return "mentor";
-
-  return "other";
-};
-
-/**
- * Count messages by sender role
- */
+// Message Role Counter
 const countMessagesByRole = (messages) => {
   return messages.reduce(
     (counts, msg) => {
@@ -460,611 +927,255 @@ const countMessagesByRole = (messages) => {
   );
 };
 
-/**
- * Simple sentiment analysis on message content
- */
-const analyzeSentiment = (messages) => {
-  // Positive and negative word lists
-  const positiveWords = [
-    "good",
-    "great",
-    "happy",
-    "love",
-    "enjoy",
-    "wonderful",
-    "excellent",
-    "amazing",
-    "fantastic",
-    "awesome",
-    "nice",
-    "thank",
-    "thanks",
-    "grateful",
-    "appreciate",
-    "pleased",
-    "excited",
-    "glad",
-    "joy",
-    "beautiful",
-    "perfect",
-  ];
+// Temporal Analysis
+const analyzeTemporalPatterns = (messages) => {
+  if (messages.length < 5) {
+    return {
+      consistency: "Not enough data",
+      peakHours: [],
+      communicationFrequency: "Unknown",
+    };
+  }
 
-  const negativeWords = [
-    "bad",
-    "sad",
-    "angry",
-    "hate",
-    "terrible",
-    "awful",
-    "horrible",
-    "unfortunate",
-    "sorry",
-    "upset",
-    "annoyed",
-    "disappointed",
-    "frustrating",
-    "worried",
-    "upset",
-    "unhappy",
-    "dislike",
-    "problem",
-    "issue",
-    "trouble",
-    "fail",
-    "wrong",
-    "mistake",
-  ];
-
-  let positiveCount = 0;
-  let negativeCount = 0;
-  let totalWords = 0;
-
-  // Count sentiment words in messages
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
-
-    const words = msg.content.toLowerCase().split(/\s+/);
-    totalWords += words.length;
-
-    words.forEach((word) => {
-      const cleanWord = word.replace(/[.,!?;:]/g, "");
-      if (positiveWords.includes(cleanWord)) positiveCount++;
-      if (negativeWords.includes(cleanWord)) negativeCount++;
-    });
+  const sortedMessages = [...messages].sort((a, b) => {
+    const timeA = new Date(a.timestamp || a.createdAt || 0);
+    const timeB = new Date(b.timestamp || b.createdAt || 0);
+    return timeA - timeB;
   });
 
-  // Calculate sentiment score (-1 to 1)
-  const total = positiveCount + negativeCount;
-  const sentimentScore =
-    total > 0 ? (positiveCount - negativeCount) / total : 0;
+  const gaps = [];
+  const hourCounts = new Array(24).fill(0);
 
-  // Determine sentiment label
-  let label = "neutral";
-  if (sentimentScore > 0.3) label = "positive";
-  if (sentimentScore > 0.6) label = "very positive";
-  if (sentimentScore < -0.3) label = "challenging";
-  if (sentimentScore < -0.6) label = "very challenging";
+  // Analyze gaps and peak hours
+  for (let i = 1; i < sortedMessages.length; i++) {
+    const prevTime = new Date(
+      sortedMessages[i - 1].timestamp || sortedMessages[i - 1].createdAt
+    );
+    const currTime = new Date(
+      sortedMessages[i].timestamp || sortedMessages[i].createdAt
+    );
 
-  return {
-    overallScore: sentimentScore,
-    label,
-    positiveWords: positiveCount,
-    negativeWords: negativeCount,
-    intensity: total / (totalWords || 1),
-  };
-};
-
-/**
- * Basic topic analysis on message content
- */
-const analyzeTopics = (messages) => {
-  // Topic keywords
-  const topicKeywords = {
-    Work: [
-      "work",
-      "job",
-      "office",
-      "meeting",
-      "project",
-      "boss",
-      "client",
-      "deadline",
-    ],
-    Family: [
-      "family",
-      "kids",
-      "parents",
-      "mom",
-      "dad",
-      "sister",
-      "brother",
-      "child",
-    ],
-    Emotions: [
-      "feel",
-      "happy",
-      "sad",
-      "angry",
-      "love",
-      "miss",
-      "emotional",
-      "stress",
-    ],
-    Plans: [
-      "plan",
-      "tomorrow",
-      "weekend",
-      "meet",
-      "schedule",
-      "soon",
-      "later",
-      "next",
-    ],
-    Activities: [
-      "movie",
-      "dinner",
-      "lunch",
-      "coffee",
-      "go",
-      "watch",
-      "eat",
-      "cook",
-    ],
-    Health: [
-      "sick",
-      "doctor",
-      "health",
-      "exercise",
-      "sleep",
-      "gym",
-      "tired",
-      "rest",
-    ],
-    "Personal Growth": [
-      "learn",
-      "goal",
-      "future",
-      "change",
-      "better",
-      "improve",
-      "progress",
-    ],
-    Logistics: [
-      "time",
-      "place",
-      "location",
-      "when",
-      "where",
-      "how",
-      "get",
-      "bring",
-    ],
-    Humor: ["lol", "haha", "funny", "joke", "laugh", "😂", "🤣", "hilarious"],
-    Support: [
-      "help",
-      "support",
-      "there for you",
-      "understand",
-      "listen",
-      "care",
-    ],
-  };
-
-  const topicCounts = {};
-  Object.keys(topicKeywords).forEach((topic) => {
-    topicCounts[topic] = 0;
-  });
-
-  // Count topics in messages
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
-
-    const content = msg.content.toLowerCase();
-
-    Object.entries(topicKeywords).forEach(([topic, keywords]) => {
-      keywords.forEach((keyword) => {
-        if (content.includes(keyword.toLowerCase())) {
-          topicCounts[topic]++;
-          return; // Count each topic only once per message
-        }
-      });
-    });
-  });
-
-  // Sort topics by frequency
-  const sortedTopics = Object.entries(topicCounts)
-    .sort((a, b) => b[1] - a[1])
-    .map(([topic, count]) => ({
-      name: topic,
-      count,
-      percentage: Math.round((count / messages.length) * 100),
-    }));
-
-  // Calculate topic diversity (0-1)
-  const totalMentions = Object.values(topicCounts).reduce(
-    (sum, count) => sum + count,
-    0
-  );
-  const topicDistribution = Object.values(topicCounts).map(
-    (count) => count / totalMentions
-  );
-
-  // Shannon entropy calculation for diversity
-  const diversityScore =
-    topicDistribution
-      .filter((p) => p > 0)
-      .reduce((entropy, p) => entropy - p * Math.log2(p), 0) /
-    Math.log2(topicDistribution.length);
-
-  return {
-    topTopics: sortedTopics.slice(0, 5),
-    allTopics: sortedTopics,
-    diversityScore: Math.min(Math.max(diversityScore, 0), 1).toFixed(2),
-    topicMentions: totalMentions,
-  };
-};
-
-/**
- * Analyze response patterns between messages
- */
-const analyzeResponsePatterns = (messages) => {
-  // Initialize metrics
-  let responseTimes = [];
-  let userAvgResponseTime = 0;
-  let contactAvgResponseTime = 0;
-  let userResponseCount = 0;
-  let contactResponseCount = 0;
-
-  // Calculate response times
-  for (let i = 1; i < messages.length; i++) {
-    const prevMsg = messages[i - 1];
-    const currMsg = messages[i];
-
-    // Skip if messages are from the same person
-    if (prevMsg.role === currMsg.role) continue;
-
-    // Get timestamps
-    const prevTime = prevMsg.timestamp || prevMsg.createdAt || new Date(0);
-    const currTime = currMsg.timestamp || currMsg.createdAt || new Date(0);
-
-    // Calculate time difference in minutes
-    const timeDiff = (new Date(currTime) - new Date(prevTime)) / (1000 * 60);
-
-    // Skip outliers (responses after more than a day)
-    if (timeDiff > 24 * 60) continue;
-
-    responseTimes.push(timeDiff);
-
-    // Track by responder
-    if (currMsg.role === "user") {
-      userResponseCount++;
-      userAvgResponseTime += timeDiff;
-    } else {
-      contactResponseCount++;
-      contactAvgResponseTime += timeDiff;
+    // Calculate gap in hours
+    const gapHours = (currTime - prevTime) / (1000 * 60 * 60);
+    if (gapHours < 24 * 7) {
+      // Ignore gaps > 1 week
+      gaps.push(gapHours);
     }
+
+    // Count messages by hour
+    hourCounts[currTime.getHours()]++;
   }
 
-  // Calculate averages
-  if (userResponseCount > 0) {
-    userAvgResponseTime /= userResponseCount;
-  }
+  // Calculate consistency
+  const avgGap = gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length;
+  const variance =
+    gaps.reduce((sum, gap) => sum + Math.pow(gap - avgGap, 2), 0) / gaps.length;
+  const cv = Math.sqrt(variance) / avgGap;
 
-  if (contactResponseCount > 0) {
-    contactAvgResponseTime /= contactResponseCount;
-  }
+  let consistency;
+  if (cv < 0.5) consistency = "Very consistent";
+  else if (cv < 1) consistency = "Consistent";
+  else if (cv < 1.5) consistency = "Somewhat consistent";
+  else consistency = "Inconsistent";
 
-  const overallAvgResponseTime =
-    responseTimes.length > 0
-      ? responseTimes.reduce((sum, time) => sum + time, 0) /
-        responseTimes.length
-      : 0;
-
-  // Determine communication style
-  let communicationStyle = "balanced";
-
-  if (userAvgResponseTime < contactAvgResponseTime * 0.5) {
-    communicationStyle = "you respond quickly";
-  } else if (contactAvgResponseTime < userAvgResponseTime * 0.5) {
-    communicationStyle = "they respond quickly";
-  }
-
-  if (userResponseCount > contactResponseCount * 1.5) {
-    communicationStyle = "you initiate more";
-  } else if (contactResponseCount > userResponseCount * 1.5) {
-    communicationStyle = "they initiate more";
-  }
+  // Find peak hours
+  const maxCount = Math.max(...hourCounts);
+  const peakHours = hourCounts
+    .map((count, hour) => ({ hour, count }))
+    .filter((item) => item.count > maxCount * 0.8)
+    .map((item) => item.hour);
 
   return {
-    averageResponseTime: formatMinutes(overallAvgResponseTime),
-    userAvgResponseTime: formatMinutes(userAvgResponseTime),
-    contactAvgResponseTime: formatMinutes(contactAvgResponseTime),
-    userResponseCount,
-    contactResponseCount,
-    communicationStyle,
+    consistency,
+    peakHours,
+    communicationFrequency: calculateFrequency(sortedMessages),
+    averageGapHours: avgGap,
   };
 };
 
 /**
- * Format minutes into a human-readable format
+ * CONFLICT PATTERN ANALYSIS
  */
-const formatMinutes = (minutes) => {
-  if (isNaN(minutes) || minutes === 0) return "N/A";
-
-  if (minutes < 1) {
-    return "less than a minute";
-  } else if (minutes < 60) {
-    return `${Math.round(minutes)} minutes`;
-  } else {
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.round(minutes % 60);
-    return `${hours} hour${hours > 1 ? "s" : ""}${mins > 0 ? ` ${mins} min` : ""}`;
-  }
-};
-
-/**
- * Get basic metrics when not enough data is available
- */
-const getBasicMetrics = (relationshipType) => {
-  const normalizedType = normalizeRelationshipType(relationshipType);
-
-  switch (normalizedType) {
-    case "romantic":
-      return {
-        emotionalHealthScore: "Not enough data",
-        conflictFrequency: "Infrequent",
-        attachmentStyle: "Not determined",
-        affectionLogisticsRatio: "Not enough data",
-      };
-
-    case "friendship":
-      return {
-        initiationBalance: "Not enough data",
-        humorDepthRatio: "Not enough data",
-        vulnerabilityIndex: "Low",
-        longestGap: "Not enough data",
-      };
-
-    case "professional":
-      return {
-        professionalTone: "Task-oriented",
-        powerDynamic: "Not enough data",
-        responseTime: "Not enough data",
-        taskSocialRatio: "Not enough data",
-      };
-
-    case "family":
-      return {
-        familyPattern: "Supportive",
-        emotionalWarmth: "Medium",
-        familyRole: "Not enough data",
-        interactionFrequency: "Not enough data",
-      };
-
-    case "mentor":
-      return {
-        guidanceStyle: "Not enough data",
-        feedbackBalance: "Not enough data",
-        growthFocus: "Not enough data",
-        followThrough: "Not enough data",
-      };
-
-    default:
-      return {
-        communicationStyle: "Not enough data",
-        emotionalTone: "Not enough data",
-        interactionFrequency: "Not enough data",
-        connectionLevel: "Not enough data",
-      };
-  }
-};
-
-/**
- * Get basic insights when not enough data is available
- */
-const getBasicInsights = (relationshipType, contactName) => {
-  const normalizedType = normalizeRelationshipType(relationshipType);
-
-  switch (normalizedType) {
-    case "romantic":
-      return [
-        `Your conversations with ${contactName} show potential for a healthy romantic relationship.`,
-        "To deepen your connection, share more about your feelings and needs.",
-        "Import more chat history to reveal detailed emotional patterns in your relationship.",
-      ];
-
-    case "friendship":
-      return [
-        `Your friendship with ${contactName} appears to be developing positively.`,
-        "Friends who communicate consistently tend to maintain stronger bonds over time.",
-        "Import more chat history to see friendship dynamics and mutual interests.",
-      ];
-
-    case "professional":
-      return [
-        `Your professional relationship with ${contactName} shows a task-focused pattern.`,
-        "Clear communication is essential for effective professional relationships.",
-        "Import more work conversations to analyze collaboration styles and workflow patterns.",
-      ];
-
-    case "family":
-      return [
-        `Family connections like yours with ${contactName} benefit from regular communication.`,
-        "Family relationships often blend practical coordination with emotional support.",
-        "Import more family conversations to better understand your unique dynamic.",
-      ];
-
-    case "mentor":
-      return [
-        `Your mentor/mentee relationship with ${contactName} has potential for growth.`,
-        "Effective mentoring relationships balance guidance with autonomy.",
-        "Import more conversations to analyze knowledge sharing and growth patterns.",
-      ];
-
-    default:
-      return [
-        `Your relationship with ${contactName} shows positive communication patterns.`,
-        "Regular, balanced conversations help build stronger connections over time.",
-        "Import more chat history to reveal detailed patterns and insights.",
-      ];
-  }
-};
-
-/**
- * Get basic recommendations when not enough data is available
- */
-const getBasicRecommendations = (relationshipType) => {
-  const normalizedType = normalizeRelationshipType(relationshipType);
-
-  switch (normalizedType) {
-    case "romantic":
-      return [
-        "Schedule regular quality time without distractions to deepen your connection.",
-        "Practice active listening by paraphrasing what your partner says before responding.",
-        "Express appreciation regularly for specific things you value about your partner.",
-      ];
-
-    case "friendship":
-      return [
-        "Check in periodically even during busy periods to maintain connection.",
-        "Share personal challenges when appropriate to build trust through vulnerability.",
-        "Plan activities around shared interests to strengthen your friendship bond.",
-      ];
-
-    case "professional":
-      return [
-        "Be clear about deadlines and expectations to avoid miscommunication.",
-        "Acknowledge contributions and express appreciation for good work.",
-        "Balance task-focused communication with occasional rapport-building conversation.",
-      ];
-
-    case "family":
-      return [
-        "Create regular family check-in times, whether in person or virtual.",
-        "Acknowledge differences in communication styles across generations.",
-        "Express affection directly, even in families that tend to be more practical.",
-      ];
-
-    case "mentor":
-      return [
-        "Balance giving advice with asking questions that promote self-discovery.",
-        "Set clear goals and expectations for the mentoring relationship.",
-        "Share relevant personal experiences while keeping focus on the mentees growth.",
-      ];
-
-    default:
-      return [
-        "Practice active listening by focusing fully on the other person when they speak.",
-        "Express appreciation regularly for specific qualities you value in the relationship.",
-        "Be consistent in your communication patterns to build trust and reliability.",
-      ];
-  }
-};
-
-// Helper functions for relationship-specific metrics
-// These would normally contain complex logic but are simplified here
-
-const getConflictFrequency = (messages) => {
-  // Simple implementation - would be more sophisticated in production
+const analyzeConflictPatterns = (messages) => {
   const conflictWords = [
     "sorry",
+    "apologize",
     "disagree",
     "wrong",
-    "misunderstanding",
     "upset",
+    "angry",
+    "frustrated",
+    "annoyed",
+    "disappointed",
+    "hurt",
+    "argue",
+    "fight",
+    "conflict",
+    "issue",
+    "problem",
   ];
 
-  let conflictCount = 0;
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
+  const conflictMessages = [];
+
+  messages.forEach((msg, index) => {
+    if (!msg.content) return;
 
     const content = msg.content.toLowerCase();
+    let conflictScore = 0;
+
     conflictWords.forEach((word) => {
-      if (content.includes(word)) conflictCount++;
+      if (content.includes(word)) conflictScore++;
     });
+
+    if (conflictScore > 0) {
+      conflictMessages.push({
+        index,
+        timestamp: msg.timestamp || msg.createdAt,
+        score: conflictScore,
+        content: msg.content,
+      });
+    }
   });
 
-  const frequency = conflictCount / (messages.length / 20); // Per 20 messages
+  // Calculate frequency
+  const totalDays = calculateTotalDays(messages);
+  const conflictsPerWeek = (conflictMessages.length / totalDays) * 7;
 
-  if (frequency < 0.5) return "Rare";
-  if (frequency < 1) return "Occasional";
-  if (frequency < 2) return "Moderate";
-  return "Frequent";
+  let frequency;
+  if (conflictsPerWeek < 0.25) frequency = "Rare";
+  else if (conflictsPerWeek < 1) frequency = "Occasional";
+  else if (conflictsPerWeek < 2) frequency = "Moderate";
+  else frequency = "Frequent";
+
+  // Calculate average days between conflicts
+  let averageDaysBetween = "N/A";
+  if (conflictMessages.length > 1) {
+    const gaps = [];
+    for (let i = 1; i < conflictMessages.length; i++) {
+      const prevTime = new Date(conflictMessages[i - 1].timestamp);
+      const currTime = new Date(conflictMessages[i].timestamp);
+      const daysDiff = (currTime - prevTime) / (1000 * 60 * 60 * 24);
+      gaps.push(daysDiff);
+    }
+    averageDaysBetween = Math.round(
+      gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length
+    );
+  }
+
+  return {
+    frequency,
+    count: conflictMessages.length,
+    averageDaysBetween,
+    conflictRate: Math.round((conflictMessages.length / messages.length) * 100),
+    data: [
+      {
+        name: "Conflict Messages",
+        value: conflictMessages.length,
+        color: "#ef4444",
+      },
+      {
+        name: "Peaceful Messages",
+        value: messages.length - conflictMessages.length,
+        color: "#10b981",
+      },
+    ],
+    recentConflicts: conflictMessages.slice(-3),
+  };
 };
 
-const getAttachmentStyle = (messages, responsePatterns) => {
-  // Simplified implementation
-  const anxiousWords = ["miss", "worried", "alone", "afraid", "need"];
-  const avoidantWords = ["busy", "space", "later", "work", "time"];
-  const secureWords = ["understand", "support", "feel", "share", "together"];
+/**
+ * ATTACHMENT STYLE DETECTION
+ */
+const detectAttachmentStyle = (messages, responsePatterns) => {
+  const anxiousIndicators = [
+    "miss you",
+    "where are you",
+    "worried",
+    "need you",
+    "love you so much",
+    "thinking about you",
+    "can't wait",
+    "when will",
+    "are you okay",
+  ];
 
-  let anxiousCount = 0;
-  let avoidantCount = 0;
-  let secureCount = 0;
+  const avoidantIndicators = [
+    "busy",
+    "later",
+    "can't talk",
+    "need space",
+    "overwhelmed",
+    "fine",
+    "whatever",
+    "not a big deal",
+    "don't worry about it",
+  ];
+
+  const secureIndicators = [
+    "understand",
+    "appreciate",
+    "respect",
+    "support",
+    "here for you",
+    "take your time",
+    "no pressure",
+    "healthy",
+    "communicate",
+  ];
+
+  let anxiousScore = 0;
+  let avoidantScore = 0;
+  let secureScore = 0;
 
   messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
-
+    if (!msg.content) return;
     const content = msg.content.toLowerCase();
 
-    anxiousWords.forEach((word) => {
-      if (content.includes(word)) anxiousCount++;
+    anxiousIndicators.forEach((indicator) => {
+      if (content.includes(indicator)) anxiousScore++;
     });
 
-    avoidantWords.forEach((word) => {
-      if (content.includes(word)) avoidantCount++;
+    avoidantIndicators.forEach((indicator) => {
+      if (content.includes(indicator)) avoidantScore++;
     });
 
-    secureWords.forEach((word) => {
-      if (content.includes(word)) secureCount++;
+    secureIndicators.forEach((indicator) => {
+      if (content.includes(indicator)) secureScore++;
     });
   });
 
   // Factor in response patterns
-  const { userAvgResponseTime, contactAvgResponseTime } = responsePatterns;
+  if (responsePatterns.userAvgMinutes < 5) anxiousScore += 3;
+  if (responsePatterns.contactAvgMinutes > 120) avoidantScore += 3;
 
-  // Convert response times from string to number if needed
-  const userTime =
-    typeof userAvgResponseTime === "string"
-      ? parseFloat(userAvgResponseTime) || 0
-      : userAvgResponseTime || 0;
+  const total = anxiousScore + avoidantScore + secureScore || 1;
+  const anxiousPercent = Math.round((anxiousScore / total) * 100);
+  const avoidantPercent = Math.round((avoidantScore / total) * 100);
+  const securePercent = Math.round((secureScore / total) * 100);
 
-  const contactTime =
-    typeof contactAvgResponseTime === "string"
-      ? parseFloat(contactAvgResponseTime) || 0
-      : contactAvgResponseTime || 0;
+  let primaryStyle;
+  if (securePercent >= 40) primaryStyle = "Secure";
+  else if (anxiousPercent > avoidantPercent) primaryStyle = "Anxious";
+  else if (avoidantPercent > anxiousPercent) primaryStyle = "Avoidant";
+  else primaryStyle = "Mixed";
 
-  // Response time ratios can indicate attachment styles
-  if (userTime < 10 && contactTime > 60) {
-    anxiousCount += 3; // Quick user responses but slow partner responses
-  }
-
-  if (userTime > 60 && contactTime < 10) {
-    avoidantCount += 3; // Slow user responses but quick partner responses
-  }
-
-  if (Math.abs(userTime - contactTime) < 15) {
-    secureCount += 3; // Similar response times
-  }
-
-  // Determine predominant style
-  if (anxiousCount > avoidantCount && anxiousCount > secureCount) {
-    return "Anxious tendencies";
-  }
-
-  if (avoidantCount > anxiousCount && avoidantCount > secureCount) {
-    return "Avoidant tendencies";
-  }
-
-  if (secureCount > anxiousCount && secureCount > avoidantCount) {
-    return "Secure";
-  }
-
-  return "Mixed styles";
+  return {
+    primaryStyle,
+    data: [
+      { name: "Secure", value: securePercent, color: "#10b981" },
+      { name: "Anxious", value: anxiousPercent, color: "#f59e0b" },
+      { name: "Avoidant", value: avoidantPercent, color: "#ef4444" },
+    ],
+    scores: {
+      anxious: anxiousScore,
+      avoidant: avoidantScore,
+      secure: secureScore,
+    },
+  };
 };
 
-const getAffectionLogisticsRatio = (messages) => {
-  // Categorize messages as affection or logistics
+// Affection vs Logistics Ratio
+const calculateAffectionLogisticsRatio = (messages) => {
   const affectionWords = [
     "love",
     "miss",
@@ -1073,9 +1184,16 @@ const getAffectionLogisticsRatio = (messages) => {
     "heart",
     "hug",
     "kiss",
+    "adore",
+    "cherish",
+    "appreciate",
+    "grateful",
+    "beautiful",
     "❤️",
     "😘",
+    "🥰",
   ];
+
   const logisticsWords = [
     "when",
     "where",
@@ -1083,216 +1201,345 @@ const getAffectionLogisticsRatio = (messages) => {
     "plan",
     "schedule",
     "meet",
+    "pick up",
     "bring",
     "get",
+    "buy",
+    "need",
+    "have to",
+    "should",
+    "remember",
   ];
 
   let affectionCount = 0;
   let logisticsCount = 0;
 
   messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
-
+    if (!msg.content) return;
     const content = msg.content.toLowerCase();
-    let isAffection = false;
-    let isLogistics = false;
 
-    // Check for affection markers
+    let hasAffection = false;
+    let hasLogistics = false;
+
     affectionWords.forEach((word) => {
-      if (content.includes(word)) isAffection = true;
+      if (content.includes(word) && !hasAffection) {
+        affectionCount++;
+        hasAffection = true;
+      }
     });
 
-    // Check for logistics markers
     logisticsWords.forEach((word) => {
-      if (content.includes(word)) isLogistics = true;
+      if (content.includes(word) && !hasLogistics) {
+        logisticsCount++;
+        hasLogistics = true;
+      }
     });
-
-    if (isAffection) affectionCount++;
-    if (isLogistics) logisticsCount++;
   });
 
-  const total = affectionCount + logisticsCount || 1; // Avoid division by zero
+  const total = affectionCount + logisticsCount || 1;
   const affectionPercent = Math.round((affectionCount / total) * 100);
   const logisticsPercent = Math.round((logisticsCount / total) * 100);
 
-  return `${affectionPercent}% / ${logisticsPercent}%`;
+  return {
+    affection: affectionPercent,
+    logistics: logisticsPercent,
+    totalAffectionMessages: affectionCount,
+    totalLogisticsMessages: logisticsCount,
+  };
 };
 
-const getIntimacyLevel = (messages) => {
-  // Words that might indicate emotional intimacy
+// Intimacy Level Analysis
+const analyzeIntimacyLevel = (messages) => {
   const intimacyWords = [
-    "feel",
     "love",
-    "trust",
-    "share",
-    "honest",
-    "open",
-    "vulnerable",
-    "deep",
-    "emotion",
+    "feel",
     "heart",
-    "intimate",
+    "emotion",
+    "deep",
     "close",
+    "intimate",
+    "vulnerable",
+    "share",
+    "open",
+    "trust",
     "connection",
+    "bond",
+    "soul",
+    "forever",
+    "always",
+    "future together",
+    "dreams",
+    "goals",
+    "fear",
+    "hope",
+    "personal",
+    "private",
   ];
 
-  let intimacyCount = 0;
-  const recentMessages = messages.slice(-50); // Focus on recent messages
+  const physicalIntimacyWords = [
+    "kiss",
+    "hug",
+    "touch",
+    "hold",
+    "cuddle",
+    "embrace",
+    "caress",
+    "romantic",
+    "passion",
+    "desire",
+    "attraction",
+    "beautiful",
+    "gorgeous",
+    "handsome",
+  ];
 
-  recentMessages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
+  let emotionalIntimacy = 0;
+  let physicalIntimacy = 0;
+  let lastIntimateIndex = -1;
+
+  messages.forEach((msg, index) => {
+    if (!msg.content) return;
 
     const content = msg.content.toLowerCase();
+    let hasEmotionalIntimacy = false;
+    let hasPhysicalIntimacy = false;
+
     intimacyWords.forEach((word) => {
-      if (content.includes(word)) intimacyCount++;
+      if (content.includes(word)) {
+        hasEmotionalIntimacy = true;
+      }
     });
+
+    physicalIntimacyWords.forEach((word) => {
+      if (content.includes(word)) {
+        hasPhysicalIntimacy = true;
+      }
+    });
+
+    if (hasEmotionalIntimacy || hasPhysicalIntimacy) {
+      lastIntimateIndex = index;
+    }
+
+    if (hasEmotionalIntimacy) emotionalIntimacy++;
+    if (hasPhysicalIntimacy) physicalIntimacy++;
   });
 
-  const intimacyRatio = intimacyCount / recentMessages.length;
+  const intimacyScore = Math.round(
+    ((emotionalIntimacy + physicalIntimacy) / messages.length) * 100
+  );
 
-  if (intimacyRatio < 0.05) return "Surface level";
-  if (intimacyRatio < 0.1) return "Casual";
-  if (intimacyRatio < 0.2) return "Developing";
-  if (intimacyRatio < 0.3) return "Connected";
-  return "Deeply connected";
+  let level;
+  if (intimacyScore < 5) level = "Surface Level";
+  else if (intimacyScore < 15) level = "Developing";
+  else if (intimacyScore < 30) level = "Moderate";
+  else if (intimacyScore < 50) level = "High";
+  else level = "Very High";
+
+  // Calculate days since last intimate conversation
+  let lastIntimateConversation = "Never detected";
+  if (lastIntimateIndex >= 0) {
+    const lastMsg = messages[lastIntimateIndex];
+    const lastDate = new Date(lastMsg.timestamp || lastMsg.createdAt);
+    const daysSince = Math.round(
+      (new Date() - lastDate) / (1000 * 60 * 60 * 24)
+    );
+    lastIntimateConversation =
+      daysSince === 0 ? "Today" : `${daysSince} days ago`;
+  }
+
+  return {
+    level,
+    score: intimacyScore,
+    emotionalIntimacyCount: emotionalIntimacy,
+    physicalIntimacyCount: physicalIntimacy,
+    lastIntimateConversation,
+  };
 };
 
-const getConflictResolutionPattern = (messages) => {
-  // Simple implementation - analyzing messaging after conflict words
+// Conflict Repair Analysis
+const analyzeConflictRepair = (messages) => {
   const conflictWords = [
     "sorry",
     "disagree",
     "upset",
     "angry",
     "frustrated",
-    "misunderstanding",
-  ];
-  const resolutionWords = [
-    "understand",
-    "apologize",
-    "resolve",
-    "talk",
-    "listen",
-    "compromise",
-  ];
-
-  let conflictResolved = 0;
-  let conflictUnresolved = 0;
-
-  // Look for conflict followed by resolution within next 5 messages
-  for (let i = 0; i < messages.length - 5; i++) {
-    if (!messages[i].content || typeof messages[i].content !== "string")
-      continue;
-
-    const content = messages[i].content.toLowerCase();
-    let hasConflict = false;
-
-    // Check if message contains conflict words
-    conflictWords.forEach((word) => {
-      if (content.includes(word)) hasConflict = true;
-    });
-
-    if (hasConflict) {
-      // Check next 5 messages for resolution
-      let resolved = false;
-      for (let j = i + 1; j < i + 6 && j < messages.length; j++) {
-        if (!messages[j].content || typeof messages[j].content !== "string")
-          continue;
-
-        const nextContent = messages[j].content.toLowerCase();
-        resolutionWords.forEach((word) => {
-          if (nextContent.includes(word)) resolved = true;
-        });
-      }
-
-      if (resolved) {
-        conflictResolved++;
-      } else {
-        conflictUnresolved++;
-      }
-    }
-  }
-
-  const total = conflictResolved + conflictUnresolved;
-
-  if (total === 0) return "No conflicts detected";
-
-  const resolutionRate = (conflictResolved / total) * 100;
-
-  if (resolutionRate > 80) return "Excellent conflict resolution";
-  if (resolutionRate > 60) return "Good conflict resolution";
-  if (resolutionRate > 40) return "Mixed conflict resolution";
-  if (resolutionRate > 20) return "Struggles with resolution";
-  return "Poor conflict resolution";
-};
-
-const getEmotionalExpressiveness = (messages) => {
-  // Analyze emotional language and emoji usage
-  const emotionWords = [
-    "happy",
-    "sad",
-    "angry",
-    "love",
-    "hate",
-    "excited",
-    "nervous",
-    "worried",
-    "anxious",
-    "proud",
-    "disappointed",
+    "fight",
+    "argue",
+    "wrong",
     "hurt",
-    "grateful",
+    "disappointed",
+    "annoyed",
+    "mad",
+    "conflict",
   ];
 
-  const emojiPattern =
-    /[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
+  const repairWords = [
+    "apologize",
+    "sorry",
+    "forgive",
+    "understand",
+    "make up",
+    "resolve",
+    "work it out",
+    "talk about it",
+    "my fault",
+    "i was wrong",
+    "let's fix this",
+    "compromise",
+    "meet halfway",
+    "love you anyway",
+    "move forward",
+  ];
 
-  let emotionWordCount = 0;
-  let emojiCount = 0;
+  let conflicts = [];
+  let repairs = [];
 
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
+  messages.forEach((msg, index) => {
+    if (!msg.content) return;
 
-    const content = msg.content;
+    const content = msg.content.toLowerCase();
 
-    // Count emotion words
-    emotionWords.forEach((word) => {
-      if (content.toLowerCase().includes(word)) emotionWordCount++;
+    // Detect conflicts
+    let conflictScore = 0;
+    conflictWords.forEach((word) => {
+      if (content.includes(word)) conflictScore++;
     });
 
-    // Count emojis
-    const emojiMatches = content.match(emojiPattern);
-    if (emojiMatches) emojiCount += emojiMatches.length;
+    if (conflictScore > 0) {
+      conflicts.push({
+        index,
+        score: conflictScore,
+        timestamp: msg.timestamp || msg.createdAt,
+        resolved: false,
+      });
+    }
+
+    // Detect repair attempts
+    let repairScore = 0;
+    repairWords.forEach((word) => {
+      if (content.includes(word)) repairScore++;
+    });
+
+    if (repairScore > 0) {
+      repairs.push({
+        index,
+        score: repairScore,
+        timestamp: msg.timestamp || msg.createdAt,
+      });
+    }
   });
 
-  const expressiveness = (emotionWordCount + emojiCount) / messages.length;
+  // Match repairs to conflicts (within 10 messages)
+  conflicts.forEach((conflict) => {
+    const nearbyRepairs = repairs.filter(
+      (repair) =>
+        repair.index > conflict.index && repair.index <= conflict.index + 10
+    );
 
-  if (expressiveness < 0.1) return "Reserved";
-  if (expressiveness < 0.2) return "Moderate";
-  if (expressiveness < 0.4) return "Expressive";
-  return "Highly expressive";
+    if (nearbyRepairs.length > 0) {
+      conflict.resolved = true;
+    }
+  });
+
+  const totalConflicts = conflicts.length;
+  const resolvedConflicts = conflicts.filter((c) => c.resolved).length;
+  const resolutionRate =
+    totalConflicts > 0
+      ? Math.round((resolvedConflicts / totalConflicts) * 100)
+      : 0;
+
+  let pattern;
+  if (resolutionRate >= 80) pattern = "Excellent conflict resolution";
+  else if (resolutionRate >= 60) pattern = "Good conflict resolution";
+  else if (resolutionRate >= 40) pattern = "Moderate conflict resolution";
+  else if (resolutionRate >= 20) pattern = "Poor conflict resolution";
+  else pattern = "Very poor conflict resolution";
+
+  // Analyze apology patterns
+  const apologyWords = ["sorry", "apologize", "my fault", "i was wrong"];
+  let userApologies = 0;
+  let contactApologies = 0;
+
+  messages.forEach((msg) => {
+    if (!msg.content) return;
+
+    const content = msg.content.toLowerCase();
+    let hasApology = false;
+
+    apologyWords.forEach((word) => {
+      if (content.includes(word)) hasApology = true;
+    });
+
+    if (hasApology) {
+      if (msg.role === "user") contactApologies++;
+      else userApologies++;
+    }
+  });
+
+  return {
+    pattern,
+    resolutionRate,
+    totalConflicts,
+    resolvedConflicts,
+    repairAttempts: repairs.length,
+    apologyData: {
+      user: userApologies,
+      contact: contactApologies,
+      ratio:
+        contactApologies > 0
+          ? (userApologies / contactApologies).toFixed(1)
+          : "N/A",
+    },
+  };
 };
 
-// Friendship-specific metrics
-const getInitiationBalance = (messageCounts, contactName) => {
-  // Using message counts as a proxy for initiation
+// Initiation Balance Analysis - Updated to match "You initiate 9 out of 10 conversations"
+const analyzeInitiationBalance = (messages, messageCounts, contactName) => {
   const { user, contact } = messageCounts;
-  const total = user + contact || 1; // Avoid division by zero
+  const total = user + contact || 1;
 
   const userPercent = Math.round((user / total) * 100);
   const contactPercent = Math.round((contact / total) * 100);
 
-  if (Math.abs(userPercent - contactPercent) <= 10) {
-    return `Balanced (${userPercent}% / ${contactPercent}%)`;
+  const imbalance = Math.abs(userPercent - contactPercent);
+  let imbalanceLevel;
+  let description;
+
+  // Calculate more specific initiation patterns
+  const userInitiatedCount = Math.round((user / total) * 10);
+  const contactInitiatedCount = 10 - userInitiatedCount;
+
+  if (imbalance <= 10) {
+    imbalanceLevel = "balanced";
+    description = `Mutual effort detected with balanced turn-taking`;
+  } else if (userPercent >= 80) {
+    imbalanceLevel = "severe";
+    description = `You initiate ${userInitiatedCount} out of 10 conversations`;
+  } else if (contactPercent >= 80) {
+    imbalanceLevel = "severe";
+    description = `${contactName} initiates ${contactInitiatedCount} out of 10 conversations`;
   } else if (userPercent > contactPercent) {
-    return `You initiate more (${userPercent}% / ${contactPercent}%)`;
+    imbalanceLevel = "moderate";
+    description = `You initiate ${userInitiatedCount} out of 10 conversations`;
   } else {
-    return `${contactName} initiates more (${contactPercent}% / ${userPercent}%)`;
+    imbalanceLevel = "moderate";
+    description = `${contactName} initiates ${contactInitiatedCount} out of 10 conversations`;
   }
+
+  return {
+    userPercent,
+    contactPercent,
+    imbalanceLevel,
+    description,
+    imbalanceScore: imbalance,
+    userInitiatedCount,
+    contactInitiatedCount,
+  };
 };
 
-const getHumorDepthRatio = (messages) => {
-  // Detect humor vs. deeper conversation
+// Humor vs Depth Balance
+const analyzeHumorDepthBalance = (messages) => {
   const humorIndicators = [
     "lol",
     "haha",
@@ -1301,61 +1548,89 @@ const getHumorDepthRatio = (messages) => {
     "rofl",
     "funny",
     "joke",
+    "hilarious",
     "😂",
     "🤣",
+    "😄",
+    "😆",
+    "comedy",
+    "amusing",
+    "witty",
+    "sarcasm",
   ];
+
   const depthIndicators = [
     "feel",
-    "think",
+    "feelings",
+    "emotion",
+    "think deeply",
     "believe",
     "important",
     "value",
-    "change",
-    "future",
-    "goals",
-    "life",
-    "relationship",
+    "meaningful",
     "serious",
     "honestly",
+    "vulnerable",
+    "share",
+    "personal",
+    "life",
+    "goals",
+    "dreams",
+    "fears",
+    "struggle",
+    "growth",
+    "reflection",
   ];
 
   let humorCount = 0;
   let depthCount = 0;
 
   messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
+    if (!msg.content) return;
 
     const content = msg.content.toLowerCase();
     let hasHumor = false;
     let hasDepth = false;
 
-    // Check for humor
     humorIndicators.forEach((indicator) => {
-      if (content.includes(indicator)) hasHumor = true;
+      if (content.includes(indicator) && !hasHumor) {
+        humorCount++;
+        hasHumor = true;
+      }
     });
 
-    // Check for depth
     depthIndicators.forEach((indicator) => {
-      if (content.includes(indicator)) hasDepth = true;
+      if (content.includes(indicator) && !hasDepth) {
+        depthCount++;
+        hasDepth = true;
+      }
     });
-
-    if (hasHumor) humorCount++;
-    if (hasDepth) depthCount++;
   });
 
-  const total = humorCount + depthCount || 1; // Avoid division by zero
+  const total = humorCount + depthCount || 1;
   const humorPercent = Math.round((humorCount / total) * 100);
   const depthPercent = Math.round((depthCount / total) * 100);
 
-  return `${humorPercent}% / ${depthPercent}%`;
+  return {
+    humor: humorPercent,
+    depth: depthPercent,
+    humorCount,
+    depthCount,
+    balance:
+      humorPercent > depthPercent * 3
+        ? "humor-heavy"
+        : depthPercent > humorPercent * 3
+          ? "depth-heavy"
+          : "balanced",
+  };
 };
 
-const getVulnerabilityIndex = (messages) => {
-  // Words that might indicate vulnerability
+// Vulnerability Index Analysis
+const analyzeVulnerabilityIndex = (messages) => {
   const vulnerabilityWords = [
     "afraid",
-    "worried",
     "scared",
+    "worried",
     "nervous",
     "anxious",
     "stressed",
@@ -1369,198 +1644,208 @@ const getVulnerabilityIndex = (messages) => {
     "depressed",
     "lonely",
     "insecure",
+    "doubt",
     "failure",
     "mistake",
+    "embarrassed",
+    "ashamed",
+    "vulnerable",
+    "open up",
+    "personal",
+    "private",
+    "secret",
+    "confide",
   ];
 
   let vulnerabilityCount = 0;
+  let totalEmotionalWords = 0;
 
   messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
+    if (!msg.content) return;
 
     const content = msg.content.toLowerCase();
+    let msgVulnerability = 0;
+
     vulnerabilityWords.forEach((word) => {
-      if (content.includes(word)) vulnerabilityCount++;
-    });
-  });
-
-  const vulnerabilityRatio = vulnerabilityCount / messages.length;
-
-  if (vulnerabilityRatio < 0.05) return "Very low";
-  if (vulnerabilityRatio < 0.1) return "Low";
-  if (vulnerabilityRatio < 0.15) return "Medium";
-  if (vulnerabilityRatio < 0.2) return "High";
-  return "Very high";
-};
-
-const getLongestCommunicationGap = (messages) => {
-  if (messages.length < 2) return "Not enough data";
-
-  // Sort messages by timestamp
-  const sortedMessages = [...messages].sort((a, b) => {
-    const timeA = a.timestamp || a.createdAt || new Date(0);
-    const timeB = b.timestamp || b.createdAt || new Date(0);
-    return new Date(timeA) - new Date(timeB);
-  });
-
-  let longestGap = 0;
-
-  for (let i = 1; i < sortedMessages.length; i++) {
-    const prevTime =
-      sortedMessages[i - 1].timestamp ||
-      sortedMessages[i - 1].createdAt ||
-      new Date(0);
-    const currTime =
-      sortedMessages[i].timestamp || sortedMessages[i].createdAt || new Date(0);
-
-    const gap =
-      (new Date(currTime) - new Date(prevTime)) / (1000 * 60 * 60 * 24); // in days
-
-    if (gap > longestGap) longestGap = gap;
-  }
-
-  if (longestGap < 1) return "Less than a day";
-  if (longestGap < 7) return `${Math.round(longestGap)} days`;
-  if (longestGap < 30) return `${Math.round(longestGap / 7)} weeks`;
-  if (longestGap < 365) return `${Math.round(longestGap / 30)} months`;
-  return `${Math.round(longestGap / 365)} years`;
-};
-
-const getSupportPatterns = (messages) => {
-  // Words that might indicate support
-  const supportWords = [
-    "here for you",
-    "support",
-    "help",
-    "understand",
-    "listen",
-    "there for you",
-    "got you",
-    "got your back",
-    "care",
-  ];
-
-  let supportCount = 0;
-  let userSupportGiven = 0;
-  let contactSupportGiven = 0;
-
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
-
-    const content = msg.content.toLowerCase();
-    let hasSupport = false;
-
-    supportWords.forEach((word) => {
-      if (content.includes(word)) hasSupport = true;
-    });
-
-    if (hasSupport) {
-      supportCount++;
-      if (msg.role === "user") {
-        userSupportGiven++;
-      } else {
-        contactSupportGiven++;
+      if (content.includes(word)) {
+        msgVulnerability++;
+        totalEmotionalWords++;
       }
-    }
+    });
+
+    if (msgVulnerability > 0) vulnerabilityCount++;
   });
 
-  if (supportCount === 0) return "No support patterns detected";
+  const vulnerabilityRatio = (vulnerabilityCount / messages.length) * 100;
+  let level;
 
-  if (userSupportGiven > contactSupportGiven * 2) {
-    return "You provide more support";
-  } else if (contactSupportGiven > userSupportGiven * 2) {
-    return "They provide more support";
-  } else {
-    return "Mutual support";
-  }
+  if (vulnerabilityRatio < 5) level = "Very Low";
+  else if (vulnerabilityRatio < 15) level = "Low";
+  else if (vulnerabilityRatio < 30) level = "Moderate";
+  else if (vulnerabilityRatio < 50) level = "High";
+  else level = "Very High";
+
+  return {
+    level,
+    score: Math.round(vulnerabilityRatio),
+    vulnerableMessages: vulnerabilityCount,
+    totalMessages: messages.length,
+    emotionalWords: totalEmotionalWords,
+  };
 };
 
-const getEngagementConsistency = (messages) => {
-  if (messages.length < 10) return "Not enough data";
+// Communication Gaps Analysis
+const analyzeCommunicationGaps = (messages) => {
+  if (messages.length < 3) {
+    return {
+      longestGap: "Not enough data",
+      longestGapDays: 0,
+      averageGap: "Not enough data",
+      gapCount: 0,
+    };
+  }
 
-  // Sort messages by timestamp
   const sortedMessages = [...messages].sort((a, b) => {
-    const timeA = a.timestamp || a.createdAt || new Date(0);
-    const timeB = b.timestamp || b.createdAt || new Date(0);
-    return new Date(timeA) - new Date(timeB);
+    const timeA = new Date(a.timestamp || a.createdAt || 0);
+    const timeB = new Date(b.timestamp || b.createdAt || 0);
+    return timeA - timeB;
   });
 
   const gaps = [];
+  let longestGapDays = 0;
 
   for (let i = 1; i < sortedMessages.length; i++) {
-    const prevTime =
-      sortedMessages[i - 1].timestamp ||
-      sortedMessages[i - 1].createdAt ||
-      new Date(0);
-    const currTime =
-      sortedMessages[i].timestamp || sortedMessages[i].createdAt || new Date(0);
+    const prevTime = new Date(
+      sortedMessages[i - 1].timestamp || sortedMessages[i - 1].createdAt
+    );
+    const currTime = new Date(
+      sortedMessages[i].timestamp || sortedMessages[i].createdAt
+    );
 
-    const gap = (new Date(currTime) - new Date(prevTime)) / (1000 * 60 * 60); // in hours
+    const gapDays = (currTime - prevTime) / (1000 * 60 * 60 * 24);
 
-    // Skip outliers (gaps > 1 week)
-    if (gap < 24 * 7) {
-      gaps.push(gap);
+    if (gapDays > 0 && gapDays < 365) {
+      // Ignore gaps over a year as likely data issues
+      gaps.push(gapDays);
+      if (gapDays > longestGapDays) longestGapDays = gapDays;
     }
   }
 
-  if (gaps.length === 0) return "Inconsistent";
+  const averageGapDays =
+    gaps.length > 0 ? gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length : 0;
 
-  // Calculate standard deviation
-  const avg = gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length;
-  const variance =
-    gaps.reduce((sum, gap) => sum + Math.pow(gap - avg, 2), 0) / gaps.length;
-  const stdDev = Math.sqrt(variance);
-
-  // Coefficient of variation (normalized standard deviation)
-  const cv = stdDev / avg;
-
-  if (cv < 0.5) return "Very consistent";
-  if (cv < 1) return "Consistent";
-  if (cv < 1.5) return "Somewhat consistent";
-  return "Inconsistent";
+  return {
+    longestGap: formatGapDuration(longestGapDays),
+    longestGapDays: Math.round(longestGapDays),
+    averageGap: formatGapDuration(averageGapDays),
+    averageGapDays: Math.round(averageGapDays),
+    gapCount: gaps.length,
+    gaps: gaps.map((gap) => Math.round(gap)),
+  };
 };
 
-// Professional relationship metrics
-const getProfessionalTone = (messages) => {
-  // Words that indicate formal/professional tone
+// Topic Diversity Analysis
+const analyzeTopicDiversity = (topicAnalysis) => {
+  const topics = topicAnalysis.allTopics;
+  if (topics.length < 2) {
+    return { score: 0, level: "Very Low" };
+  }
+
+  // Calculate entropy-based diversity score
+  const totalMentions = topics.reduce((sum, topic) => sum + topic.count, 0);
+  let entropy = 0;
+
+  topics.forEach((topic) => {
+    if (topic.count > 0) {
+      const probability = topic.count / totalMentions;
+      entropy -= probability * Math.log2(probability);
+    }
+  });
+
+  // Normalize entropy to 0-100 scale
+  const maxEntropy = Math.log2(topics.length);
+  const diversityScore =
+    maxEntropy > 0 ? Math.round((entropy / maxEntropy) * 100) : 0;
+
+  let level;
+  if (diversityScore < 30) level = "Low";
+  else if (diversityScore < 60) level = "Moderate";
+  else if (diversityScore < 80) level = "High";
+  else level = "Very High";
+
+  return {
+    score: diversityScore,
+    level,
+    topicCount: topics.length,
+    entropy: entropy.toFixed(2),
+  };
+};
+
+// Professional Tone Analysis
+const analyzeProfessionalTone = (messages) => {
   const formalWords = [
-    "meeting",
-    "deadline",
-    "project",
-    "report",
-    "client",
-    "document",
     "please",
     "thank you",
     "regards",
     "sincerely",
-    "forward",
+    "professional",
+    "meeting",
+    "deadline",
+    "project",
+    "report",
+    "document",
+    "schedule",
+    "appointment",
+    "follow up",
     "discuss",
+    "review",
+    "analyze",
+    "implement",
+    "strategy",
   ];
 
-  // Words that indicate casual tone
   const casualWords = [
     "hey",
-    "btw",
-    "lol",
+    "hi",
     "cool",
     "awesome",
     "yeah",
-    "haha",
+    "yep",
+    "nope",
+    "btw",
+    "lol",
     "gonna",
     "wanna",
-    "cuz",
-    "u",
-    "r",
-    "tbh",
-    "idk",
+    "kinda",
+    "sorta",
+    "stuff",
+    "things",
+    "whatever",
+  ];
+
+  const taskWords = [
+    "task",
+    "work",
+    "job",
+    "complete",
+    "finish",
+    "done",
+    "todo",
+    "assign",
+    "responsibility",
+    "deliverable",
+    "milestone",
+    "progress",
+    "status",
+    "update",
   ];
 
   let formalCount = 0;
   let casualCount = 0;
+  let taskCount = 0;
 
   messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
+    if (!msg.content) return;
 
     const content = msg.content.toLowerCase();
 
@@ -1571,369 +1856,543 @@ const getProfessionalTone = (messages) => {
     casualWords.forEach((word) => {
       if (content.includes(word)) casualCount++;
     });
+
+    taskWords.forEach((word) => {
+      if (content.includes(word)) taskCount++;
+    });
   });
 
-  const total = formalCount + casualCount || 1; // Avoid division by zero
+  const total = formalCount + casualCount + taskCount || 1;
   const formalPercent = Math.round((formalCount / total) * 100);
   const casualPercent = Math.round((casualCount / total) * 100);
+  const taskPercent = Math.round((taskCount / total) * 100);
 
-  if (formalPercent > 80) return "Highly formal";
-  if (formalPercent > 60) return "Formal";
-  if (formalPercent > 40) return "Mixed formal/casual";
-  if (formalPercent > 20) return "Casual";
-  return "Very casual";
+  let description;
+  let score = formalPercent;
+
+  if (formalPercent > 60) description = "Highly Professional";
+  else if (formalPercent > 40) description = "Professional";
+  else if (formalPercent > 20) description = "Semi-Professional";
+  else description = "Casual";
+
+  return {
+    description,
+    score,
+    data: [
+      { name: "Formal", value: formalPercent, color: "#3b82f6" },
+      { name: "Task-focused", value: taskPercent, color: "#ef4444" },
+      { name: "Casual", value: casualPercent, color: "#10b981" },
+    ],
+    counts: { formal: formalCount, casual: casualCount, task: taskCount },
+  };
 };
 
-const getPowerDynamic = (messages) => {
-  // Words that might indicate hierarchy
+// Power Dynamics Analysis - Updated to match "They assign tasks directly; you ask for clarification 3x more often"
+const analyzePowerDynamics = (messages) => {
   const directiveWords = [
-    "need",
-    "should",
-    "must",
-    "require",
-    "assign",
-    "due",
+    "need you to",
+    "you should",
+    "you must",
+    "you have to",
+    "please do",
+    "make sure",
+    "ensure that",
+    "i need",
+    "required",
+    "mandatory",
     "deadline",
+    "assign",
+    "task for you",
+    "your responsibility",
   ];
-  const questionWords = [
+
+  const clarificationWords = [
+    "can you clarify",
+    "what do you mean",
+    "i don't understand",
+    "could you explain",
+    "not sure what",
+    "clarification needed",
+    "help me understand",
+    "can you elaborate",
+    "more details please",
+    "what exactly",
+  ];
+
+  const requestWords = [
     "could you",
     "would you",
     "can you",
-    "please",
     "if possible",
-    "when you get a chance",
+    "when you have time",
+    "please consider",
+    "would it be possible",
+    "if you don't mind",
+    "may i ask",
   ];
 
   let userDirectives = 0;
+  let userRequests = 0;
+  let userClarifications = 0;
   let contactDirectives = 0;
-  let userQuestions = 0;
-  let contactQuestions = 0;
+  let contactRequests = 0;
+  let contactClarifications = 0;
 
   messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
+    if (!msg.content) return;
 
     const content = msg.content.toLowerCase();
-    let hasDirective = false;
-    let hasQuestion = false;
+
+    let directives = 0;
+    let requests = 0;
+    let clarifications = 0;
 
     directiveWords.forEach((word) => {
-      if (content.includes(word)) hasDirective = true;
+      if (content.includes(word)) directives++;
     });
 
-    questionWords.forEach((word) => {
-      if (content.includes(word)) hasQuestion = true;
+    requestWords.forEach((word) => {
+      if (content.includes(word)) requests++;
+    });
+
+    clarificationWords.forEach((word) => {
+      if (content.includes(word)) clarifications++;
     });
 
     if (msg.role === "user") {
-      if (hasDirective) userDirectives++;
-      if (hasQuestion) userQuestions++;
+      userDirectives += directives;
+      userRequests += requests;
+      userClarifications += clarifications;
     } else {
-      if (hasDirective) contactDirectives++;
-      if (hasQuestion) contactQuestions++;
+      contactDirectives += directives;
+      contactRequests += requests;
+      contactClarifications += clarifications;
     }
   });
 
-  // Calculate directive-question ratio
-  const userRatio =
-    userQuestions > 0 ? userDirectives / userQuestions : userDirectives;
-  const contactRatio =
-    contactQuestions > 0
-      ? contactDirectives / contactQuestions
-      : contactDirectives;
+  // Calculate clarification ratio
+  const clarificationRatio =
+    contactClarifications > 0
+      ? Math.round(userClarifications / contactClarifications)
+      : userClarifications > 0
+        ? userClarifications
+        : 1;
 
-  if (userRatio > contactRatio * 2) {
-    return "You appear more directive";
-  } else if (contactRatio > userRatio * 2) {
-    return "They appear more directive";
+  let description;
+  if (
+    contactDirectives > userDirectives &&
+    userClarifications > contactClarifications
+  ) {
+    description = `They assign tasks directly; you ask for clarification ${clarificationRatio}x more often`;
+  } else if (contactDirectives > userDirectives * 1.5) {
+    description = "They take a more directive approach in communication";
+  } else if (userDirectives > contactDirectives * 1.5) {
+    description = "You take a more directive approach in communication";
   } else {
-    return "Equal collaboration";
+    description = "Equal collaboration in task assignment";
   }
+
+  return {
+    description,
+    data: [
+      { name: "Your Directives", value: userDirectives, color: "#ef4444" },
+      { name: "Your Requests", value: userRequests, color: "#3b82f6" },
+      {
+        name: "Your Clarifications",
+        value: userClarifications,
+        color: "#10b981",
+      },
+      { name: "Their Directives", value: contactDirectives, color: "#f97316" },
+      { name: "Their Requests", value: contactRequests, color: "#8b5cf6" },
+      {
+        name: "Their Clarifications",
+        value: contactClarifications,
+        color: "#06b6d4",
+      },
+    ],
+    ratios: {
+      userDirective: Math.round(
+        (userDirectives /
+          (userDirectives + userRequests + userClarifications || 1)) *
+          100
+      ),
+      contactDirective: Math.round(
+        (contactDirectives /
+          (contactDirectives + contactRequests + contactClarifications || 1)) *
+          100
+      ),
+      clarificationRatio,
+    },
+  };
 };
 
-const getFormattedResponseTime = (responsePatterns) => {
-  const { userAvgResponseTime, contactAvgResponseTime } = responsePatterns;
-  return `You: ${userAvgResponseTime} | Them: ${contactAvgResponseTime}`;
+// Apology/Praise/Blame Analysis - Updated to match "You apologize 2x more than they praise you"
+const analyzeApologyPraiseBlame = (messages) => {
+  const apologyWords = [
+    "sorry",
+    "apologize",
+    "my fault",
+    "my mistake",
+    "i was wrong",
+  ];
+  const praiseWords = [
+    "good job",
+    "well done",
+    "excellent",
+    "great work",
+    "thank you",
+    "appreciate",
+    "proud",
+  ];
+  const blameWords = [
+    "your fault",
+    "you did",
+    "you didn't",
+    "you should have",
+    "you failed",
+    "you messed up",
+  ];
+
+  let userApologies = 0;
+  let userPraise = 0;
+  let userBlame = 0;
+  let contactApologies = 0;
+  let contactPraise = 0;
+  let contactBlame = 0;
+
+  messages.forEach((msg) => {
+    if (!msg.content) return;
+
+    const content = msg.content.toLowerCase();
+
+    let apologies = 0;
+    let praise = 0;
+    let blame = 0;
+
+    apologyWords.forEach((word) => {
+      if (content.includes(word)) apologies++;
+    });
+
+    praiseWords.forEach((word) => {
+      if (content.includes(word)) praise++;
+    });
+
+    blameWords.forEach((word) => {
+      if (content.includes(word)) blame++;
+    });
+
+    if (msg.role === "user") {
+      userApologies += apologies;
+      userPraise += praise;
+      userBlame += blame;
+    } else {
+      contactApologies += apologies;
+      contactPraise += praise;
+      contactBlame += blame;
+    }
+  });
+
+  // Calculate the specific ratios for the UI
+  const apologyRatio =
+    contactApologies > 0
+      ? userApologies / contactApologies
+      : userApologies > 0
+        ? userApologies
+        : 1;
+  const praiseRatio =
+    contactPraise > 0
+      ? userApologies / contactPraise
+      : userApologies > 0
+        ? userApologies
+        : 1;
+
+  let description;
+  if (userApologies > 0 && contactPraise > 0) {
+    const ratio = Math.round(praiseRatio);
+    description = `You apologize ${ratio}x more than they praise you`;
+  } else if (userApologies > contactApologies * 1.5) {
+    const ratio = Math.round(apologyRatio);
+    description = `You apologize ${ratio}x more than they do`;
+  } else if (contactApologies > userApologies * 1.5) {
+    const ratio = Math.round(1 / apologyRatio);
+    description = `They apologize ${ratio}x more than you do`;
+  } else {
+    description = "Balanced apology and praise patterns";
+  }
+
+  return {
+    description,
+    data: [
+      { name: "Your Apologies", value: userApologies, color: "#f59e0b" },
+      { name: "Your Praise", value: userPraise, color: "#10b981" },
+      { name: "Your Blame", value: userBlame, color: "#ef4444" },
+      { name: "Their Apologies", value: contactApologies, color: "#f97316" },
+      { name: "Their Praise", value: contactPraise, color: "#06b6d4" },
+      { name: "Their Blame", value: contactBlame, color: "#dc2626" },
+    ],
+    ratios: {
+      apology: apologyRatio.toFixed(1),
+      praise: praiseRatio.toFixed(1),
+    },
+  };
 };
 
-const getTaskSocialRatio = (messages) => {
-  // Task-related words
+// Task vs Emotional Labor Analysis
+const analyzeTaskEmotionalLabor = (messages) => {
   const taskWords = [
     "work",
+    "task",
     "project",
     "deadline",
     "meeting",
-    "task",
-    "document",
     "report",
-    "client",
-    "update",
-    "status",
-    "progress",
+    "document",
     "complete",
+    "finish",
+    "progress",
+    "status",
+    "update",
+    "deliver",
+    "assign",
   ];
 
-  // Social-related words
-  const socialWords = [
-    "weekend",
-    "dinner",
-    "lunch",
-    "family",
-    "vacation",
-    "holiday",
-    "break",
-    "fun",
-    "enjoy",
-    "plan",
+  const emotionalWords = [
+    "how are you",
+    "feeling",
+    "hope",
+    "care",
+    "support",
+    "help",
+    "concern",
+    "understand",
+    "empathy",
+    "comfort",
     "personal",
-    "home",
-    "life",
+    "family",
+    "health",
+    "stress",
   ];
 
   let taskCount = 0;
-  let socialCount = 0;
+  let emotionalCount = 0;
 
   messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
+    if (!msg.content) return;
 
     const content = msg.content.toLowerCase();
     let hasTask = false;
-    let hasSocial = false;
+    let hasEmotional = false;
 
     taskWords.forEach((word) => {
-      if (content.includes(word)) hasTask = true;
+      if (content.includes(word) && !hasTask) {
+        taskCount++;
+        hasTask = true;
+      }
     });
 
-    socialWords.forEach((word) => {
-      if (content.includes(word)) hasSocial = true;
+    emotionalWords.forEach((word) => {
+      if (content.includes(word) && !hasEmotional) {
+        emotionalCount++;
+        hasEmotional = true;
+      }
     });
-
-    if (hasTask) taskCount++;
-    if (hasSocial) socialCount++;
   });
 
-  const total = taskCount + socialCount || 1; // Avoid division by zero
+  const total = taskCount + emotionalCount || 1;
   const taskPercent = Math.round((taskCount / total) * 100);
-  const socialPercent = Math.round((socialCount / total) * 100);
+  const emotionalPercent = Math.round((emotionalCount / total) * 100);
 
-  return `${taskPercent}% / ${socialPercent}%`;
+  return {
+    task: taskPercent,
+    emotional: emotionalPercent,
+    taskCount,
+    emotionalCount,
+    balance:
+      taskPercent > 80
+        ? "heavily task-focused"
+        : emotionalPercent > 80
+          ? "heavily relationship-focused"
+          : "balanced",
+  };
 };
 
-const getClarityIndex = (messages) => {
-  // Clarity indicators
-  const clarityWords = [
-    "clear",
-    "understand",
-    "specific",
-    "details",
-    "exactly",
-    "precisely",
-    "timeline",
-    "expectations",
-    "requirements",
+/**
+ * FAMILY RELATIONSHIP ANALYSIS FUNCTIONS
+ */
+
+const analyzeGenerationalTensions = (messages) => {
+  const traditionalWords = [
+    "tradition",
+    "always been",
+    "in my day",
+    "proper",
+    "respect",
+    "should",
+    "responsibility",
+    "duty",
+    "family values",
+    "the way things are",
+    "always done",
   ];
 
-  // Confusion indicators
-  const confusionWords = [
-    "confused",
-    "unclear",
-    "not sure",
-    "clarify",
-    "what do you mean",
-    "don't understand",
-    "vague",
-    "ambiguous",
-    "explain again",
+  const modernWords = [
+    "nowadays",
+    "times change",
+    "different now",
+    "my generation",
+    "new way",
+    "modern",
+    "update",
+    "change",
+    "adapt",
+    "evolve",
+    "progressive",
   ];
 
-  let clarityCount = 0;
-  let confusionCount = 0;
+  const adviceGivingPhrases = [
+    "you should",
+    "you need to",
+    "my advice",
+    "listen to me",
+    "take my word",
+    "trust me",
+    "i know best",
+    "you'll understand when",
+    "let me tell you",
+    "in my experience",
+    "if i were you",
+    "you'd better",
+  ];
+
+  let traditionalCount = 0;
+  let modernCount = 0;
+  let tensionWords = 0;
+  let userAdviceGiving = 0;
+  let contactAdviceGiving = 0;
 
   messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
+    if (!msg.content) return;
 
     const content = msg.content.toLowerCase();
 
-    clarityWords.forEach((word) => {
-      if (content.includes(word)) clarityCount++;
+    traditionalWords.forEach((word) => {
+      if (content.includes(word)) traditionalCount++;
     });
 
-    confusionWords.forEach((word) => {
-      if (content.includes(word)) confusionCount++;
+    modernWords.forEach((word) => {
+      if (content.includes(word)) modernCount++;
     });
+
+    // Check for advice-giving patterns
+    adviceGivingPhrases.forEach((phrase) => {
+      if (content.includes(phrase)) {
+        if (msg.role === "user") {
+          userAdviceGiving++;
+        } else {
+          contactAdviceGiving++;
+        }
+      }
+    });
+
+    // Check for tension indicators
+    if (
+      content.includes("but") ||
+      content.includes("however") ||
+      content.includes("disagree")
+    ) {
+      tensionWords++;
+    }
   });
 
-  // More clarity words and fewer confusion words = higher clarity
-  const clarityScore = (clarityCount - confusionCount) / messages.length;
+  const total = traditionalCount + modernCount || 1;
+  const traditionalPercent = Math.round((traditionalCount / total) * 100);
+  const modernPercent = Math.round((modernCount / total) * 100);
+  const tensionScore = Math.round((tensionWords / messages.length) * 100);
 
-  if (clarityScore < -0.05) return "Low clarity";
-  if (clarityScore < 0.05) return "Average clarity";
-  if (clarityScore < 0.1) return "Good clarity";
-  return "Excellent clarity";
+  let level;
+  if (contactAdviceGiving > userAdviceGiving * 2) {
+    level = "Frequent use of advice-giving phrases from their side";
+  } else if (userAdviceGiving > contactAdviceGiving * 2) {
+    level = "You frequently give advice and guidance";
+  } else if (tensionScore < 10) {
+    level = "Low tension";
+  } else if (tensionScore < 25) {
+    level = "Moderate tension";
+  } else {
+    level = "High tension";
+  }
+
+  return {
+    level,
+    tensionScore,
+    data: [
+      {
+        name: "Traditional Values",
+        value: traditionalPercent,
+        color: "#dc2626",
+      },
+      { name: "Modern Values", value: modernPercent, color: "#2563eb" },
+    ],
+    traditionalCount,
+    modernCount,
+    tensionIndicators: tensionWords,
+    adviceGiving: {
+      user: userAdviceGiving,
+      contact: contactAdviceGiving,
+    },
+  };
 };
 
-const getBoundaryMaintenance = (messages) => {
-  // Professional boundary words
-  const boundaryWords = [
-    "business hours",
-    "work hours",
-    "schedule",
-    "availability",
-    "next week",
-    "during work",
-    "professional",
-    "working relationship",
-  ];
-
-  // Personal crossover words
-  const personalWords = [
-    "family",
-    "personal",
-    "vacation",
-    "weekend plans",
-    "home life",
-    "dating",
-    "relationship",
-    "private",
-    "outside work",
-  ];
-
-  let boundaryCount = 0;
-  let personalCount = 0;
-
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
-
-    const content = msg.content.toLowerCase();
-
-    boundaryWords.forEach((word) => {
-      if (content.includes(word)) boundaryCount++;
-    });
-
-    personalWords.forEach((word) => {
-      if (content.includes(word)) personalCount++;
-    });
-  });
-
-  const ratio = personalCount / (boundaryCount || 1);
-
-  if (ratio < 0.5) return "Strong boundaries";
-  if (ratio < 1) return "Clear boundaries";
-  if (ratio < 2) return "Flexible boundaries";
-  return "Blended personal/professional";
-};
-
-const getCollaborationStyle = (messages) => {
-  // Collaboration indicators
-  const collaborativeWords = [
-    "we",
-    "us",
-    "our",
-    "team",
-    "together",
-    "collaborate",
-    "feedback",
-    "ideas",
-    "suggest",
-    "thoughts",
-    "input",
-    "help",
-    "assist",
-  ];
-
-  // Independent work indicators
-  const independentWords = [
-    "I",
-    "my",
-    "me",
-    "mine",
-    "handle",
-    "take care of",
-    "complete",
-    "finish",
-    "assign",
-    "responsible",
-    "ownership",
-    "lead",
-  ];
-
-  let collaborativeCount = 0;
-  let independentCount = 0;
-
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
-
-    const content = msg.content.toLowerCase();
-
-    collaborativeWords.forEach((word) => {
-      if (content.match(new RegExp(`\\b${word}\\b`, "i"))) collaborativeCount++;
-    });
-
-    independentWords.forEach((word) => {
-      if (content.match(new RegExp(`\\b${word}\\b`, "i"))) independentCount++;
-    });
-  });
-
-  const total = collaborativeCount + independentCount || 1;
-  const collaborativePercent = Math.round((collaborativeCount / total) * 100);
-
-  if (collaborativePercent > 80) return "Highly collaborative";
-  if (collaborativePercent > 60) return "Collaborative";
-  if (collaborativePercent > 40) return "Balanced";
-  if (collaborativePercent > 20) return "Independent-focused";
-  return "Highly independent";
-};
-
-// Family relationship metrics
-const getFamilyPattern = (messages) => {
-  // Support-oriented words
+const analyzeFamilyRole = (messages) => {
   const supportWords = [
     "help",
     "support",
-    "there for you",
-    "family",
     "care",
-    "love",
+    "worry",
+    "concern",
+    "there for you",
+    "love you",
     "proud",
-    "appreciate",
-    "grateful",
-    "thanks",
+    "check on",
+    "take care",
+    "make sure",
   ];
 
-  // Practical coordination words
-  const practicalWords = [
-    "time",
-    "when",
-    "visit",
-    "holiday",
-    "birthday",
-    "dinner",
-    "gather",
-    "event",
-    "plans",
-    "schedule",
-    "coming",
-  ];
-
-  // Advice or guidance words
   const adviceWords = [
     "should",
     "need to",
-    "better",
     "advice",
     "suggest",
     "recommend",
-    "consider",
-    "try",
-    "important",
-    "listen",
+    "think you should",
+    "better if",
+    "why don't you",
+    "have you considered",
+    "my opinion",
+  ];
+
+  const coordinationWords = [
+    "plan",
+    "schedule",
+    "when",
+    "where",
+    "time",
+    "visit",
+    "gather",
+    "holiday",
+    "birthday",
+    "event",
+    "family dinner",
+    "get together",
   ];
 
   let supportCount = 0;
-  let practicalCount = 0;
   let adviceCount = 0;
+  let coordinationCount = 0;
+  let totalUserMessages = messages.filter((msg) => msg.role === "user").length;
 
   messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
+    if (!msg.content || msg.role !== "user") return;
 
     const content = msg.content.toLowerCase();
 
@@ -1941,290 +2400,80 @@ const getFamilyPattern = (messages) => {
       if (content.includes(word)) supportCount++;
     });
 
-    practicalWords.forEach((word) => {
-      if (content.includes(word)) practicalCount++;
-    });
-
     adviceWords.forEach((word) => {
       if (content.includes(word)) adviceCount++;
     });
+
+    coordinationWords.forEach((word) => {
+      if (content.includes(word)) coordinationCount++;
+    });
   });
 
-  const total = supportCount + practicalCount + adviceCount || 1;
+  const supportPercentage =
+    totalUserMessages > 0
+      ? Math.round((supportCount / totalUserMessages) * 100)
+      : 0;
 
-  if (supportCount > practicalCount && supportCount > adviceCount) {
-    return "Support-oriented";
-  } else if (practicalCount > supportCount && practicalCount > adviceCount) {
-    return "Coordination-focused";
-  } else if (adviceCount > supportCount && adviceCount > practicalCount) {
-    return "Guidance-centered";
+  let description;
+  if (supportCount > adviceCount && supportCount > coordinationCount) {
+    description = "Primary supporter and caregiver";
+  } else if (adviceCount > supportCount && adviceCount > coordinationCount) {
+    description = "Advice-giver and guide";
+  } else if (
+    coordinationCount > supportCount &&
+    coordinationCount > adviceCount
+  ) {
+    description = "Family coordinator and organizer";
   } else {
-    return "Balanced family dynamic";
+    description = "Balanced family contributor";
   }
+
+  return {
+    description,
+    supportPercentage,
+    counts: {
+      support: supportCount,
+      advice: adviceCount,
+      coordination: coordinationCount,
+    },
+  };
 };
 
-const getEmotionalWarmth = (messages) => {
-  // Warmth indicators
-  const warmthWords = [
-    "love",
-    "miss",
-    "care",
-    "proud",
-    "hug",
-    "kiss",
-    "heart",
-    "family",
-    "together",
-    "appreciate",
-    "happy",
-    "joy",
-  ];
-
-  // Affection indicators
-  const affectionSymbols = [
-    "❤️",
-    "😘",
-    "🥰",
-    "💕",
-    "♥️",
-    "💖",
-    "💓",
-    "💗",
-    "💞",
-  ];
-
-  let warmthCount = 0;
-
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
-
-    const content = msg.content;
-
-    warmthWords.forEach((word) => {
-      if (content.toLowerCase().includes(word)) warmthCount++;
-    });
-
-    affectionSymbols.forEach((symbol) => {
-      if (content.includes(symbol)) warmthCount += 2; // Emojis count more
-    });
-  });
-
-  const warmthRatio = warmthCount / messages.length;
-
-  if (warmthRatio < 0.1) return "Formal/reserved";
-  if (warmthRatio < 0.2) return "Moderately warm";
-  if (warmthRatio < 0.4) return "Warm";
-  return "Very affectionate";
-};
-
-const getFamilyRole = (messages) => {
-  // Words that indicate caretaking
-  const caretakingWords = [
-    "take care",
-    "help",
-    "need anything",
-    "check on",
-    "make sure",
-    "remind",
-    "appointment",
-    "doctor",
-    "medicine",
-    "health",
-  ];
-
-  // Words that indicate emotional support
-  const emotionalSupportWords = [
-    "listen",
-    "understand",
-    "feel",
-    "support",
-    "there for you",
-    "sorry to hear",
-    "must be hard",
-    "thinking of you",
-  ];
-
-  // Words that indicate advice-giving
-  const adviceWords = [
+const analyzeTraditionAutonomy = (messages) => {
+  const traditionWords = [
     "should",
-    "need to",
-    "have to",
-    "would be better",
-    "consider",
-    "try",
-    "recommend",
-    "suggestion",
-    "advice",
-    "opinion",
-  ];
-
-  let caretakingCount = 0;
-  let emotionalSupportCount = 0;
-  let adviceCount = 0;
-
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string" || msg.role !== "user")
-      return;
-
-    const content = msg.content.toLowerCase();
-
-    caretakingWords.forEach((word) => {
-      if (content.includes(word)) caretakingCount++;
-    });
-
-    emotionalSupportWords.forEach((word) => {
-      if (content.includes(word)) emotionalSupportCount++;
-    });
-
-    adviceWords.forEach((word) => {
-      if (content.includes(word)) adviceCount++;
-    });
-  });
-
-  // Determine predominant role
-  if (
-    caretakingCount > emotionalSupportCount &&
-    caretakingCount > adviceCount
-  ) {
-    return "Caretaker";
-  } else if (
-    emotionalSupportCount > caretakingCount &&
-    emotionalSupportCount > adviceCount
-  ) {
-    return "Emotional supporter";
-  } else if (
-    adviceCount > caretakingCount &&
-    adviceCount > emotionalSupportCount
-  ) {
-    return "Advisor";
-  } else {
-    return "Balanced supporter";
-  }
-};
-
-const getInteractionFrequency = (messages) => {
-  if (messages.length < 5) return "Not enough data";
-
-  // Sort messages by timestamp
-  const sortedMessages = [...messages].sort((a, b) => {
-    const timeA = a.timestamp || a.createdAt || new Date(0);
-    const timeB = b.timestamp || b.createdAt || new Date(0);
-    return new Date(timeA) - new Date(timeB);
-  });
-
-  // Calculate the date range
-  const firstDate = new Date(
-    sortedMessages[0].timestamp || sortedMessages[0].createdAt || new Date(0)
-  );
-  const lastDate = new Date(
-    sortedMessages[sortedMessages.length - 1].timestamp ||
-      sortedMessages[sortedMessages.length - 1].createdAt ||
-      new Date(0)
-  );
-
-  // Calculate days between first and last message
-  const daysDiff = Math.max(1, (lastDate - firstDate) / (1000 * 60 * 60 * 24));
-
-  // Calculate average messages per day
-  const messagesPerDay = messages.length / daysDiff;
-
-  if (messagesPerDay >= 5) return "Daily";
-  if (messagesPerDay >= 1) return "Several times a week";
-  if (messagesPerDay >= 0.25) return "Weekly";
-  if (messagesPerDay >= 0.1) return "Every few weeks";
-  return "Monthly or less";
-};
-
-const getGenerationGap = (messages) => {
-  // Words that might indicate generational differences
-  const olderGenerationWords = [
-    "tradition",
-    "always been",
-    "in my day",
+    "expected",
+    "family tradition",
+    "always",
     "proper",
     "respect",
-    "when I was young",
     "responsibility",
     "duty",
+    "obligation",
+    "way things are",
     "family values",
   ];
 
-  const youngerGenerationWords = [
-    "nowadays",
-    "different now",
-    "times change",
-    "my generation",
-    "my friends",
-    "online",
-    "social media",
-    "independence",
-  ];
-
-  let olderGenCount = 0;
-  let youngerGenCount = 0;
-
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
-
-    const content = msg.content.toLowerCase();
-
-    olderGenerationWords.forEach((word) => {
-      if (content.includes(word)) olderGenCount++;
-    });
-
-    youngerGenerationWords.forEach((word) => {
-      if (content.includes(word)) youngerGenCount++;
-    });
-  });
-
-  const total = olderGenCount + youngerGenCount;
-
-  if (total < 3) return "No significant generation gap detected";
-
-  if (olderGenCount > youngerGenCount * 2) {
-    return "Traditional values emphasized";
-  } else if (youngerGenCount > olderGenCount * 2) {
-    return "Modern perspectives emphasized";
-  } else {
-    return "Balanced generational perspectives";
-  }
-};
-
-const getTraditionAutonomyBalance = (messages) => {
-  // Tradition-oriented words
-  const traditionWords = [
-    "should",
-    "always",
-    "family",
-    "tradition",
-    "expected",
-    "proper",
-    "respect",
-    "responsibility",
-    "duty",
-    "values",
-    "important",
-  ];
-
-  // Autonomy-oriented words
   const autonomyWords = [
-    "want",
-    "choose",
-    "decide",
-    "my life",
-    "my decision",
     "my choice",
+    "my decision",
+    "my life",
     "independent",
+    "freedom",
     "own way",
-    "feel comfortable",
     "personal",
+    "individual",
+    "different",
+    "change",
+    "new",
+    "modern",
   ];
 
   let traditionCount = 0;
   let autonomyCount = 0;
 
   messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
+    if (!msg.content) return;
 
     const content = msg.content.toLowerCase();
 
@@ -2241,580 +2490,1015 @@ const getTraditionAutonomyBalance = (messages) => {
   const traditionPercent = Math.round((traditionCount / total) * 100);
   const autonomyPercent = Math.round((autonomyCount / total) * 100);
 
-  if (Math.abs(traditionPercent - autonomyPercent) <= 10) {
-    return "Balanced tradition/autonomy";
+  let description;
+  if (Math.abs(traditionPercent - autonomyPercent) <= 15) {
+    description = "Balanced tradition and autonomy";
   } else if (traditionPercent > autonomyPercent) {
-    return "Tradition-oriented";
+    description = "Tradition-oriented communication";
   } else {
-    return "Autonomy-oriented";
+    description = "Autonomy-oriented communication";
   }
+
+  return {
+    description,
+    tradition: traditionPercent,
+    autonomy: autonomyPercent,
+    traditionCount,
+    autonomyCount,
+  };
 };
 
-const getSupportNetwork = (messages) => {
-  // Look for mentions of other family members
-  const familyMemberWords = [
-    "mom",
-    "dad",
-    "mother",
-    "father",
-    "sister",
-    "brother",
-    "aunt",
-    "uncle",
-    "grandma",
-    "grandpa",
-    "cousin",
-    "family",
+const analyzeEmotionalWarmth = (messages) => {
+  const warmthWords = [
+    "love",
+    "miss",
+    "care",
+    "proud",
+    "hug",
+    "kiss",
+    "heart",
+    "appreciate",
+    "grateful",
+    "thankful",
+    "blessing",
+    "special",
+    "important",
+    "dear",
   ];
 
-  const supportPhrases = [
-    "help",
-    "support",
-    "there for",
-    "talk to",
-    "reach out",
-    "contact",
+  const coldWords = [
+    "fine",
+    "whatever",
+    "busy",
+    "later",
+    "can't talk",
+    "not now",
+    "don't bother",
+    "leave me alone",
+    "formal",
+    "distant",
   ];
 
-  let familyMentions = new Set();
-  let supportMentions = 0;
+  let warmthCount = 0;
+  let coldCount = 0;
 
   messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
+    if (!msg.content) return;
 
     const content = msg.content.toLowerCase();
 
-    familyMemberWords.forEach((member) => {
-      if (content.includes(member)) {
-        familyMentions.add(member);
+    warmthWords.forEach((word) => {
+      if (content.includes(word)) warmthCount++;
+    });
 
-        // Check if the family member is mentioned in context of support
-        supportPhrases.forEach((phrase) => {
-          if (content.includes(phrase)) {
-            supportMentions++;
-          }
+    coldWords.forEach((word) => {
+      if (content.includes(word)) coldCount++;
+    });
+  });
+
+  const warmthScore = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(((warmthCount - coldCount) / messages.length) * 100 + 50)
+    )
+  );
+
+  let level;
+  if (warmthScore < 30) level = "Distant/Formal";
+  else if (warmthScore < 50) level = "Reserved";
+  else if (warmthScore < 70) level = "Moderately Warm";
+  else if (warmthScore < 85) level = "Warm";
+  else level = "Very Affectionate";
+
+  return {
+    level,
+    score: warmthScore,
+    warmthCount,
+    coldCount,
+    warmthRatio:
+      messages.length > 0 ? (warmthCount / messages.length).toFixed(3) : 0,
+  };
+};
+
+// MISSING FUNCTION: Communication Spikes Analysis
+const analyzeCommunicationSpikes = (messages, temporalAnalysis) => {
+  if (messages.length < 10) {
+    return {
+      description: "Not enough data to detect spikes",
+      patterns: [],
+      spikeDays: [],
+    };
+  }
+
+  // Group messages by date
+  const messagesByDate = {};
+  const sortedMessages = [...messages].sort((a, b) => {
+    const timeA = new Date(a.timestamp || a.createdAt || 0);
+    const timeB = new Date(b.timestamp || b.createdAt || 0);
+    return timeA - timeB;
+  });
+
+  sortedMessages.forEach((msg) => {
+    const date = new Date(msg.timestamp || msg.createdAt);
+    const dateStr = date.toDateString();
+
+    if (!messagesByDate[dateStr]) {
+      messagesByDate[dateStr] = [];
+    }
+    messagesByDate[dateStr].push(msg);
+  });
+
+  // Calculate daily message counts
+  const dailyCounts = Object.values(messagesByDate).map((msgs) => msgs.length);
+  const avgDaily =
+    dailyCounts.reduce((sum, count) => sum + count, 0) / dailyCounts.length;
+
+  // Find spikes (days with 3x or more than average)
+  const spikeDays = [];
+  Object.entries(messagesByDate).forEach(([date, msgs]) => {
+    if (msgs.length >= avgDaily * 3) {
+      spikeDays.push({
+        date,
+        count: msgs.length,
+        multiplier: (msgs.length / avgDaily).toFixed(1),
+      });
+    }
+  });
+
+  // Analyze spike patterns
+  const patterns = [];
+  if (spikeDays.length > 0) {
+    // Check for holiday patterns
+    const holidayKeywords = [
+      "christmas",
+      "thanksgiving",
+      "birthday",
+      "holiday",
+      "new year",
+      "easter",
+      "valentine",
+    ];
+    const crisisKeywords = [
+      "emergency",
+      "crisis",
+      "urgent",
+      "help",
+      "problem",
+      "issue",
+      "trouble",
+    ];
+
+    spikeDays.forEach((spike) => {
+      const spikeMessages = messagesByDate[spike.date];
+      const spikeContent = spikeMessages
+        .map((msg) => msg.content || "")
+        .join(" ")
+        .toLowerCase();
+
+      let isHoliday = holidayKeywords.some((keyword) =>
+        spikeContent.includes(keyword)
+      );
+      let isCrisis = crisisKeywords.some((keyword) =>
+        spikeContent.includes(keyword)
+      );
+
+      if (isHoliday) {
+        patterns.push({
+          type: "Holiday/Special Event",
+          date: spike.date,
+          description: `${spike.multiplier}x normal volume on ${spike.date}`,
+        });
+      } else if (isCrisis) {
+        patterns.push({
+          type: "Crisis/Emergency",
+          date: spike.date,
+          description: `Crisis-related spike: ${spike.multiplier}x normal volume`,
+        });
+      } else {
+        patterns.push({
+          type: "Unknown",
+          date: spike.date,
+          description: `Unexplained spike: ${spike.multiplier}x normal volume`,
         });
       }
     });
-  });
+  }
 
-  if (familyMentions.size === 0) {
-    return "No extended family mentioned";
-  } else if (familyMentions.size === 1) {
-    return "Limited family support network";
-  } else if (familyMentions.size >= 2 && familyMentions.size < 4) {
-    return "Moderate family support network";
+  let description;
+  if (spikeDays.length === 0) {
+    description = "Consistent communication patterns, no major spikes detected";
+  } else if (spikeDays.length <= 2) {
+    description = `Occasional communication spikes (${spikeDays.length} detected)`;
   } else {
-    return "Strong family support network";
-  }
-};
-
-// Mentor/mentee relationship metrics
-const getGuidanceStyle = (messages) => {
-  // Directive guidance words
-  const directiveWords = [
-    "should",
-    "need to",
-    "must",
-    "have to",
-    "important",
-    "crucial",
-    "essential",
-    "correct way",
-    "right approach",
-    "do this",
-  ];
-
-  // Socratic guidance words
-  const socraticWords = [
-    "what do you think",
-    "have you considered",
-    "why",
-    "how would you",
-    "reflect on",
-    "your perspective",
-    "your approach",
-    "what if",
-  ];
-
-  let directiveCount = 0;
-  let socraticCount = 0;
-
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string" || msg.role === "user")
-      return;
-
-    const content = msg.content.toLowerCase();
-
-    directiveWords.forEach((word) => {
-      if (content.includes(word)) directiveCount++;
-    });
-
-    socraticWords.forEach((word) => {
-      if (content.includes(word)) socraticCount++;
-    });
-  });
-
-  if (directiveCount === 0 && socraticCount === 0) {
-    return "Not enough guidance data";
+    description = `Frequent communication spikes (${spikeDays.length} detected) - possible crisis-driven or event-driven communication`;
   }
 
-  const total = directiveCount + socraticCount;
-  const socraticPercent = Math.round((socraticCount / total) * 100);
-
-  if (socraticPercent > 80) return "Highly collaborative";
-  if (socraticPercent > 60) return "Mostly collaborative";
-  if (socraticPercent > 40) return "Balanced";
-  if (socraticPercent > 20) return "Mostly directive";
-  return "Highly directive";
-};
-
-const getFeedbackBalance = (messages) => {
-  // Positive feedback words
-  const positiveWords = [
-    "good",
-    "great",
-    "excellent",
-    "well done",
-    "impressive",
-    "proud",
-    "perfect",
-    "right",
-    "correct",
-    "impressive",
-    "like",
-    "appreciate",
-  ];
-
-  // Constructive feedback words
-  const constructiveWords = [
-    "improve",
-    "could",
-    "should",
-    "better",
-    "next time",
-    "instead",
-    "try",
-    "consider",
-    "change",
-    "different",
-    "work on",
-    "not quite",
-  ];
-
-  let positiveCount = 0;
-  let constructiveCount = 0;
-
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string" || msg.role === "user")
-      return;
-
-    const content = msg.content.toLowerCase();
-
-    positiveWords.forEach((word) => {
-      if (content.includes(word)) positiveCount++;
-    });
-
-    constructiveWords.forEach((word) => {
-      if (content.includes(word)) constructiveCount++;
-    });
-  });
-
-  if (positiveCount === 0 && constructiveCount === 0) {
-    return "Not enough feedback data";
-  }
-
-  const ratio = positiveCount / (constructiveCount || 1);
-
-  if (ratio > 3) return "Highly encouraging";
-  if (ratio > 2) return "Encouraging";
-  if (ratio > 0.5) return "Balanced feedback";
-  if (ratio > 0.25) return "Improvement-focused";
-  return "Mostly constructive";
-};
-
-const getGrowthFocus = (messages) => {
-  // Different growth focus areas
-  const skillWords = [
-    "skill",
-    "learn",
-    "practice",
-    "technique",
-    "ability",
-    "method",
-    "training",
-    "expertise",
-    "proficiency",
-    "competence",
-  ];
-
-  const knowledgeWords = [
-    "know",
-    "understand",
-    "concept",
-    "information",
-    "theory",
-    "principle",
-    "fact",
-    "data",
-    "research",
-    "study",
-  ];
-
-  const personalWords = [
-    "confidence",
-    "mindset",
-    "attitude",
-    "approach",
-    "perspective",
-    "belief",
-    "habit",
-    "character",
-    "personal growth",
-    "development",
-  ];
-
-  let skillCount = 0;
-  let knowledgeCount = 0;
-  let personalCount = 0;
-
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
-
-    const content = msg.content.toLowerCase();
-
-    skillWords.forEach((word) => {
-      if (content.includes(word)) skillCount++;
-    });
-
-    knowledgeWords.forEach((word) => {
-      if (content.includes(word)) knowledgeCount++;
-    });
-
-    personalWords.forEach((word) => {
-      if (content.includes(word)) personalCount++;
-    });
-  });
-
-  if (skillCount === 0 && knowledgeCount === 0 && personalCount === 0) {
-    return "Focus not identified";
-  }
-
-  // Determine predominant focus
-  if (skillCount > knowledgeCount && skillCount > personalCount) {
-    return "Skill development";
-  } else if (knowledgeCount > skillCount && knowledgeCount > personalCount) {
-    return "Knowledge acquisition";
-  } else if (personalCount > skillCount && personalCount > knowledgeCount) {
-    return "Personal growth";
-  } else {
-    return "Balanced growth focus";
-  }
-};
-
-const getFollowThrough = (messages) => {
-  // Words that indicate commitments
-  const commitmentWords = [
-    "will do",
-    "I'll",
-    "promise",
-    "commit",
-    "by tomorrow",
-    "next week",
-    "deadline",
-    "complete",
-    "finish",
-    "submit",
-  ];
-
-  // Words that indicate follow-up
-  const followUpWords = [
-    "completed",
-    "finished",
-    "done",
-    "submitted",
-    "as promised",
-    "as discussed",
-    "delivered",
-    "here it is",
-    "attached",
-    "sent",
-  ];
-
-  let commitmentCount = 0;
-  let followUpCount = 0;
-
-  // Track each message with a commitment
-  let commitmentMessages = [];
-
-  messages.forEach((msg, index) => {
-    if (!msg.content || typeof msg.content !== "string") return;
-
-    const content = msg.content.toLowerCase();
-    let hasCommitment = false;
-
-    commitmentWords.forEach((word) => {
-      if (content.includes(word)) {
-        hasCommitment = true;
-      }
-    });
-
-    if (hasCommitment) {
-      commitmentCount++;
-      commitmentMessages.push({ index, content });
-    }
-  });
-
-  // Check for follow-up messages after commitments
-  commitmentMessages.forEach((commitment) => {
-    const startIndex = commitment.index + 1;
-
-    // Look at the next 10 messages or to the end
-    const endIndex = Math.min(startIndex + 10, messages.length);
-
-    for (let i = startIndex; i < endIndex; i++) {
-      if (!messages[i].content || typeof messages[i].content !== "string")
-        continue;
-
-      const content = messages[i].content.toLowerCase();
-
-      followUpWords.forEach((word) => {
-        if (content.includes(word)) {
-          followUpCount++;
-          return; // Count only one follow-up per commitment
-        }
-      });
-    }
-  });
-
-  if (commitmentCount === 0) {
-    return "No commitments detected";
-  }
-
-  const followThroughRate = followUpCount / commitmentCount;
-
-  if (followThroughRate > 0.8) return "Excellent follow-through";
-  if (followThroughRate > 0.5) return "Good follow-through";
-  if (followThroughRate > 0.3) return "Moderate follow-through";
-  return "Inconsistent follow-through";
-};
-
-const getKnowledgeTransfer = (messages) => {
-  // Words that indicate teaching
-  const teachingWords = [
-    "explain",
-    "understand",
-    "learn",
-    "know",
-    "concept",
-    "idea",
-    "remember",
-    "important",
-    "key point",
-    "essential",
-    "means that",
-  ];
-
-  // Words that indicate comprehension
-  const comprehensionWords = [
-    "got it",
-    "understand",
-    "makes sense",
-    "I see",
-    "clear",
-    "thanks for explaining",
-    "helpful",
-    "learned",
-    "appreciate the explanation",
-  ];
-
-  let teachingCount = 0;
-  let comprehensionCount = 0;
-
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
-
-    const content = msg.content.toLowerCase();
-
-    if (msg.role !== "user") {
-      // Count teaching indicators in mentor messages
-      teachingWords.forEach((word) => {
-        if (content.includes(word)) teachingCount++;
-      });
-    } else {
-      // Count comprehension indicators in mentee messages
-      comprehensionWords.forEach((word) => {
-        if (content.includes(word)) comprehensionCount++;
-      });
-    }
-  });
-
-  if (teachingCount === 0) {
-    return "Limited knowledge sharing";
-  }
-
-  const ratio = comprehensionCount / teachingCount;
-
-  if (ratio > 0.8) return "Highly effective transfer";
-  if (ratio > 0.5) return "Effective transfer";
-  if (ratio > 0.3) return "Moderate effectiveness";
-  return "Knowledge shared but unclear reception";
-};
-
-const getGoalSetting = (messages) => {
-  // Goal-setting words
-  const goalWords = [
-    "goal",
-    "objective",
-    "aim",
-    "target",
-    "plan",
-    "achieve",
-    "milestone",
-    "accomplish",
-    "complete",
-    "finish",
-    "success",
-  ];
-
-  // Target timeframe words
-  const timeframeWords = [
-    "by next",
-    "deadline",
-    "this week",
-    "this month",
-    "quarter",
-    "year",
-    "date",
-    "timeline",
-    "schedule",
-    "timeframe",
-  ];
-
-  // Progress check words
-  const progressWords = [
-    "progress",
-    "status",
-    "update",
-    "how's it going",
-    "check in",
-    "completed",
-    "achieved",
-    "finished",
-    "done",
-    "accomplished",
-  ];
-
-  let goalCount = 0;
-  let timeframeCount = 0;
-  let progressCount = 0;
-
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string") return;
-
-    const content = msg.content.toLowerCase();
-
-    goalWords.forEach((word) => {
-      if (content.includes(word)) goalCount++;
-    });
-
-    timeframeWords.forEach((word) => {
-      if (content.includes(word)) timeframeCount++;
-    });
-
-    progressWords.forEach((word) => {
-      if (content.includes(word)) progressCount++;
-    });
-  });
-
-  if (goalCount === 0) {
-    return "No goal-setting detected";
-  }
-
-  // Calculate goal-setting quality
-  const totalScore = goalCount + timeframeCount + progressCount;
-
-  if (totalScore >= 10) return "Comprehensive goal-setting";
-  if (totalScore >= 6) return "Structured goal-setting";
-  if (totalScore >= 3) return "Basic goal-setting";
-  return "Minimal goal-setting";
-};
-
-const getRespectIndex = (messages) => {
-  // Respect indicators
-  const respectWords = [
-    "respect",
-    "appreciate",
-    "value",
-    "admire",
-    "thank you",
-    "grateful",
-    "honored",
-    "wisdom",
-    "experience",
-    "insight",
-  ];
-
-  // Formal address indicators
-  const formalWords = [
-    "mr",
-    "ms",
-    "mrs",
-    "dr",
-    "professor",
-    "sir",
-    "madam",
-    "please",
-    "kindly",
-    "if you would",
-    "may I",
-  ];
-
-  let respectCount = 0;
-
-  messages.forEach((msg) => {
-    if (!msg.content || typeof msg.content !== "string" || msg.role !== "user")
-      return;
-
-    const content = msg.content.toLowerCase();
-
-    respectWords.forEach((word) => {
-      if (content.includes(word)) respectCount++;
-    });
-
-    formalWords.forEach((word) => {
-      if (content.includes(word)) respectCount++;
-    });
-  });
-
-  const respectRatio =
-    respectCount / messages.filter((msg) => msg.role === "user").length;
-
-  if (respectRatio < 0.05) return "Casual";
-  if (respectRatio < 0.1) return "Friendly";
-  if (respectRatio < 0.2) return "Respectful";
-  return "Highly respectful";
+  return {
+    description,
+    patterns: patterns.slice(0, 5), // Limit to 5 most recent patterns
+    spikeDays: spikeDays.slice(0, 10), // Limit to 10 most recent spikes
+    averageDailyMessages: Math.round(avgDaily),
+    totalSpikes: spikeDays.length,
+  };
 };
 
 /**
- * Sample a subset of messages for processing
- * Used to stay within token limits for AI
+ * MENTOR RELATIONSHIP ANALYSIS FUNCTIONS
  */
+
+const analyzeReflectiveListening = (messages) => {
+  const reflectiveIndicators = [
+    "what i hear you saying",
+    "it sounds like",
+    "so you're feeling",
+    "i understand that",
+    "let me reflect",
+    "what i'm hearing",
+    "you mentioned",
+    "you said",
+    "from what you've shared",
+    "i sense that",
+    "help me understand",
+    "can you tell me more",
+  ];
+
+  let reflectiveCount = 0;
+  let totalMentorMessages = messages.filter(
+    (msg) => msg.role !== "user"
+  ).length;
+
+  messages.forEach((msg) => {
+    if (!msg.content || msg.role === "user") return;
+
+    const content = msg.content.toLowerCase();
+
+    reflectiveIndicators.forEach((indicator) => {
+      if (content.includes(indicator)) reflectiveCount++;
+    });
+  });
+
+  const reflectiveRate =
+    totalMentorMessages > 0
+      ? Math.round((reflectiveCount / totalMentorMessages) * 100)
+      : 0;
+
+  let description;
+  if (reflectiveRate >= 60) {
+    description =
+      "High reflective listening - frequently restates and validates";
+  } else if (reflectiveRate >= 30) {
+    description = "Moderate reflective listening - occasionally reflects back";
+  } else if (reflectiveRate >= 10) {
+    description = "Some reflective listening - minimal validation responses";
+  } else {
+    description =
+      "Low reflective listening - more directive communication style";
+  }
+
+  return {
+    description,
+    rate: reflectiveRate,
+    count: reflectiveCount,
+    totalMessages: totalMentorMessages,
+  };
+};
+
+const analyzeEncouragementAccountability = (messages) => {
+  const encouragementWords = [
+    "great job",
+    "well done",
+    "proud of you",
+    "you can do it",
+    "believe in you",
+    "keep going",
+    "you're doing well",
+    "that's progress",
+    "excellent",
+    "amazing",
+    "inspiring",
+    "motivated",
+  ];
+
+  const accountabilityWords = [
+    "you said you would",
+    "let's check in",
+    "follow up",
+    "commitment",
+    "deadline",
+    "what's the next step",
+    "accountability",
+    "track progress",
+    "measure",
+    "goals",
+    "milestones",
+    "review",
+  ];
+
+  let motivationalCount = 0;
+  let correctiveCount = 0;
+
+  messages.forEach((msg) => {
+    if (!msg.content) return;
+
+    const content = msg.content.toLowerCase();
+
+    encouragementWords.forEach((word) => {
+      if (content.includes(word)) motivationalCount++;
+    });
+
+    accountabilityWords.forEach((word) => {
+      if (content.includes(word)) correctiveCount++;
+    });
+  });
+
+  const total = motivationalCount + correctiveCount || 1;
+  const motivationalPercent = Math.round((motivationalCount / total) * 100);
+  const correctivePercent = Math.round((correctiveCount / total) * 100);
+
+  let description;
+  if (motivationalPercent > correctivePercent * 2) {
+    description = "Highly encouraging, supportive mentoring style";
+  } else if (correctivePercent > motivationalPercent * 2) {
+    description = "Accountability-focused, results-oriented mentoring";
+  } else {
+    description = "Balanced encouragement and accountability";
+  }
+
+  return {
+    description,
+    motivational: motivationalPercent,
+    corrective: correctivePercent,
+    motivationalCount,
+    correctiveCount,
+  };
+};
+
+const analyzePersonalGrowthFraming = (messages) => {
+  const growthWords = [
+    "learning",
+    "growth",
+    "develop",
+    "improve",
+    "progress",
+    "evolve",
+    "skills",
+    "abilities",
+    "potential",
+    "opportunity",
+    "challenge",
+    "experience",
+    "journey",
+    "path",
+    "next level",
+    "better version",
+    "strengths",
+    "areas to work on",
+  ];
+
+  let growthMentions = 0;
+  let growthMessages = 0;
+
+  messages.forEach((msg) => {
+    if (!msg.content) return;
+
+    const content = msg.content.toLowerCase();
+    let hasGrowthLanguage = false;
+
+    growthWords.forEach((word) => {
+      if (content.includes(word)) {
+        if (!hasGrowthLanguage) {
+          growthMessages++;
+          hasGrowthLanguage = true;
+        }
+        growthMentions++;
+      }
+    });
+  });
+
+  const growthRatio = (growthMessages / messages.length) * 100;
+
+  let description;
+  if (growthRatio >= 40) {
+    description =
+      "Strong growth mindset - consistently frames experiences as learning opportunities";
+  } else if (growthRatio >= 20) {
+    description =
+      "Moderate growth focus - regularly discusses development and improvement";
+  } else if (growthRatio >= 10) {
+    description =
+      "Some growth orientation - occasionally mentions learning and development";
+  } else {
+    description =
+      "Limited growth language - focuses more on immediate issues than long-term development";
+  }
+
+  return {
+    description,
+    frequency: growthMentions,
+    growthMessageCount: growthMessages,
+    growthRatio: Math.round(growthRatio),
+  };
+};
+
+const analyzeGoalSettingFollowup = (messages) => {
+  const goalWords = [
+    "goal",
+    "objective",
+    "target",
+    "aim",
+    "plan to",
+    "want to achieve",
+    "working towards",
+    "next step",
+    "action item",
+    "commitment",
+    "by when",
+    "deadline",
+    "timeline",
+    "will do",
+    "promise to",
+    "commit to",
+  ];
+
+  const followupWords = [
+    "how did it go",
+    "follow up",
+    "check in",
+    "progress update",
+    "did you",
+    "were you able to",
+    "what happened with",
+    "update on",
+    "status",
+    "review",
+  ];
+
+  let goalCommitments = [];
+  let followupInstances = [];
+
+  // First pass - identify goal commitments
+  messages.forEach((msg, index) => {
+    if (!msg.content) return;
+
+    const content = msg.content.toLowerCase();
+    let hasGoalLanguage = false;
+
+    goalWords.forEach((word) => {
+      if (content.includes(word)) {
+        hasGoalLanguage = true;
+      }
+    });
+
+    if (hasGoalLanguage) {
+      goalCommitments.push({
+        index,
+        timestamp: new Date(msg.timestamp || msg.createdAt),
+        content: msg.content,
+        followedUp: false,
+        daysToFollowup: null,
+      });
+    }
+  });
+
+  // Second pass - identify follow-ups
+  messages.forEach((msg, index) => {
+    if (!msg.content) return;
+
+    const content = msg.content.toLowerCase();
+    let hasFollowupLanguage = false;
+
+    followupWords.forEach((word) => {
+      if (content.includes(word)) {
+        hasFollowupLanguage = true;
+      }
+    });
+
+    if (hasFollowupLanguage) {
+      followupInstances.push({
+        index,
+        timestamp: new Date(msg.timestamp || msg.createdAt),
+        content: msg.content,
+      });
+    }
+  });
+
+  // Match follow-ups to commitments
+  goalCommitments.forEach((commitment) => {
+    const laterFollowups = followupInstances.filter(
+      (followup) => followup.timestamp > commitment.timestamp
+    );
+
+    if (laterFollowups.length > 0) {
+      const nearestFollowup = laterFollowups.reduce((nearest, current) => {
+        const nearestDiff = Math.abs(nearest.timestamp - commitment.timestamp);
+        const currentDiff = Math.abs(current.timestamp - commitment.timestamp);
+        return currentDiff < nearestDiff ? current : nearest;
+      });
+
+      const daysDiff = Math.ceil(
+        (nearestFollowup.timestamp - commitment.timestamp) /
+          (1000 * 60 * 60 * 24)
+      );
+
+      commitment.followedUp = true;
+      commitment.daysToFollowup = daysDiff;
+    }
+  });
+
+  const followedUpCommitments = goalCommitments.filter((c) => c.followedUp);
+  const followupRate =
+    goalCommitments.length > 0
+      ? Math.round(
+          (followedUpCommitments.length / goalCommitments.length) * 100
+        )
+      : 0;
+
+  // Calculate average days to follow-up
+  const followupDays = followedUpCommitments
+    .filter((c) => c.daysToFollowup !== null)
+    .map((c) => c.daysToFollowup);
+
+  const avgFollowupDays =
+    followupDays.length > 0
+      ? Math.round(
+          followupDays.reduce((sum, days) => sum + days, 0) /
+            followupDays.length
+        )
+      : 0;
+
+  const dropoffRate = Math.max(0, 100 - followupRate);
+
+  let description;
+  if (followupRate >= 80 && avgFollowupDays <= 2) {
+    description = "Excellent goal follow-through with timely check-ins";
+  } else if (followupRate >= 60 && avgFollowupDays <= 5) {
+    description = `You confirm commitments, but follow-up drops after ${avgFollowupDays} days`;
+  } else if (followupRate >= 40) {
+    description = `Moderate follow-through - checks progress after ${avgFollowupDays} days on average`;
+  } else if (followupRate >= 20) {
+    description = "Limited goal follow-through - infrequent progress checks";
+  } else {
+    description = "Poor goal follow-through - rarely checks on commitments";
+  }
+
+  return {
+    description,
+    goalSettingCount: goalCommitments.length,
+    followupCount: followupInstances.length,
+    followupRate,
+    dropoffRate,
+    averageFollowupDays: avgFollowupDays,
+  };
+};
+
+const analyzeAffirmationCorrection = (messages) => {
+  const affirmationWords = [
+    "you're right",
+    "that's correct",
+    "exactly",
+    "good point",
+    "I agree",
+    "absolutely",
+    "spot on",
+    "well said",
+    "that makes sense",
+    "yes",
+    "true",
+    "right on",
+  ];
+
+  const correctionWords = [
+    "actually",
+    "however",
+    "but",
+    "not quite",
+    "let me clarify",
+    "correction",
+    "different perspective",
+    "consider this",
+    "another way",
+    "alternative",
+    "reconsider",
+    "think about",
+  ];
+
+  let affirmationCount = 0;
+  let correctionCount = 0;
+
+  messages.forEach((msg) => {
+    if (!msg.content) return;
+
+    const content = msg.content.toLowerCase();
+
+    affirmationWords.forEach((word) => {
+      if (content.includes(word)) affirmationCount++;
+    });
+
+    correctionWords.forEach((word) => {
+      if (content.includes(word)) correctionCount++;
+    });
+  });
+
+  const total = affirmationCount + correctionCount || 1;
+  const affirmationPercent = Math.round((affirmationCount / total) * 100);
+  const correctionPercent = Math.round((correctionCount / total) * 100);
+
+  const ratio =
+    correctionCount > 0
+      ? (affirmationCount / correctionCount).toFixed(1)
+      : "N/A";
+
+  return {
+    ratio: `${ratio}:1`,
+    data: [
+      {
+        name: "Affirmations",
+        value: affirmationPercent,
+        color: "#10b981",
+      },
+      {
+        name: "Corrections",
+        value: correctionPercent,
+        color: "#f59e0b",
+      },
+    ],
+    affirmationCount,
+    correctionCount,
+  };
+};
+
+/**
+ * MISSING UTILITY FUNCTIONS
+ */
+
+const analyzeClarityIndex = (messages) => {
+  const clarityIndicators = [
+    "to clarify",
+    "let me be clear",
+    "specifically",
+    "in other words",
+    "what I mean is",
+    "for example",
+    "to be precise",
+    "clearly stated",
+  ];
+
+  const confusionIndicators = [
+    "not sure what you mean",
+    "confused",
+    "unclear",
+    "don't understand",
+    "can you explain",
+    "what do you mean",
+    "huh",
+    "I'm lost",
+  ];
+
+  let clarityCount = 0;
+  let confusionCount = 0;
+
+  messages.forEach((msg) => {
+    if (!msg.content) return;
+
+    const content = msg.content.toLowerCase();
+
+    clarityIndicators.forEach((indicator) => {
+      if (content.includes(indicator)) clarityCount++;
+    });
+
+    confusionIndicators.forEach((indicator) => {
+      if (content.includes(indicator)) confusionCount++;
+    });
+  });
+
+  const clarityScore =
+    clarityCount > confusionCount
+      ? "High clarity"
+      : confusionCount > clarityCount
+        ? "Needs clarification"
+        : "Moderate clarity";
+
+  return clarityScore;
+};
+
+const analyzeBoundaryMaintenance = (messages) => {
+  const boundaryWords = [
+    "work hours",
+    "after hours",
+    "weekend",
+    "personal time",
+    "boundary",
+    "not available",
+    "office hours",
+    "business hours",
+    "urgent only",
+    "emergency only",
+  ];
+
+  const boundaryViolations = [
+    "sorry to bother you",
+    "I know it's late",
+    "quick question",
+    "one more thing",
+    "just checking",
+    "sorry for the weekend message",
+  ];
+
+  let boundaryMentions = 0;
+  let violationMentions = 0;
+
+  messages.forEach((msg) => {
+    if (!msg.content) return;
+
+    const content = msg.content.toLowerCase();
+
+    boundaryWords.forEach((word) => {
+      if (content.includes(word)) boundaryMentions++;
+    });
+
+    boundaryViolations.forEach((violation) => {
+      if (content.includes(violation)) violationMentions++;
+    });
+  });
+
+  const boundaryScore =
+    boundaryMentions > violationMentions
+      ? "Good boundary maintenance"
+      : violationMentions > boundaryMentions * 2
+        ? "Poor boundary maintenance"
+        : "Moderate boundary maintenance";
+
+  return boundaryScore;
+};
+
+/**
+ * UTILITY FUNCTIONS
+ */
+const normalizeRelationshipType = (type) => {
+  if (!type) return "other";
+  type = type.toLowerCase();
+
+  if (type.includes("romantic") || type.includes("partner")) return "romantic";
+  if (type.includes("friend")) return "friendship";
+  if (
+    type.includes("professional") ||
+    type.includes("work") ||
+    type.includes("colleague")
+  )
+    return "professional";
+  if (type.includes("family")) return "family";
+  if (type.includes("mentor")) return "mentor";
+
+  return "other";
+};
+
+const formatResponseTime = (minutes) => {
+  if (isNaN(minutes) || minutes === 0) return "N/A";
+
+  if (minutes < 1) return "< 1 minute";
+  if (minutes < 60) return `${Math.round(minutes)} minutes`;
+  if (minutes < 24 * 60) {
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
+    return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
+  }
+
+  const days = Math.floor(minutes / (24 * 60));
+  const hours = Math.floor((minutes % (24 * 60)) / 60);
+  return hours === 0 ? `${days}d` : `${days}d ${hours}h`;
+};
+
+const getSentimentLabel = (score) => {
+  if (score > 0.6) return "very positive";
+  if (score > 0.3) return "positive";
+  if (score > 0.1) return "slightly positive";
+  if (score > -0.1) return "neutral";
+  if (score > -0.3) return "slightly negative";
+  if (score > -0.6) return "negative";
+  return "very negative";
+};
+
+const getEmotionalHealthLabel = (score) => {
+  if (score > 80) return "Excellent";
+  if (score > 60) return "Good";
+  if (score > 40) return "Fair";
+  if (score > 20) return "Needs Work";
+  return "Concerning";
+};
+
+const calculateTotalDays = (messages) => {
+  if (messages.length < 2) return 1;
+
+  const sortedMessages = [...messages].sort((a, b) => {
+    const timeA = new Date(a.timestamp || a.createdAt || 0);
+    const timeB = new Date(b.timestamp || b.createdAt || 0);
+    return timeA - timeB;
+  });
+
+  const firstDate = new Date(
+    sortedMessages[0].timestamp || sortedMessages[0].createdAt
+  );
+  const lastDate = new Date(
+    sortedMessages[sortedMessages.length - 1].timestamp ||
+      sortedMessages[sortedMessages.length - 1].createdAt
+  );
+
+  return Math.max(1, (lastDate - firstDate) / (1000 * 60 * 60 * 24));
+};
+
+const calculateFrequency = (sortedMessages) => {
+  const totalDays = calculateTotalDays(sortedMessages);
+  const messagesPerDay = sortedMessages.length / totalDays;
+
+  if (messagesPerDay >= 5) return "Daily";
+  if (messagesPerDay >= 1) return "Several times a week";
+  if (messagesPerDay >= 0.25) return "Weekly";
+  if (messagesPerDay >= 0.1) return "Every few weeks";
+  return "Monthly or less";
+};
+
+const formatGapDuration = (days) => {
+  if (days < 1) return "Less than a day";
+  if (days < 7) return `${Math.round(days)} days`;
+  if (days < 30) return `${Math.round(days / 7)} weeks`;
+  if (days < 365) return `${Math.round(days / 30)} months`;
+  return `${Math.round(days / 365)} years`;
+};
+
+const determineCommunicationStyle = (
+  userCount,
+  contactCount,
+  userAvgMinutes,
+  contactAvgMinutes
+) => {
+  const responseRatio = userCount / (contactCount || 1);
+  const timeRatio = userAvgMinutes / (contactAvgMinutes || 1);
+
+  if (responseRatio > 2) return "You initiate more conversations";
+  if (responseRatio < 0.5) return "They initiate more conversations";
+  if (timeRatio < 0.5) return "You respond much faster";
+  if (timeRatio > 2) return "They respond much faster";
+  return "Balanced communication pattern";
+};
+
+const calculateTopicDiversity = (topicCounts) => {
+  const values = Object.values(topicCounts);
+  const total = values.reduce((sum, count) => sum + count, 0);
+
+  if (total === 0) return 0;
+
+  let entropy = 0;
+  values.forEach((count) => {
+    if (count > 0) {
+      const probability = count / total;
+      entropy -= probability * Math.log2(probability);
+    }
+  });
+
+  const maxEntropy = Math.log2(values.length);
+  return maxEntropy > 0 ? entropy / maxEntropy : 0;
+};
+
+// Basic functions for fallback when not enough data
+const getBasicMetrics = (relationshipType) => {
+  return {
+    messageCount: 0,
+    sentimentScore: 50,
+    sentimentLabel: "neutral",
+  };
+};
+
+const getBasicInsights = (relationshipType, contactName) => {
+  return [
+    `Your relationship with ${contactName} is ready for analysis.`,
+    "Import more chat history to unlock detailed insights.",
+    "The more conversations you add, the better the analysis becomes.",
+  ];
+};
+
+const getBasicRecommendations = (relationshipType) => {
+  return [
+    "Import your chat history to get personalized recommendations.",
+    "Regular communication helps build stronger relationships.",
+    "Be authentic and consistent in your interactions.",
+  ];
+};
+
+const detectBasicRedFlags = (relationshipType, metrics) => {
+  return []; // Return empty array for basic case
+};
+
+// Enhanced AI Insights Generation
+const generateEnhancedAIInsights = async (
+  relationshipType,
+  contactName,
+  messages,
+  memories,
+  metrics
+) => {
+  try {
+    const normalizedType = normalizeRelationshipType(relationshipType);
+    const messageSample = sampleMessages(messages, 50);
+
+    const messageText = messageSample
+      .map((msg) => {
+        const role = msg.role === "user" ? contactName : "You";
+        return `${role}: ${msg.content}`;
+      })
+      .join("\n");
+
+    const metricsText = JSON.stringify(metrics, null, 2);
+
+    const prompt = `You are an expert relationship analyst with access to advanced communication metrics. Analyze this ${normalizedType} relationship between the user and ${contactName}.
+
+RELATIONSHIP TYPE: ${normalizedType}
+CONTACT: ${contactName}
+
+CONVERSATION SAMPLE:
+${messageText}
+
+CALCULATED METRICS:
+${metricsText}
+
+Based on this comprehensive data, provide:
+1. 5 key insights about this relationship (focus on specific patterns and behaviors)
+2. 3 personalized recommendations for improvement
+3. 2 potential red flags or concerns (if any exist)
+
+Focus on:
+${getEnhancedPromptForType(normalizedType)}
+
+Your response must be in valid JSON format:
+{
+  "insights": ["insight 1", "insight 2", ...],
+  "recommendations": ["recommendation 1", "recommendation 2", "recommendation 3"],
+  "redFlags": ["red flag 1", "red flag 2"] or []
+}`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", // Using GPT-4o for better analysis
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a professional relationship analyst who provides evidence-based insights. Always respond with valid JSON.",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.3,
+      response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0].message.content;
+    const parsedResponse = JSON.parse(content);
+
+    return {
+      insights: parsedResponse.insights || [],
+      recommendations: parsedResponse.recommendations || [],
+      redFlags: parsedResponse.redFlags || [],
+    };
+  } catch (error) {
+    console.error("Error generating enhanced AI insights:", error);
+    return {
+      insights: getBasicInsights(relationshipType, contactName),
+      recommendations: getBasicRecommendations(relationshipType),
+      redFlags: [],
+    };
+  }
+};
+
+const getEnhancedPromptForType = (type) => {
+  const prompts = {
+    romantic:
+      "- Emotional intimacy and vulnerability patterns\n- Conflict resolution effectiveness\n- Attachment security indicators\n- Balance of affection vs practical communication\n- Signs of relationship health or concerning patterns",
+    friendship:
+      "- Communication effort balance and reciprocity\n- Emotional depth vs surface-level interactions\n- Consistency and reliability patterns\n- Support exchange dynamics\n- Signs of friendship drift or strengthening",
+    professional:
+      "- Power dynamics and hierarchical communication\n- Professional boundary maintenance\n- Task efficiency vs relationship building\n- Feedback and recognition patterns\n- Collaboration effectiveness",
+    family:
+      "- Generational communication differences\n- Emotional expression and family roles\n- Tradition vs independence tensions\n- Support and care patterns\n- Family dynamic health indicators",
+    mentor:
+      "- Guidance delivery and reception effectiveness\n- Growth orientation and goal achievement\n- Knowledge transfer success\n- Feedback balance and motivation\n- Mentorship relationship development",
+  };
+
+  return (
+    prompts[type] ||
+    "- Overall communication effectiveness\n- Relationship satisfaction indicators\n- Areas for improvement\n- Potential concerns or red flags"
+  );
+};
+
+// Sample Messages for AI Analysis
 const sampleMessages = (messages, targetCount) => {
   if (messages.length <= targetCount) {
     return messages;
   }
 
-  // Keep first few and last few messages
   const keepCount = Math.floor(targetCount * 0.3);
   const first = messages.slice(0, keepCount);
   const last = messages.slice(-keepCount);
-
-  // Sample from the middle
   const middle = messages.slice(keepCount, -keepCount);
   const middleCount = targetCount - 2 * keepCount;
-
-  // Get evenly spaced indices
   const step = Math.floor(middle.length / middleCount);
   const sampled = [];
 
@@ -2822,7 +3506,6 @@ const sampleMessages = (messages, targetCount) => {
     sampled.push(middle[i * step]);
   }
 
-  // Combine and sort by timestamp
   return [...first, ...sampled, ...last].sort((a, b) => {
     const timeA = a.timestamp || a.createdAt || 0;
     const timeB = b.timestamp || b.createdAt || 0;

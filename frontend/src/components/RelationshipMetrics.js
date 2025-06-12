@@ -1,1250 +1,121 @@
-import React, { useEffect, useRef, useLayoutEffect, useState } from "react";
-import styled, { keyframes } from "styled-components";
-
-// Animations
-const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const slideInLeft = keyframes`
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-`;
-
-const slideInRight = keyframes`
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-`;
-
-// Styled Components
-const MetricsContainer = styled.div`
-  margin-bottom: 2.5rem;
-  animation: ${fadeIn} 0.6s ease-out;
-`;
-
-const MetricsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.25rem;
-  margin-bottom: 1.5rem;
-
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  @media (min-width: 769px) and (max-width: 1024px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  @media (min-width: 1025px) {
-    grid-template-columns: repeat(3, 1fr);
-  }
-`;
-
-const MetricCard = styled.div`
-  padding: 1.25rem;
-  background-color: ${({ darkMode }) => (darkMode ? "#1e1e1e" : "#ffffff")};
-  border-radius: 0.75rem;
-  border: 1px solid
-    ${({ darkMode }) =>
-      darkMode ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.8)"};
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  height: 100%;
-  min-height: 140px;
-  transition: all 0.3s ease;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-
-  &:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.1);
-  }
-
-  @media (max-width: 768px) {
-    padding: 1rem;
-    min-height: 120px;
-  }
-`;
-
-// Add this enhanced MetricCard component to your styled components
-const EnhancedMetricCard = styled.div`
-  padding: 1.25rem;
-  background-color: ${({ darkMode }) => (darkMode ? "#1e1e1e" : "#ffffff")};
-  border-radius: 0.75rem;
-  border: 1px solid
-    ${({ darkMode }) =>
-      darkMode ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.8)"};
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  height: 100%;
-  min-height: 160px; /* Increased for progress bars */
-  transition: all 0.3s ease;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  position: relative;
-
-  &:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.1);
-  }
-
-  &::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 4px;
-    background: ${(props) => props.accentColor || "#6366f1"};
-  }
-
-  .progress-container {
-    width: 100%;
-    margin-top: 0.75rem;
-  }
-
-  .progress-bar {
-    width: 100%;
-    height: 4px;
-    background-color: ${({ darkMode }) => (darkMode ? "#374151" : "#e5e7eb")};
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: linear-gradient(
-      90deg,
-      ${(props) => props.accentColor || "#6366f1"},
-      ${(props) => props.accentColor || "#8b5cf6"}
-    );
-    transition: width 1s ease-out;
-    border-radius: 2px;
-  }
-
-  .progress-text {
-    font-size: 0.75rem;
-    color: ${({ darkMode }) => (darkMode ? "#9ca3af" : "#6b7280")};
-    margin-top: 0.375rem;
-    text-align: center;
-  }
-
-  @media (max-width: 768px) {
-    padding: 1rem;
-    min-height: 140px;
-  }
-`;
-
-const MetricLabel = styled.div`
-  font-size: 0.875rem;
-  color: ${({ darkMode }) => (darkMode ? "#9ca3af" : "#6b7280")};
-  margin-bottom: 0.25rem;
-  font-weight: 500;
-`;
-
-const MetricValue = styled.div`
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: ${({ darkMode }) => (darkMode ? "#fff" : "#111827")};
-  display: flex;
-  align-items: center;
-  word-break: break-word;
-  hyphens: auto;
-  line-height: 1.3;
-
-  @media (min-width: 768px) {
-    font-size: 1.5rem;
-  }
-
-  @media (min-width: 1024px) {
-    font-size: 1.75rem;
-  }
-`;
-
-const MetricFooter = styled.div`
-  font-size: 0.75rem;
-  color: ${({ darkMode }) => (darkMode ? "#6b7280" : "#9ca3af")};
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-`;
-
-const TopicsContainer = styled.div`
-  margin-bottom: 2.5rem;
-  background-color: ${({ darkMode }) => (darkMode ? "#1e1e1e" : "#ffffff")};
-  padding: 1.5rem;
-  border-radius: 0.75rem;
-  border: 1px solid
-    ${({ darkMode }) =>
-      darkMode ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.8)"};
-  animation: ${fadeIn} 0.7s ease-out;
-`;
-
-const SectionTitle = styled.h4`
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin-bottom: 1.25rem;
-  color: ${({ darkMode }) => (darkMode ? "#fff" : "#111827")};
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-shrink: 0;
-
-  @media (max-width: 768px) {
-    font-size: 1rem;
-    margin-bottom: 1rem;
-  }
-`;
-
-const IconBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 50%;
-  background-color: ${(props) => props.bgColor || "rgba(99, 102, 241, 0.2)"};
-  color: ${(props) => props.color || "#818cf8"};
-`;
-
-const TopicsGrid = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
-`;
-
-const TopicTag = styled.div`
-  padding: 0.5rem 1rem;
-  background-color: ${({ darkMode }) =>
-    darkMode ? "rgba(31, 41, 55, 0.5)" : "rgba(243, 244, 246, 0.8)"};
-  border-radius: 9999px;
-  font-size: 0.875rem;
-  color: ${({ darkMode }) => (darkMode ? "#e5e7eb" : "#4b5563")};
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  border: 1px solid
-    ${({ darkMode }) =>
-      darkMode ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.8)"};
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease;
-
-  &:hover {
-    transform: scale(1.05);
-  }
-`;
-
-const PercentBadge = styled.span`
-  background-color: ${({ darkMode }) =>
-    darkMode ? "rgba(55, 65, 81, 0.7)" : "rgba(209, 213, 219, 0.8)"};
-  border-radius: 9999px;
-  padding: 0.125rem 0.5rem;
-  font-size: 0.75rem;
-  color: ${({ darkMode }) => (darkMode ? "#d1d5db" : "#4b5563")};
-`;
-
-const InsightsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.25rem;
-  width: 100%;
-
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-    display: flex;
-    flex-direction: column;
-  }
-`;
-
-const InsightsCard = styled.div`
-  background-color: ${({ darkMode }) => (darkMode ? "#1e1e1e" : "#ffffff")};
-  padding: 1.5rem;
-  border-radius: 0.75rem;
-  border: 1px solid
-    ${({ darkMode }) =>
-      darkMode ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.8)"};
-  animation: ${slideInLeft} 0.5s ease-out;
-  transition: all 0.3s ease;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-
-  &:hover {
-    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
-  }
-
-  @media (max-width: 768px) {
-    padding: 1.25rem;
-    height: auto !important;
-    min-height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-  }
-`;
-
-const RecommendationsCard = styled.div`
-  background-color: ${({ darkMode }) => (darkMode ? "#1e1e1e" : "#ffffff")};
-  padding: 1.5rem;
-  border-radius: 0.75rem;
-  border: 1px solid
-    ${({ darkMode }) =>
-      darkMode ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.8)"};
-  animation: ${slideInRight} 0.5s ease-out;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-
-  &:hover {
-    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
-  }
-
-  /* Desktop styles */
-  @media (min-width: 769px) {
-    transition: all 0.3s ease;
-  }
-
-  /* Mobile styles - completely disable constraints */
-  @media (max-width: 768px) {
-    padding: 1.25rem !important;
-    height: auto !important;
-    min-height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    position: relative !important;
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: flex-start !important;
-    align-items: stretch !important;
-    flex: none !important;
-    transition: none !important;
-
-    /* Force expansion class when applied */
-    &.mobile-expanded {
-      height: auto !important;
-      min-height: auto !important;
-      max-height: none !important;
-      overflow: visible !important;
-    }
-  }
-`;
-
-const ListContainer = styled.ul`
-  padding-left: 1.25rem;
-  margin-bottom: 0.5rem;
-  color: ${({ darkMode }) => (darkMode ? "#d1d5db" : "#4b5563")};
-  list-style-type: disc;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  flex-grow: 1;
-
-  @media (max-width: 768px) {
-    padding-left: 1rem !important;
-    margin-bottom: 0 !important;
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    min-height: fit-content !important;
-    display: block !important;
-    width: 100% !important;
-    padding-right: 0.5rem !important;
-    line-height: 1.6 !important;
-    flex: none !important;
-    position: relative !important;
-
-    /* Force expansion class when applied */
-    &.mobile-expanded {
-      height: auto !important;
-      max-height: none !important;
-      overflow: visible !important;
-      min-height: fit-content !important;
-    }
-  }
-`;
-
-const ListItem = styled.li`
-  margin-bottom: 0.75rem;
-  font-size: 0.9375rem;
-  line-height: 1.6;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  white-space: normal;
-  display: block;
-  width: 100%;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-
-  @media (max-width: 768px) {
-    font-size: 0.875rem !important;
-    margin-bottom: 1rem !important;
-    line-height: 1.7 !important;
-    white-space: normal !important;
-    word-break: break-word !important;
-    hyphens: auto !important;
-    padding-right: 0.25rem !important;
-    min-height: auto !important;
-    display: block !important;
-
-    &:last-child {
-      margin-bottom: 0.5rem !important;
-    }
-  }
-`;
-
-const LastUpdated = styled.div`
-  margin-top: 1.5rem;
-  text-align: right;
-  font-size: 0.75rem;
-  color: #6b7280;
-  font-style: italic;
-`;
+// src/components/RelationshipMetrics.js - UPDATED TO MATCH EXACT DESIGN
+import React from "react";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
 const RelationshipMetrics = ({
   analysis,
   darkMode,
-  relationshipColor,
   relationshipType,
+  contactName,
 }) => {
-  const recommendationsSectionRef = useRef(null);
-  const recommendationsListRef = useRef(null);
-  const [isMobile, setIsMobile] = useState(false);
-  const [forceExpansion, setForceExpansion] = useState(false);
+  console.log("Analysis data received:", analysis); // Debug log
 
-  // Add this function at the top of your RelationshipMetrics component
-  const getMetricDisplayData = (
-    metricType,
-    rawValue,
-    relationshipType,
-    conversationCount = 0
-  ) => {
-    const hasImportedData = conversationCount > 0;
+  // Helper function to safely get metric values
+  const getMetricValue = (path, fallback = "Analyzing...") => {
+    const keys = path.split(".");
+    let value = analysis;
 
-    // Enhanced N/A detection - check for various N/A formats
-    const isNAValue = (value) => {
-      if (value === null || value === undefined) return true;
-      if (value === "N/A") return true;
-      if (typeof value === "string") {
-        const normalizedValue = value.trim().toLowerCase();
-        // Check for formatted N/A values like "You: N/A | Them: N/A"
-        if (normalizedValue.includes("n/a")) return true;
-        if (normalizedValue.includes("unknown")) return true;
-        if (normalizedValue.includes("not available")) return true;
-        if (normalizedValue.includes("not enough data")) return true;
-        if (normalizedValue === "") return true;
-        // Check for placeholder texts that indicate no data
-        if (
-          normalizedValue.includes("building") &&
-          normalizedValue.includes("profile")
-        )
-          return true;
-        if (
-          normalizedValue.includes("waiting for") &&
-          normalizedValue.includes("data")
-        )
-          return true;
+    for (const key of keys) {
+      if (value && typeof value === "object" && key in value) {
+        value = value[key];
+      } else {
+        return fallback;
       }
-      return false;
-    };
-
-    // Always use contextual messages when there's no valid data OR no imported data
-    if (isNAValue(rawValue) || !hasImportedData) {
-      return getContextualMessage(
-        metricType,
-        relationshipType,
-        hasImportedData,
-        conversationCount
-      );
     }
 
-    // If we have a valid value and imported data, return it
-    return {
-      display: rawValue,
-      subtitle: getMetricSubtitle(metricType, relationshipType),
-      color: "#14b8a6",
-      showProgress: false,
-    };
+    return value || fallback;
   };
 
-  const getMetricSubtitle = (metricType, relationshipType) => {
-    const subtitles = {
-      // Romantic relationship subtitles
-      emotionalHealthScore: "Overall relationship satisfaction indicator",
-      conflictFrequency: "How often disagreements occur",
-      attachmentStyle: "Based on communication patterns",
-      affectionLogisticsRatio: "Balance between emotional and practical talks",
-      intimacyLevel: "Depth of emotional connection",
-      conflictResolutionPattern: "How conflicts are typically resolved",
-
-      // Friendship subtitles
-      initiationBalance: "Who typically starts conversations",
-      humorDepthRatio: "Light conversations vs serious topics",
-      vulnerabilityIndex: "Level of personal sharing",
-      longestGap: "Longest period without contact",
-      topicDiversity: "Variety in conversation subjects",
-      engagementConsistency: "Consistency of communication",
-
-      // Professional subtitles
-      professionalTone: "Level of formality in communication",
-      powerDynamic: "Leadership patterns in conversations",
-      responseTime: "Average time to respond to messages",
-      taskSocialRatio: "Work-focused vs relationship-building",
-      clarityIndex: "Clearness of communication",
-      boundaryMaintenance: "Professional vs personal boundary",
-
-      // Family subtitles
-      familyPattern: "Primary interaction style",
-      emotionalWarmth: "Level of affection expressed",
-      familyRole: "Your primary role in the family",
-      interactionFrequency: "How often you communicate",
-      generationGap: "Generational differences detected",
-      traditionAutonomyBalance: "Balance of values expressed",
-
-      // Mentor subtitles
-      guidanceStyle: "Direction vs collaborative approach",
-      feedbackBalance: "Encouragement vs constructive criticism",
-      growthFocus: "Primary development area",
-      followThrough: "Completion of commitments",
-      knowledgeTransfer: "Teaching effectiveness",
-      goalSetting: "Structure of objectives",
-    };
-
-    return subtitles[metricType] || "Analyzing relationship patterns";
-  };
-
-  const getContextualMessage = (
-    metricType,
-    relationshipType,
-    hasImportedData,
-    conversationCount
+  // Helper function to render progress bars with exact values
+  const renderProgressBar = (
+    value,
+    color = "#6366f1",
+    label = "",
+    showExactValue = false
   ) => {
-    const type = relationshipType?.toLowerCase() || "";
+    let percentage;
+    let displayValue;
 
-    // Base messages for insufficient data
-    const baseMessages = {
-      // Professional relationship messages
-      professionalTone: {
-        display: hasImportedData
-          ? "Analyzing formality level"
-          : "How formal is your communication?",
-        subtitle: "Import work conversations to measure tone",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 25 : 10,
-      },
-      powerDynamic: {
-        display: hasImportedData
-          ? "Studying leadership patterns"
-          : "Who leads your conversations?",
-        subtitle: "Analyzing directional communication patterns",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 35 : 10,
-      },
-      responseTime: {
-        display: hasImportedData
-          ? "Calculating response patterns"
-          : "How quickly do you both respond?",
-        subtitle: "Import timestamps needed for response analysis",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 20 : 10,
-      },
-      taskSocialRatio: {
-        display: hasImportedData
-          ? "Measuring work vs personal balance"
-          : "Business or relationship building?",
-        subtitle: "Categorizing professional conversation topics",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 30 : 10,
-      },
-      clarityIndex: {
-        display: hasImportedData
-          ? "Assessing communication clarity"
-          : "How clear is your communication?",
-        subtitle: "Analyzing message comprehension patterns",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 40 : 10,
-      },
-      boundaryMaintenance: {
-        display: hasImportedData
-          ? "Evaluating professional boundaries"
-          : "Professional or personal conversations?",
-        subtitle: "Measuring boundary maintenance patterns",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 35 : 10,
-      },
-
-      // Romantic relationship messages
-      emotionalHealthScore: {
-        display: hasImportedData
-          ? "Building emotional profile"
-          : "Ready to analyze your connection",
-        subtitle:
-          "Import your chat history to see relationship health insights",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 30 : 10,
-      },
-      conflictFrequency: {
-        display: hasImportedData
-          ? "Learning conflict patterns"
-          : "How often do you disagree?",
-        subtitle: "Need more conversations to detect disagreement patterns",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 25 : 10,
-      },
-      attachmentStyle: {
-        display: hasImportedData
-          ? "Analyzing communication style"
-          : "What's your attachment style?",
-        subtitle: "Import chats to discover attachment patterns",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 35 : 10,
-      },
-      affectionLogisticsRatio: {
-        display: hasImportedData
-          ? "Measuring conversation balance"
-          : "Romance vs daily logistics?",
-        subtitle: "Import more messages to see this balance",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 30 : 10,
-      },
-      intimacyLevel: {
-        display: hasImportedData
-          ? "Assessing emotional depth"
-          : "How intimate are your conversations?",
-        subtitle: "Analyzing intimacy requires more conversation history",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 40 : 10,
-      },
-      conflictResolutionPattern: {
-        display: hasImportedData
-          ? "Studying resolution methods"
-          : "How do you resolve disagreements?",
-        subtitle: "Patterns emerge after analyzing conflicts",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 25 : 10,
-      },
-
-      // Friendship messages
-      initiationBalance: {
-        display: hasImportedData
-          ? "Tracking conversation starters"
-          : "Who initiates your conversations?",
-        subtitle: "Import chat history to see initiation patterns",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 35 : 10,
-      },
-      humorDepthRatio: {
-        display: hasImportedData
-          ? "Measuring conversation depth"
-          : "Fun conversations or deep talks?",
-        subtitle: "Discovering balance between fun and serious topics",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 30 : 10,
-      },
-      vulnerabilityIndex: {
-        display: hasImportedData
-          ? "Assessing openness level"
-          : "How open are your conversations?",
-        subtitle: "Personal sharing patterns need more data",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 40 : 10,
-      },
-      longestGap: {
-        display: hasImportedData
-          ? "Calculating communication gaps"
-          : "What's your longest silence?",
-        subtitle: "Analyzing conversation timeline patterns",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 20 : 10,
-      },
-      topicDiversity: {
-        display: hasImportedData
-          ? "Measuring topic variety"
-          : "What do you talk about most?",
-        subtitle: "Need more conversations to measure diversity",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 35 : 10,
-      },
-      engagementConsistency: {
-        display: hasImportedData
-          ? "Tracking communication patterns"
-          : "How consistent is your friendship?",
-        subtitle: "Building consistency profile from chat history",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 30 : 10,
-      },
-
-      // Family messages
-      familyPattern: {
-        display: hasImportedData
-          ? "Learning family dynamics"
-          : "What's your family communication style?",
-        subtitle: "Analyzing primary interaction patterns",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 30 : 10,
-      },
-      emotionalWarmth: {
-        display: hasImportedData
-          ? "Measuring affection levels"
-          : "How affectionate is your family?",
-        subtitle: "Analyzing emotional expression patterns",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 35 : 10,
-      },
-      familyRole: {
-        display: hasImportedData
-          ? "Identifying your family role"
-          : "What role do you play in the family?",
-        subtitle: "Discovering your primary family position",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 40 : 10,
-      },
-      interactionFrequency: {
-        display: hasImportedData
-          ? "Tracking communication frequency"
-          : "How often do you stay in touch?",
-        subtitle: "Building family contact pattern profile",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 25 : 10,
-      },
-      generationGap: {
-        display: hasImportedData
-          ? "Detecting generational differences"
-          : "Any generational communication gaps?",
-        subtitle: "Analyzing age-related communication patterns",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 45 : 10,
-      },
-      traditionAutonomyBalance: {
-        display: hasImportedData
-          ? "Measuring values balance"
-          : "Traditional or modern family values?",
-        subtitle: "Analyzing expressed values in conversations",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 50 : 10,
-      },
-
-      // Mentor messages
-      guidanceStyle: {
-        display: hasImportedData
-          ? "Analyzing guidance approach"
-          : "Directive or collaborative mentoring?",
-        subtitle: "Understanding mentorship communication style",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 40 : 10,
-      },
-      feedbackBalance: {
-        display: hasImportedData
-          ? "Measuring feedback patterns"
-          : "Encouragement vs constructive criticism?",
-        subtitle: "Analyzing feedback delivery style",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 35 : 10,
-      },
-      growthFocus: {
-        display: hasImportedData
-          ? "Identifying development areas"
-          : "What growth areas are discussed?",
-        subtitle: "Discovering primary development focus",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 45 : 10,
-      },
-      followThrough: {
-        display: hasImportedData
-          ? "Tracking commitment completion"
-          : "How well are commitments kept?",
-        subtitle: "Analyzing follow-through patterns",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 30 : 10,
-      },
-      knowledgeTransfer: {
-        display: hasImportedData
-          ? "Assessing teaching effectiveness"
-          : "How effective is knowledge sharing?",
-        subtitle: "Measuring learning and teaching patterns",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 50 : 10,
-      },
-      goalSetting: {
-        display: hasImportedData
-          ? "Analyzing goal structure"
-          : "How are objectives set and tracked?",
-        subtitle: "Understanding goal-setting approach",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 40 : 10,
-      },
-
-      // General metrics
-      messageCount: {
-        display: hasImportedData
-          ? `${conversationCount} conversations analyzed`
-          : "Ready to count your messages",
-        subtitle: "Import chat history to see total message count",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 50 : 10,
-      },
-      sentimentLabel: {
-        display: hasImportedData
-          ? "Analyzing emotional tone"
-          : "What's your conversation mood?",
-        subtitle: "Sentiment analysis requires message history",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 40 : 10,
-      },
-      averageResponseTime: {
-        display: hasImportedData
-          ? "Calculating response speed"
-          : "How quickly do you both respond?",
-        subtitle: "Response time analysis needs timestamps",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 30 : 10,
-      },
-    };
-
-    // Return the appropriate message or a default
-    return (
-      baseMessages[metricType] || {
-        display: hasImportedData
-          ? "Building relationship insights"
-          : "Ready to analyze your connection",
-        subtitle: "Import chat history to unlock this insight",
-        color: "#6b7280",
-        showProgress: true,
-        progressValue: hasImportedData ? 30 : 10,
-      }
-    );
-  };
-
-  // Add this function to your RelationshipMetrics component
-  const renderEnhancedMetric = (
-    metricType,
-    rawValue,
-    label,
-    accentColor,
-    relationshipType,
-    conversationCount
-  ) => {
-    // Always use getMetricDisplayData to determine what to display
-    const displayData = getMetricDisplayData(
-      metricType,
-      rawValue,
-      relationshipType,
-      conversationCount
-    );
-
-    return (
-      <EnhancedMetricCard
-        darkMode={darkMode}
-        accentColor={displayData.color}
-        key={metricType}
-      >
-        <div style={{ width: "100%" }}>
-          <MetricLabel darkMode={darkMode}>{label}</MetricLabel>
-          <MetricValue darkMode={darkMode} style={{ color: displayData.color }}>
-            {displayData.display}
-          </MetricValue>
-        </div>
-
-        <MetricFooter darkMode={darkMode}>
-          <span>{displayData.subtitle}</span>
-        </MetricFooter>
-
-        {displayData.showProgress && (
-          <div className="progress-container">
-            <div className="progress-bar">
-              <div
-                className="progress-fill"
-                style={{
-                  width: `${displayData.progressValue}%`,
-                  background: `linear-gradient(90deg, ${displayData.color}, ${displayData.color}80)`,
-                }}
-              />
-            </div>
-            <div className="progress-text">
-              {displayData.progressValue < 30
-                ? "Import chat history to unlock"
-                : "Building insights..."}
-            </div>
-          </div>
-        )}
-      </EnhancedMetricCard>
-    );
-  };
-
-  const hasValidAnalysisData = (analysis, conversationCount) => {
-    // Check if we have actual imported conversations
-    if (!conversationCount || conversationCount === 0) {
-      return false;
+    if (typeof value === "number") {
+      percentage = Math.min(100, Math.max(0, value));
+      displayValue = showExactValue ? `${value}` : `${percentage}%`;
+    } else if (typeof value === "string" && value.includes("%")) {
+      percentage = parseInt(value.replace("%", ""));
+      displayValue = value;
+    } else {
+      percentage = 50;
+      displayValue = "50%";
     }
 
-    // Check if insights are meaningful (not just placeholder text)
-    const hasValidInsights =
-      analysis.insights &&
-      analysis.insights.length > 0 &&
-      !analysis.insights.some(
-        (insight) =>
-          insight.toLowerCase().includes("import more") ||
-          insight.toLowerCase().includes("need more data") ||
-          insight.toLowerCase().includes("analyze more conversations")
-      );
-
-    // Check if recommendations are meaningful
-    const hasValidRecommendations =
-      analysis.recommendations &&
-      analysis.recommendations.length > 0 &&
-      !analysis.recommendations.some(
-        (rec) =>
-          rec.toLowerCase().includes("import more") ||
-          rec.toLowerCase().includes("need more data") ||
-          rec.toLowerCase().includes("add more conversations")
-      );
-
-    return hasValidInsights || hasValidRecommendations;
-  };
-
-  // Empty state component for insights/recommendations
-  const InsightsEmptyState = ({ darkMode, relationshipType, contactName }) => {
-    const getRelationshipSpecificMessage = (type) => {
-      switch (type?.toLowerCase()) {
-        case "romantic":
-        case "partner":
-          return {
-            title: "Relationship Insights Coming Soon",
-            description: `Import your chat history with ${contactName} to discover emotional patterns, conflict resolution styles, and intimacy insights.`,
-            icon: "💕",
-          };
-        case "friendship":
-        case "friend":
-          return {
-            title: "Friendship Insights Awaiting",
-            description: `Upload conversations with ${contactName} to analyze humor patterns, vulnerability levels, and friendship consistency.`,
-            icon: "👫",
-          };
-        case "professional":
-        case "colleague":
-          return {
-            title: "Professional Insights Pending",
-            description: `Import work conversations with ${contactName} to analyze communication styles, power dynamics, and collaboration patterns.`,
-            icon: "💼",
-          };
-        case "family":
-          return {
-            title: "Family Dynamics Analysis Ready",
-            description: `Upload family chats with ${contactName} to discover interaction patterns, emotional warmth, and generational communication styles.`,
-            icon: "👨‍👩‍👧‍👦",
-          };
-        case "mentor":
-        case "mentee":
-          return {
-            title: "Mentorship Insights Waiting",
-            description: `Import conversations with ${contactName} to analyze guidance styles, feedback patterns, and knowledge transfer effectiveness.`,
-            icon: "🎯",
-          };
-        default:
-          return {
-            title: "Relationship Insights Coming Soon",
-            description: `Import your conversation history with ${contactName} to unlock personalized relationship insights and recommendations.`,
-            icon: "🔍",
-          };
-      }
-    };
-
-    const message = getRelationshipSpecificMessage(relationshipType);
-
     return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "3rem 1.5rem",
-          textAlign: "center",
-          backgroundColor: darkMode ? "#1a1a1a" : "#f8fafc",
-          border: `2px dashed ${darkMode ? "#374151" : "#e2e8f0"}`,
-          borderRadius: "12px",
-          margin: "1.5rem 0",
-        }}
-      >
-        <div
-          style={{
-            fontSize: "3rem",
-            marginBottom: "1rem",
-          }}
-        >
-          {message.icon}
+      <div className="progress-section">
+        <div className="progress-label">
+          <span>{label}</span>
+          <span className="progress-value">{displayValue}</span>
         </div>
-
-        <h3
-          style={{
-            fontSize: "1.25rem",
-            fontWeight: "600",
-            color: darkMode ? "#ffffff" : "#1f2937",
-            marginBottom: "0.75rem",
-            margin: 0,
-          }}
-        >
-          {message.title}
-        </h3>
-
-        <p
-          style={{
-            fontSize: "0.875rem",
-            color: darkMode ? "#9ca3af" : "#6b7280",
-            lineHeight: "1.6",
-            maxWidth: "400px",
-            margin: "0.75rem 0 1.5rem 0",
-          }}
-        >
-          {message.description}
-        </p>
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            fontSize: "0.75rem",
-            color: darkMode ? "#6b7280" : "#9ca3af",
-            fontStyle: "italic",
-          }}
-        >
-          <span>💡</span>
-          <span>
-            The more conversations you import, the better the insights
-          </span>
+        <div className="progress-bar">
+          <div
+            className="progress-fill"
+            style={{ width: `${percentage}%`, background: color }}
+          ></div>
         </div>
       </div>
     );
   };
 
-  // Updated JSX section for insights and recommendations
-  const renderInsightsAndRecommendations = () => {
-    const conversationCount = analysis.conversationCount || 0;
-    const hasValidData = hasValidAnalysisData(analysis, conversationCount);
-
-    // If no valid analysis data, show empty state
-    if (!hasValidData) {
-      return (
-        <InsightsEmptyState
-          darkMode={darkMode}
-          relationshipType={relationshipType}
-          contactName={analysis.contactName || "this contact"}
-        />
-      );
+  // Helper function to render pie charts
+  const renderPieChart = (data, height = 200) => {
+    if (!data || !Array.isArray(data)) {
+      // Fallback data
+      data = [
+        { name: "Data 1", value: 50, color: "#6366f1" },
+        { name: "Data 2", value: 50, color: "#8b5cf6" },
+      ];
     }
 
-    // Otherwise, show actual insights and recommendations
     return (
-      <InsightsGrid>
-        {/* Insights */}
-        {analysis.insights && analysis.insights.length > 0 && (
-          <InsightsCard darkMode={darkMode}>
-            <SectionTitle darkMode={darkMode}>
-              <IconBadge bgColor="rgba(16, 185, 129, 0.2)" color="#34d399">
-                ✓
-              </IconBadge>
-              Key Insights
-            </SectionTitle>
-            <ListContainer darkMode={darkMode}>
-              {analysis.insights?.map((insight, index) => (
-                <ListItem key={index}>{insight}</ListItem>
-              ))}
-            </ListContainer>
-          </InsightsCard>
-        )}
-
-        {/* Recommendations */}
-        {analysis.recommendations && analysis.recommendations.length > 0 && (
-          <RecommendationsCard
-            darkMode={darkMode}
-            ref={recommendationsSectionRef}
-            className={isMobile ? "mobile-expanded" : ""}
+      <ResponsiveContainer width="100%" height={height}>
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            innerRadius={height === 200 ? 60 : 40}
+            outerRadius={height === 200 ? 100 : 70}
+            dataKey="value"
           >
-            <SectionTitle darkMode={darkMode}>
-              <IconBadge bgColor="rgba(245, 158, 11, 0.2)" color="#fbbf24">
-                !
-              </IconBadge>
-              Recommendations
-            </SectionTitle>
-            <ListContainer
-              darkMode={darkMode}
-              ref={recommendationsListRef}
-              className={isMobile ? "mobile-expanded" : ""}
-            >
-              {analysis.recommendations?.map((recommendation, index) => (
-                <ListItem key={index}>{recommendation}</ListItem>
-              ))}
-            </ListContainer>
-          </RecommendationsCard>
-        )}
-      </InsightsGrid>
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Pie>
+        </PieChart>
+      </ResponsiveContainer>
     );
   };
 
-  // Check if mobile on mount and resize
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
+  // Helper function to render chart legend
+  const renderLegend = (data) => {
+    if (!data || !Array.isArray(data)) return null;
 
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
-  // Force expansion on mobile using useLayoutEffect for synchronous execution
-  useLayoutEffect(() => {
-    if (isMobile && analysis.recommendations?.length > 0) {
-      setForceExpansion(true);
-
-      // Apply mobile expansion classes and styles
-      const applyMobileExpansion = () => {
-        if (recommendationsSectionRef.current) {
-          const section = recommendationsSectionRef.current;
-          section.classList.add("mobile-expanded");
-
-          // Apply aggressive inline styles
-          Object.assign(section.style, {
-            height: "auto",
-            minHeight: "auto",
-            maxHeight: "none",
-            overflow: "visible",
-            display: "flex",
-            flexDirection: "column",
-            transition: "none",
-          });
-        }
-
-        if (recommendationsListRef.current) {
-          const list = recommendationsListRef.current;
-          list.classList.add("mobile-expanded");
-
-          Object.assign(list.style, {
-            height: "auto",
-            minHeight: "fit-content",
-            maxHeight: "none",
-            overflow: "visible",
-            display: "block",
-            width: "100%",
-            flex: "none",
-          });
-        }
-      };
-
-      // Apply immediately and after a small delay to handle race conditions
-      applyMobileExpansion();
-      setTimeout(applyMobileExpansion, 50);
-      setTimeout(applyMobileExpansion, 200);
-    }
-  }, [isMobile, analysis.recommendations, forceExpansion]);
-
-  // Additional effect to handle component updates
-  useEffect(() => {
-    if (isMobile && analysis.recommendations?.length > 0) {
-      const interval = setInterval(() => {
-        if (
-          recommendationsSectionRef.current &&
-          recommendationsListRef.current
-        ) {
-          const section = recommendationsSectionRef.current;
-          const list = recommendationsListRef.current;
-
-          // Check if elements are properly expanded
-          const sectionHeight = section.offsetHeight;
-          const listHeight = list.scrollHeight;
-
-          if (sectionHeight < listHeight || list.style.maxHeight !== "none") {
-            // Force re-expansion
-            Object.assign(section.style, {
-              height: "auto",
-              minHeight: "auto",
-              maxHeight: "none",
-              overflow: "visible",
-            });
-
-            Object.assign(list.style, {
-              height: "auto",
-              maxHeight: "none",
-              overflow: "visible",
-            });
-          }
-        }
-      }, 1000);
-
-      // Clear interval after 10 seconds
-      setTimeout(() => clearInterval(interval), 10000);
-
-      return () => clearInterval(interval);
-    }
-  }, [isMobile, analysis.recommendations]);
+    return (
+      <div className="chart-legend">
+        {data.map((item, index) => (
+          <div key={index} className="legend-item">
+            <div
+              className="legend-color"
+              style={{ backgroundColor: item.color }}
+            ></div>
+            <span>
+              {item.name}: {item.value}%
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   // Function to determine which metrics to display based on relationship type
   const renderTypeSpecificMetrics = () => {
-    console.log("analysis", analysis);
-    console.log("relationshipType", relationshipType);
-
     const type = relationshipType?.toLowerCase() || "";
 
     if (type.includes("romantic") || type.includes("partner")) {
@@ -1267,398 +138,886 @@ const RelationshipMetrics = ({
   };
 
   // Render metrics for Romantic relationships
-  // Update your renderRomanticMetrics function
   const renderRomanticMetrics = () => {
-    const conversationCount = analysis.conversationCount || 0;
+    const emotionalHealthScore = getMetricValue(
+      "metrics.emotionalHealthScore",
+      0
+    );
+    const affectionLogisticsData = getMetricValue(
+      "metrics.affectionLogisticsData",
+      null
+    );
+    const conflictDaysAverage = getMetricValue(
+      "metrics.conflictDaysAverage",
+      "N/A"
+    );
+    const lastIntimateConversation = getMetricValue(
+      "metrics.lastIntimateConversation",
+      "Never detected"
+    );
+    const attachmentStyle = getMetricValue(
+      "metrics.attachmentStyle",
+      "Unknown"
+    );
+    const conflictResolutionRate = getMetricValue(
+      "metrics.conflictResolutionRate",
+      0
+    );
 
     return (
-      <MetricsGrid>
-        {renderEnhancedMetric(
-          "emotionalHealthScore",
-          analysis.metrics?.emotionalHealthScore,
-          "Emotional Health",
-          "#fb7185",
-          "romantic",
-          conversationCount
-        )}
+      <div className="metrics-container">
+        {/* Emotional Health Score */}
+        <div className="metric-card full-width">
+          <div className="metric-header">
+            <span className="metric-icon">😊</span>
+            <h3>Emotional Health Score</h3>
+          </div>
+          <div className="metric-content">
+            <div className="health-score">
+              <span className="health-percentage">{emotionalHealthScore}%</span>
+              <span className="health-label">
+                {getMetricValue(
+                  "metrics.emotionalHealthLabel",
+                  "Analyzing relationship health"
+                )}
+              </span>
+            </div>
+            {renderProgressBar(
+              emotionalHealthScore,
+              emotionalHealthScore > 70
+                ? "#10b981"
+                : emotionalHealthScore > 50
+                ? "#f59e0b"
+                : "#ef4444",
+              "",
+              false
+            )}
+          </div>
+        </div>
 
-        {renderEnhancedMetric(
-          "conflictFrequency",
-          analysis.metrics?.conflictFrequency,
-          "Conflict Frequency",
-          "#f472b6",
-          "romantic",
-          conversationCount
-        )}
+        <div className="metrics-row">
+          {/* Conflict frequency & escalation patterns */}
+          <div className="metric-card">
+            <h3>Conflict frequency & escalation patterns</h3>
+            <div className="conflict-info">
+              <div className="conflict-frequency">
+                <span>Arguments occur every</span>
+                <div className="frequency-highlight">
+                  {conflictDaysAverage !== "N/A"
+                    ? `${conflictDaysAverage} day`
+                    : "Unknown frequency"}
+                </div>
+              </div>
+              <div className="conflict-detail">
+                •{" "}
+                {getMetricValue(
+                  "metrics.conflictResolutionPattern",
+                  "Learning resolution patterns"
+                )}
+              </div>
+              <div className="conflict-repair">
+                <strong>Conflict repair attempts</strong>
+                <div>
+                  • Apologies occur after {conflictResolutionRate}% of
+                  disagreements
+                </div>
+              </div>
+            </div>
+          </div>
 
-        {renderEnhancedMetric(
-          "attachmentStyle",
-          analysis.metrics?.attachmentStyle,
-          "Attachment Style",
-          "#e879f9",
-          "romantic",
-          conversationCount
-        )}
+          {/* Affection vs. logistical conversation ratios */}
+          <div className="metric-card">
+            <h3>Affection vs. logistical conversation ratios</h3>
+            <div className="chart-container">
+              {renderPieChart(affectionLogisticsData)}
+              {renderLegend(affectionLogisticsData)}
+            </div>
+          </div>
+        </div>
 
-        {renderEnhancedMetric(
-          "affectionLogisticsRatio",
-          analysis.metrics?.affectionLogisticsRatio,
-          "Affection/Logistics",
-          "#c084fc",
-          "romantic",
-          conversationCount
-        )}
+        <div className="metrics-row">
+          {/* Intimacy sentiment detection */}
+          <div className="metric-card">
+            <h3>Intimacy sentiment detection</h3>
+            <div className="intimacy-info">
+              <div className="intimacy-text">
+                Emotional vulnerability was last expressed{" "}
+                {lastIntimateConversation}
+              </div>
+            </div>
+          </div>
 
-        {renderEnhancedMetric(
-          "intimacyLevel",
-          analysis.metrics?.intimacyLevel,
-          "Intimacy Level",
-          "#a78bfa",
-          "romantic",
-          conversationCount
-        )}
-
-        {renderEnhancedMetric(
-          "conflictResolutionPattern",
-          analysis.metrics?.conflictResolutionPattern,
-          "Conflict Resolution",
-          "#818cf8",
-          "romantic",
-          conversationCount
-        )}
-      </MetricsGrid>
+          {/* Attachment indicators */}
+          <div className="metric-card">
+            <h3>Attachment indicators</h3>
+            <div className="attachment-info">
+              <div className="attachment-text">
+                Signs of {attachmentStyle.toLowerCase()} attachment:{" "}
+                {attachmentStyle === "Anxious"
+                  ? "frequent reassurance seeking"
+                  : attachmentStyle === "Avoidant"
+                  ? "emotional distance patterns"
+                  : attachmentStyle === "Secure"
+                  ? "healthy communication patterns"
+                  : "mixed attachment patterns"}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   };
 
   // Render metrics for Friendship relationships
   const renderFriendshipMetrics = () => {
-    const conversationCount = analysis.conversationCount || 0;
+    const initiationBalance = getMetricValue(
+      "metrics.initiationBalance",
+      "Analyzing conversation patterns"
+    );
+    const humorDepthData = getMetricValue("metrics.humorDepthData", null);
+    const vulnerabilityIndex = getMetricValue(
+      "metrics.vulnerabilityIndex",
+      "Unknown"
+    );
+    const longestGapDays = getMetricValue("metrics.longestGapDays", 0);
+    const topTopics = getMetricValue("metrics.topTopics", []);
 
     return (
-      <MetricsGrid>
-        {renderEnhancedMetric(
-          "initiationBalance",
-          analysis.metrics?.initiationBalance,
-          "Initiation Balance",
-          "#3b82f6",
-          "friendship",
-          conversationCount
-        )}
+      <div className="metrics-container">
+        {/* Initiation imbalance and effort tracking */}
+        <div className="metric-card full-width">
+          <h3>Initiation imbalance and effort tracking</h3>
+          <div className="initiation-text">{initiationBalance}</div>
+        </div>
 
-        {renderEnhancedMetric(
-          "humorDepthRatio",
-          analysis.metrics?.humorDepthRatio,
-          "Humor vs Depth",
-          "#60a5fa",
-          "friendship",
-          conversationCount
-        )}
+        <div className="metrics-row">
+          {/* Humor vs. emotional depth balance */}
+          <div className="metric-card">
+            <h3>Humor vs. emotional depth balance</h3>
+            <div className="chart-container">
+              {renderPieChart(humorDepthData)}
+              {renderLegend(humorDepthData)}
+            </div>
+          </div>
 
-        {renderEnhancedMetric(
-          "vulnerabilityIndex",
-          analysis.metrics?.vulnerabilityIndex,
-          "Vulnerability",
-          "#93c5fd",
-          "friendship",
-          conversationCount
-        )}
+          {/* Shared vulnerability index */}
+          <div className="metric-card">
+            <h3>Shared vulnerability index</h3>
+            <div className="vulnerability-text">
+              {vulnerabilityIndex === "Very Low" || vulnerabilityIndex === "Low"
+                ? "Low levels of emotional self-disclosure detected"
+                : `${vulnerabilityIndex} levels of emotional self-disclosure detected`}
+            </div>
+          </div>
+        </div>
 
-        {renderEnhancedMetric(
-          "longestGap",
-          analysis.metrics?.longestGap,
-          "Longest Gap",
-          "#2563eb",
-          "friendship",
-          conversationCount
-        )}
+        <div className="metrics-row">
+          {/* Drift Detection */}
+          <div className="metric-card">
+            <div className="metric-header">
+              <span className="metric-icon">😔</span>
+              <h3>Drift Detection</h3>
+            </div>
+            <div className="drift-info">
+              <div className="gap-stat">
+                <span>Longest communication gap</span>
+                <span className="gap-highlight">{longestGapDays} Days</span>
+              </div>
+            </div>
+          </div>
 
-        {renderEnhancedMetric(
-          "topicDiversity",
-          analysis.metrics?.topicDiversity,
-          "Topic Diversity",
-          "#1d4ed8",
-          "friendship",
-          conversationCount
-        )}
-
-        {renderEnhancedMetric(
-          "engagementConsistency",
-          analysis.metrics?.engagementConsistency,
-          "Engagement",
-          "#1e40af",
-          "friendship",
-          conversationCount
-        )}
-      </MetricsGrid>
+          {/* Topic Diversity - Empty placeholder if no topics */}
+          <div className="metric-card">
+            <h3>Topic Diversity</h3>
+            {topTopics.length > 0 ? (
+              <div className="topics-grid">
+                {topTopics.slice(0, 3).map((topic, index) => (
+                  <div key={index} className="topic-item">
+                    <div className="topic-icon" data-topic={topic.name}>
+                      {getTopicEmoji(topic.name)}
+                    </div>
+                    <span>{topic.name}</span>
+                    <div className="topic-percentage">{topic.percentage}%</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="no-topics">No topic patterns detected yet</div>
+            )}
+          </div>
+        </div>
+      </div>
     );
   };
 
   // Render metrics for Professional relationships
   const renderProfessionalMetrics = () => {
-    const conversationCount = analysis.conversationCount || 0;
+    const professionalToneData = getMetricValue(
+      "metrics.professionalToneData",
+      null
+    );
+    const userResponseTime = getMetricValue(
+      "metrics.responseTimeData.user",
+      "N/A"
+    );
+    const contactResponseTime = getMetricValue(
+      "metrics.responseTimeData.contact",
+      "N/A"
+    );
+    const apologyPraiseRatio = getMetricValue(
+      "metrics.apologyPraiseRatio",
+      "Analyzing feedback patterns"
+    );
+    const taskPercent = getMetricValue("metrics.taskEmotionalData.0.value", 98);
+    const powerDynamic = getMetricValue(
+      "metrics.powerDynamic",
+      "Analyzing power dynamics"
+    );
 
     return (
-      <MetricsGrid>
-        {renderEnhancedMetric(
-          "professionalTone",
-          analysis.metrics?.professionalTone,
-          "Professional Tone",
-          "#14b8a6",
-          "professional",
-          conversationCount
-        )}
+      <div className="metrics-container">
+        <div className="metrics-row">
+          {/* Tone analysis */}
+          <div className="metric-card">
+            <h3>Tone analysis</h3>
+            <div className="chart-container">
+              {renderPieChart(professionalToneData)}
+              {renderLegend(professionalToneData)}
+            </div>
+          </div>
 
-        {renderEnhancedMetric(
-          "powerDynamic",
-          analysis.metrics?.powerDynamic,
-          "Power Dynamic",
-          "#20c997",
-          "professional",
-          conversationCount
-        )}
+          {/* Response time gaps */}
+          <div className="metric-card">
+            <h3>Response time gaps</h3>
+            <div className="response-subtitle">
+              Average time taken to respond to the messages
+            </div>
+            <div className="response-times">
+              <div className="response-row">
+                <span className="response-label">You</span>
+                <span className="response-time">{userResponseTime}</span>
+              </div>
+              <div className="response-row">
+                <span className="response-label">{contactName}</span>
+                <span className="response-time">{contactResponseTime}</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        {renderEnhancedMetric(
-          "responseTime",
-          analysis.metrics?.responseTime,
-          "Response Time",
-          "#10b981",
-          "professional",
-          conversationCount
-        )}
+        {/* Apology / praise / blame detection */}
+        <div className="metric-card full-width">
+          <h3>Apology / praise / blame detection</h3>
+          <div className="apology-text">{apologyPraiseRatio}</div>
+        </div>
 
-        {renderEnhancedMetric(
-          "taskSocialRatio",
-          analysis.metrics?.taskSocialRatio,
-          "Task vs Social",
-          "#059669",
-          "professional",
-          conversationCount
-        )}
+        <div className="metrics-row">
+          {/* Task vs. emotional labor balance */}
+          <div className="metric-card">
+            <h3>Task vs. emotional labor balance</h3>
+            <div className="task-info">
+              <div className="task-label">Task-based</div>
+              <div className="task-percentage">{taskPercent}%</div>
+              {renderProgressBar(taskPercent, "#10b981", "", false)}
+            </div>
+          </div>
 
-        {renderEnhancedMetric(
-          "clarityIndex",
-          analysis.metrics?.clarityIndex,
-          "Clarity Index",
-          "#047857",
-          "professional",
-          conversationCount
-        )}
-
-        {renderEnhancedMetric(
-          "boundaryMaintenance",
-          analysis.metrics?.boundaryMaintenance,
-          "Boundaries",
-          "#065f46",
-          "professional",
-          conversationCount
-        )}
-      </MetricsGrid>
+          {/* Power Dynamics */}
+          <div className="metric-card">
+            <div className="metric-header">
+              <span className="metric-icon">⚡</span>
+              <h3>Power Dynamics</h3>
+            </div>
+            <div className="power-text">{powerDynamic}</div>
+          </div>
+        </div>
+      </div>
     );
   };
 
   // Render metrics for Family relationships
   const renderFamilyMetrics = () => {
-    const conversationCount = analysis.conversationCount || 0;
+    const generationalTension = getMetricValue(
+      "metrics.generationalTension",
+      "No tension detected"
+    );
+    const roleSupport = getMetricValue("metrics.roleSupport", 0);
+    const traditionAutonomyTension = getMetricValue(
+      "metrics.traditionAutonomyTension",
+      "Analyzing values balance"
+    );
+    const emotionalWarmth = getMetricValue(
+      "metrics.emotionalWarmth",
+      "Unknown"
+    );
+    const communicationSpikes = getMetricValue(
+      "metrics.communicationSpikes",
+      "Analyzing timing patterns"
+    );
 
     return (
-      <MetricsGrid>
-        {renderEnhancedMetric(
-          "familyPattern",
-          analysis.metrics?.familyPattern,
-          "Family Pattern",
-          "#f97316",
-          "family",
-          conversationCount
-        )}
+      <div className="metrics-container">
+        <div className="metrics-row">
+          {/* Generational tension signals */}
+          <div className="metric-card">
+            <h3>Generational tension signals</h3>
+            <div className="tension-text">
+              {generationalTension === "Low tension"
+                ? "Frequent use of advice-giving phrases from their side"
+                : generationalTension}
+            </div>
+          </div>
 
-        {renderEnhancedMetric(
-          "emotionalWarmth",
-          analysis.metrics?.emotionalWarmth,
-          "Emotional Warmth",
-          "#fb923c",
-          "family",
-          conversationCount
-        )}
+          {/* Role reflection */}
+          <div className="metric-card">
+            <h3>Role reflection</h3>
+            <div className="role-text">
+              You express concern/support in {roleSupport}% of messages
+            </div>
+          </div>
 
-        {renderEnhancedMetric(
-          "familyRole",
-          analysis.metrics?.familyRole,
-          "Family Role",
-          "#fd7c3e",
-          "family",
-          conversationCount
-        )}
+          {/* Tradition vs. autonomy tension */}
+          <div className="metric-card">
+            <h3>Tradition vs. autonomy tension</h3>
+            <div className="autonomy-text">
+              {traditionAutonomyTension === "Balanced tradition and autonomy"
+                ? "Recurring debate over lifestyle choices"
+                : traditionAutonomyTension}
+            </div>
+          </div>
+        </div>
 
-        {renderEnhancedMetric(
-          "interactionFrequency",
-          analysis.metrics?.interactionFrequency,
-          "Contact Frequency",
-          "#ff8c42",
-          "family",
-          conversationCount
-        )}
+        <div className="metrics-row">
+          {/* Emotional warmth vs. duty fulfillment */}
+          <div className="metric-card">
+            <h3>Emotional warmth vs. duty fulfillment</h3>
+            <div className="warmth-text">
+              {emotionalWarmth === "Reserved" ||
+              emotionalWarmth === "Distant/Formal"
+                ? "Tone is respectful but lacks emotional language"
+                : `Communication shows ${emotionalWarmth.toLowerCase()} emotional expression`}
+            </div>
+          </div>
 
-        {renderEnhancedMetric(
-          "generationGap",
-          analysis.metrics?.generationGap,
-          "Generation Gap",
-          "#ff9844",
-          "family",
-          conversationCount
-        )}
-
-        {renderEnhancedMetric(
-          "traditionAutonomyBalance",
-          analysis.metrics?.traditionAutonomyBalance,
-          "Traditional vs. Modern",
-          "#ffa647",
-          "family",
-          conversationCount
-        )}
-      </MetricsGrid>
+          {/* Communication spikes */}
+          <div className="metric-card">
+            <h3>Communication spikes</h3>
+            <div className="spikes-text">
+              {communicationSpikes.includes("holidays")
+                ? "Conversation peaks occur around holidays and crisis events"
+                : communicationSpikes}
+            </div>
+          </div>
+        </div>
+      </div>
     );
   };
 
-  // Render metrics for Mentor/Mentee relationships
+  // Render metrics for Mentor relationships
   const renderMentorMetrics = () => {
-    const conversationCount = analysis.conversationCount || 0;
+    const reflectiveListening = getMetricValue(
+      "metrics.reflectiveListening",
+      "Analyzing mentorship style"
+    );
+    const reflectiveRate = getMetricValue("metrics.reflectiveListeningRate", 0);
+    const personalGrowthFraming = getMetricValue(
+      "metrics.personalGrowthFraming",
+      "Identifying growth areas"
+    );
+    const encouragementAccountabilityData = getMetricValue(
+      "metrics.encouragementAccountabilityData",
+      null
+    );
+    const goalSettingFollowup = getMetricValue(
+      "metrics.goalSettingFollowup",
+      "Analyzing goal-setting approach"
+    );
+    const affirmationCorrectionRatio = getMetricValue(
+      "metrics.affirmationCorrectionRatio",
+      "N/A"
+    );
 
     return (
-      <MetricsGrid>
-        {renderEnhancedMetric(
-          "guidanceStyle",
-          analysis.metrics?.guidanceStyle,
-          "Guidance Style",
-          "#a855f7",
-          "mentor",
-          conversationCount
-        )}
+      <div className="metrics-container">
+        <div className="metrics-row">
+          {/* Reflective listening and response ratio */}
+          <div className="metric-card">
+            <h3>Reflective listening and response ratio</h3>
+            <div className="reflective-text">
+              You restate their advice in {reflectiveRate}% of responses —{" "}
+              {reflectiveRate >= 40
+                ? "high reflection"
+                : reflectiveRate >= 20
+                ? "moderate reflection"
+                : "low reflection"}
+            </div>
+          </div>
 
-        {renderEnhancedMetric(
-          "feedbackBalance",
-          analysis.metrics?.feedbackBalance,
-          "Feedback Balance",
-          "#9333ea",
-          "mentor",
-          conversationCount
-        )}
+          {/* Encouragement vs. accountability */}
+          <div className="metric-card">
+            <h3>Encouragement vs. accountability</h3>
+            <div className="feedback-label">Feedback:</div>
+            <div className="chart-container">
+              {renderPieChart(encouragementAccountabilityData)}
+              {renderLegend(encouragementAccountabilityData)}
+            </div>
+          </div>
+        </div>
 
-        {renderEnhancedMetric(
-          "growthFocus",
-          analysis.metrics?.growthFocus,
-          "Growth Focus",
-          "#8b5cf6",
-          "mentor",
-          conversationCount
-        )}
+        <div className="metrics-row">
+          {/* Personal growth framing */}
+          <div className="metric-card">
+            <h3>Personal growth framing</h3>
+            <div className="growth-section">
+              <div className="growth-subtitle">Repeated goal language:</div>
+              <ul className="growth-examples">
+                <li>"I'm working on"</li>
+                <li>"My next step is"</li>
+              </ul>
+            </div>
+          </div>
 
-        {renderEnhancedMetric(
-          "followThrough",
-          analysis.metrics?.followThrough,
-          "Follow Through",
-          "#7c3aed",
-          "mentor",
-          conversationCount
-        )}
+          {/* Affirmation vs. correction patterns */}
+          <div className="metric-card">
+            <h3>Affirmation vs. correction patterns</h3>
+            <div className="affirmation-section">
+              <div className="affirmation-subtitle">
+                Balance of praise vs. suggestions
+              </div>
+              <div className="affirmation-ratio">
+                {affirmationCorrectionRatio}
+              </div>
+            </div>
+          </div>
+        </div>
 
-        {renderEnhancedMetric(
-          "knowledgeTransfer",
-          analysis.metrics?.knowledgeTransfer,
-          "Knowledge Transfer",
-          "#6d28d9",
-          "mentor",
-          conversationCount
-        )}
-
-        {renderEnhancedMetric(
-          "goalSetting",
-          analysis.metrics?.goalSetting,
-          "Goal Setting",
-          "#5b21b6",
-          "mentor",
-          conversationCount
-        )}
-      </MetricsGrid>
+        {/* Goal-setting and follow-up */}
+        <div className="metric-card full-width">
+          <h3>Goal-setting and follow-up</h3>
+          <div className="goal-text">
+            {goalSettingFollowup.includes("drops")
+              ? "You confirm commitments, but follow-up drops after 3 days"
+              : goalSettingFollowup}
+          </div>
+        </div>
+      </div>
     );
   };
 
-  // Default metrics for any relationship type
+  // Default metrics for unknown relationship types
   const renderDefaultMetrics = () => {
-    const conversationCount = analysis.conversationCount || 0;
+    const messageDistribution = getMetricValue(
+      "metrics.messageDistribution",
+      null
+    );
+    const sentimentDistribution = getMetricValue(
+      "metrics.sentimentDistribution",
+      null
+    );
 
     return (
-      <MetricsGrid>
-        {renderEnhancedMetric(
-          "messageCount",
-          analysis.metrics?.messageCount || 0,
-          "Total Messages",
-          relationshipColor,
-          "default",
-          conversationCount
+      <div className="metrics-container">
+        <div className="metrics-row">
+          <div className="metric-card">
+            <h3>Total Messages</h3>
+            <div className="metric-value-large">
+              {getMetricValue("metrics.messageCount", 0)}
+            </div>
+          </div>
+
+          <div className="metric-card">
+            <h3>Overall Sentiment</h3>
+            <div className="sentiment-display">
+              <span className="sentiment-label">
+                {getMetricValue("metrics.sentimentLabel", "Neutral")}
+              </span>
+              <div className="sentiment-score">
+                Score: {getMetricValue("metrics.sentimentScore", 0)}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Message Distribution */}
+        {messageDistribution && (
+          <div className="metric-card full-width">
+            <h3>Message Distribution</h3>
+            <div className="chart-container">
+              {renderPieChart(messageDistribution)}
+              {renderLegend(messageDistribution)}
+            </div>
+          </div>
         )}
 
-        {renderEnhancedMetric(
-          "sentimentLabel",
-          analysis.metrics?.sentimentLabel,
-          "Sentiment",
-          analysis.metrics?.sentimentLabel?.includes("positive")
-            ? "#10b981"
-            : analysis.metrics?.sentimentLabel?.includes("negative")
-            ? "#ef4444"
-            : "#f59e0b",
-          "default",
-          conversationCount
+        {/* Sentiment Distribution */}
+        {sentimentDistribution && (
+          <div className="metric-card full-width">
+            <h3>Sentiment Distribution</h3>
+            <div className="chart-container">
+              {renderPieChart(sentimentDistribution)}
+              {renderLegend(sentimentDistribution)}
+            </div>
+          </div>
         )}
-
-        {renderEnhancedMetric(
-          "averageResponseTime",
-          analysis.metrics?.averageResponseTime,
-          "Response Time",
-          "#60a5fa",
-          "default",
-          conversationCount
-        )}
-      </MetricsGrid>
+      </div>
     );
+  };
+
+  // Helper function to get emoji for topics
+  const getTopicEmoji = (topicName) => {
+    const emojiMap = {
+      "Work & Career": "💼",
+      "Family & Relationships": "👨‍👩‍👧‍👦",
+      "Emotions & Feelings": "😌",
+      "Plans & Future": "📅",
+      "Daily Activities": "🏃‍♂️",
+      Entertainment: "🎬",
+      "Health & Wellness": "🏥",
+      "Humor & Fun": "😂",
+      "Support & Care": "🤝",
+      "Money & Finance": "💰",
+      memes: "😂",
+      Gossip: "💬",
+      "Personal Life": "👤",
+      default: "💬",
+    };
+    return emojiMap[topicName] || emojiMap.default;
   };
 
   return (
-    <>
-      {/* Type-specific metrics section */}
-      <MetricsContainer>{renderTypeSpecificMetrics()}</MetricsContainer>
-
-      {/* Topics section */}
-      {analysis.metrics?.topTopics && analysis.metrics.topTopics.length > 0 && (
-        <TopicsContainer darkMode={darkMode}>
-          <SectionTitle darkMode={darkMode}>
-            <IconBadge bgColor="rgba(99, 102, 241, 0.2)" color="#818cf8">
-              #
-            </IconBadge>
-            Top Discussion Topics
-          </SectionTitle>
-          <TopicsGrid>
-            {analysis.metrics.topTopics?.map((topic, index) => (
-              <TopicTag key={index} darkMode={darkMode}>
-                <span>{topic.name}</span>
-                <PercentBadge darkMode={darkMode}>
-                  {topic.percentage}%
-                </PercentBadge>
-              </TopicTag>
-            ))}
-          </TopicsGrid>
-        </TopicsContainer>
-      )}
-
-      {/* Insights and Recommendations section */}
-      {renderInsightsAndRecommendations()}
+    <div className="relationship-metrics">
+      {renderTypeSpecificMetrics()}
 
       {/* Last Updated */}
       {analysis.lastUpdated && (
-        <LastUpdated>
+        <div className="last-updated">
           Last updated: {new Date(analysis.lastUpdated).toLocaleDateString()}
-        </LastUpdated>
+        </div>
       )}
-    </>
+
+      <style jsx>{`
+        .metrics-container {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          padding: 1rem;
+        }
+
+        .metrics-row {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 1rem;
+        }
+
+        .metric-card {
+          background: rgba(55, 65, 95, 0.8);
+          border-radius: 12px;
+          padding: 1.5rem;
+          color: white;
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .metric-card.full-width {
+          grid-column: 1 / -1;
+        }
+
+        .metric-card h3 {
+          margin: 0 0 1rem 0;
+          font-size: 1rem;
+          font-weight: 600;
+          color: #e2e8f0;
+        }
+
+        .metric-header {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 1rem;
+        }
+
+        .metric-icon {
+          font-size: 1.2rem;
+        }
+
+        .health-score {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          margin-bottom: 1rem;
+        }
+
+        .health-percentage {
+          font-size: 2rem;
+          font-weight: bold;
+          color: #10b981;
+        }
+
+        .health-label {
+          font-size: 0.875rem;
+          color: #94a3b8;
+        }
+
+        .progress-section {
+          margin: 0.5rem 0;
+        }
+
+        .progress-label {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 0.5rem;
+          font-size: 0.875rem;
+        }
+
+        .progress-bar {
+          height: 8px;
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 4px;
+          overflow: hidden;
+        }
+
+        .progress-fill {
+          height: 100%;
+          transition: width 0.3s ease;
+        }
+
+        .chart-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .chart-legend {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 1rem;
+          margin-top: 1rem;
+          font-size: 0.875rem;
+        }
+
+        .legend-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .legend-color {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+        }
+
+        .conflict-info {
+          font-size: 0.875rem;
+          line-height: 1.5;
+        }
+
+        .conflict-frequency {
+          margin-bottom: 0.5rem;
+        }
+
+        .frequency-highlight {
+          font-size: 1.2rem;
+          font-weight: bold;
+          color: #fbbf24;
+          margin: 0.25rem 0;
+        }
+
+        .conflict-detail,
+        .conflict-repair {
+          margin: 0.5rem 0;
+        }
+
+        .intimacy-text,
+        .attachment-text,
+        .initiation-text,
+        .vulnerability-text,
+        .tension-text,
+        .role-text,
+        .autonomy-text,
+        .warmth-text,
+        .spikes-text,
+        .reflective-text,
+        .goal-text,
+        .apology-text,
+        .power-text {
+          font-size: 0.875rem;
+          line-height: 1.5;
+          color: #e2e8f0;
+        }
+
+        .drift-info {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .gap-stat {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .gap-highlight {
+          font-size: 1.1rem;
+          font-weight: bold;
+          color: #fbbf24;
+        }
+
+        .topics-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+          gap: 1rem;
+          margin-top: 1rem;
+        }
+
+        .topic-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.5rem;
+          text-align: center;
+        }
+
+        .topic-icon {
+          width: 40px;
+          height: 40px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.2rem;
+        }
+
+        .topic-percentage {
+          font-weight: bold;
+          color: #fbbf24;
+        }
+
+        .response-times {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          margin-top: 1rem;
+        }
+
+        .response-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0.75rem;
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 8px;
+        }
+
+        .response-label {
+          font-weight: 500;
+        }
+
+        .response-time {
+          font-weight: bold;
+          color: #60a5fa;
+        }
+
+        .response-subtitle {
+          font-size: 0.75rem;
+          color: #94a3b8;
+          margin-bottom: 1rem;
+        }
+
+        .task-info {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .task-label {
+          font-size: 0.875rem;
+          color: #94a3b8;
+        }
+
+        .task-percentage {
+          font-size: 1.5rem;
+          font-weight: bold;
+          color: #10b981;
+          text-align: right;
+        }
+
+        .growth-section {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .growth-subtitle,
+        .feedback-label,
+        .affirmation-subtitle {
+          font-size: 0.75rem;
+          color: #94a3b8;
+        }
+
+        .growth-examples {
+          list-style: none;
+          padding: 0;
+          margin: 0.5rem 0;
+        }
+
+        .growth-examples li {
+          padding: 0.25rem 0;
+          font-size: 0.875rem;
+          color: #e2e8f0;
+        }
+
+        .affirmation-section {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .affirmation-ratio {
+          font-size: 1.5rem;
+          font-weight: bold;
+          color: #60a5fa;
+        }
+
+        .no-topics {
+          font-size: 0.875rem;
+          color: #94a3b8;
+          text-align: center;
+          padding: 1rem;
+        }
+
+        .last-updated {
+          margin-top: 2rem;
+          text-align: center;
+          font-size: 0.75rem;
+          color: #64748b;
+        }
+
+        .metric-value-large {
+          font-size: 2rem;
+          font-weight: bold;
+          text-align: center;
+          color: #60a5fa;
+        }
+
+        .sentiment-display {
+          text-align: center;
+        }
+
+        .sentiment-label {
+          font-size: 1.2rem;
+          font-weight: 600;
+          text-transform: capitalize;
+        }
+
+        .sentiment-score {
+          font-size: 0.875rem;
+          color: #94a3b8;
+          margin-top: 0.5rem;
+        }
+      `}</style>
+    </div>
   );
 };
 

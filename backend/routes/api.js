@@ -223,7 +223,7 @@ router.post(
 
 // Import routes
 router.post(
-  "/relationships/:relationshipId/import",
+  "/relationship-circle/:relationshipId/import",
   auth,
   importController.importChat
 );

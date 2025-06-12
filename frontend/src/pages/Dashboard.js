@@ -1,5 +1,11 @@
 // frontend/src/pages/Dashboard.js
-import React, { useState, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  useRef,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -69,7 +75,7 @@ const PageContainer = styled(Box)({
   width: "100%",
   "@media (max-width: 768px)": {
     padding: "0 16px 20px 16px",
-    minHeight: "calc(100vh - 60px)", // Subtract mobile TopBar height
+    minHeight: "100dvh", // Use dynamic viewport height for mobile
   },
 });
 
@@ -439,16 +445,45 @@ const Dashboard = React.memo(() => {
     error,
   } = useRelationships();
 
+  // FIXED: Use ref to track if we've already set relationships to prevent multiple calls
+  const hasSetRelationshipsRef = useRef(false);
+  const lastRelationshipsLengthRef = useRef(0);
+
+  // FIXED: Optimized effect to prevent multiple "Setting relationships" logs
+  useEffect(() => {
+    // Only update if we have new relationships and haven't set them before
+    if (
+      hookRelationships &&
+      hookRelationships.length > 0 &&
+      hookRelationships.length !== lastRelationshipsLengthRef.current &&
+      (!state.relationships ||
+        state.relationships.length === 0 ||
+        !hasSetRelationshipsRef.current)
+    ) {
+      console.log("Setting relationships in global state:", hookRelationships);
+      actions.setRelationships(hookRelationships);
+      hasSetRelationshipsRef.current = true;
+      lastRelationshipsLengthRef.current = hookRelationships.length;
+    }
+  }, [hookRelationships, state.relationships, actions]);
+
+  // Reset the ref when relationships change significantly
+  useEffect(() => {
+    if (hookRelationships && hookRelationships.length === 0) {
+      hasSetRelationshipsRef.current = false;
+      lastRelationshipsLengthRef.current = 0;
+    }
+  }, [hookRelationships]);
+
   // Combine hook relationships with global state relationships
   const allRelationships = useMemo(() => {
     const globalRels = state.relationships || [];
     const hookRels = hookRelationships || [];
-    const combined = [...globalRels, ...hookRels];
-    const uniqueRels = combined.filter(
-      (rel, index, self) =>
-        index === self.findIndex((r) => (r.id || r._id) === (rel.id || rel._id))
-    );
-    return uniqueRels;
+
+    // If global state has relationships, use those, otherwise use hook relationships
+    const relationships = globalRels.length > 0 ? globalRels : hookRels;
+
+    return relationships;
   }, [state.relationships, hookRelationships]);
 
   // Helper functions
@@ -530,11 +565,34 @@ const Dashboard = React.memo(() => {
     setSearchQuery(event.target.value);
   }, []);
 
+  // UPDATED: Navigate to relationship circle with relationship data
   const handleContactClick = useCallback(
     (contactId) => {
-      navigate(`/relationships/${contactId}`);
+      console.log("Contact clicked:", contactId);
+
+      // Find the relationship by ID
+      const relationship = allRelationships.find(
+        (rel) => (rel.id || rel._id) === contactId
+      );
+
+      console.log("Found relationship:", relationship);
+
+      if (relationship) {
+        // Set the selected relationship in global state
+        if (actions.setSelectedRelationship) {
+          actions.setSelectedRelationship(relationship);
+          console.log("Set selected relationship in global state");
+        }
+
+        // Navigate to the relationship circle page with the ID
+        navigate(`/relationship-circle/${contactId}`);
+      } else {
+        console.error("Relationship not found:", contactId);
+        // Still navigate but without setting selected relationship
+        navigate(`/relationship-circle/${contactId}`);
+      }
     },
-    [navigate]
+    [navigate, allRelationships, actions]
   );
 
   // Updated to navigate to the new page instead of showing modal

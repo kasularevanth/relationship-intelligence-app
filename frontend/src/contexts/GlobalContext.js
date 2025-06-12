@@ -4,12 +4,21 @@ import React, {
   useContext,
   useReducer,
   useCallback,
+  useMemo,
 } from "react";
+import {
+  getAvatarData,
+  getUserInitials,
+  getUserPhoto,
+  getContactInitials,
+  getContactPhoto,
+} from "../utils/avatarUtils";
 
 // Initial state
 const initialState = {
   // Relationships
   relationships: [],
+  selectedRelationship: null,
 
   // Contact system
   contactPermissionGranted: false,
@@ -23,6 +32,15 @@ const initialState = {
     photoUrl: null,
   },
 
+  // Alternative form structure for consistency
+  newRelationshipForm: {
+    name: "",
+    relationshipType: "",
+    phoneNumber: "",
+    email: "",
+    notes: "",
+  },
+
   // Modal states
   showContactPermission: false,
   showContactSelector: false,
@@ -33,10 +51,18 @@ const initialState = {
   loading: false,
   error: null,
 
-  // Sidebar states (new)
+  // Sidebar states
   sidebarExpanded: false,
   sidebarHovered: false,
-  sidebarPersistent: true, // For desktop persistent sidebar
+  sidebarPersistent: true,
+
+  // Chat states
+  currentChatSession: null,
+  chatHistory: [],
+
+  // Analysis states
+  currentAnalysis: null,
+  analysisProgress: 0,
 };
 
 // Action types
@@ -46,6 +72,8 @@ const actionTypes = {
   UPDATE_RELATIONSHIP: "UPDATE_RELATIONSHIP",
   DELETE_RELATIONSHIP: "DELETE_RELATIONSHIP",
   SET_RELATIONSHIPS: "SET_RELATIONSHIPS",
+  SET_SELECTED_RELATIONSHIP: "SET_SELECTED_RELATIONSHIP",
+  CLEAR_SELECTED_RELATIONSHIP: "CLEAR_SELECTED_RELATIONSHIP",
 
   // Contact system
   SET_CONTACT_PERMISSION: "SET_CONTACT_PERMISSION",
@@ -57,6 +85,8 @@ const actionTypes = {
   SET_FORM_DATA: "SET_FORM_DATA",
   UPDATE_FORM_DATA: "UPDATE_FORM_DATA",
   RESET_FORM_DATA: "RESET_FORM_DATA",
+  UPDATE_NEW_RELATIONSHIP_FORM: "UPDATE_NEW_RELATIONSHIP_FORM",
+  CLEAR_NEW_RELATIONSHIP_FORM: "CLEAR_NEW_RELATIONSHIP_FORM",
 
   // Modal controls
   SHOW_CONTACT_PERMISSION: "SHOW_CONTACT_PERMISSION",
@@ -70,11 +100,21 @@ const actionTypes = {
   SET_ERROR: "SET_ERROR",
   CLEAR_ERROR: "CLEAR_ERROR",
 
-  // Sidebar controls (new)
+  // Sidebar controls
   SET_SIDEBAR_EXPANDED: "SET_SIDEBAR_EXPANDED",
   SET_SIDEBAR_HOVERED: "SET_SIDEBAR_HOVERED",
   TOGGLE_SIDEBAR: "TOGGLE_SIDEBAR",
   SET_SIDEBAR_PERSISTENT: "SET_SIDEBAR_PERSISTENT",
+
+  // Chat actions
+  SET_CURRENT_CHAT_SESSION: "SET_CURRENT_CHAT_SESSION",
+  ADD_CHAT_MESSAGE: "ADD_CHAT_MESSAGE",
+  CLEAR_CHAT_HISTORY: "CLEAR_CHAT_HISTORY",
+
+  // Analysis actions
+  SET_CURRENT_ANALYSIS: "SET_CURRENT_ANALYSIS",
+  SET_ANALYSIS_PROGRESS: "SET_ANALYSIS_PROGRESS",
+  CLEAR_ANALYSIS: "CLEAR_ANALYSIS",
 };
 
 // Reducer
@@ -95,6 +135,12 @@ const globalReducer = (state, action) => {
             ? { ...rel, ...action.payload.data }
             : rel
         ),
+        selectedRelationship:
+          state.selectedRelationship &&
+          (state.selectedRelationship.id || state.selectedRelationship._id) ===
+            action.payload.id
+            ? { ...state.selectedRelationship, ...action.payload.data }
+            : state.selectedRelationship,
       };
 
     case actionTypes.DELETE_RELATIONSHIP:
@@ -103,12 +149,30 @@ const globalReducer = (state, action) => {
         relationships: state.relationships.filter(
           (rel) => (rel.id || rel._id) !== action.payload
         ),
+        selectedRelationship:
+          state.selectedRelationship &&
+          (state.selectedRelationship.id || state.selectedRelationship._id) ===
+            action.payload
+            ? null
+            : state.selectedRelationship,
       };
 
     case actionTypes.SET_RELATIONSHIPS:
       return {
         ...state,
         relationships: action.payload,
+      };
+
+    case actionTypes.SET_SELECTED_RELATIONSHIP:
+      return {
+        ...state,
+        selectedRelationship: action.payload,
+      };
+
+    case actionTypes.CLEAR_SELECTED_RELATIONSHIP:
+      return {
+        ...state,
+        selectedRelationship: null,
       };
 
     // Contact system
@@ -158,6 +222,27 @@ const globalReducer = (state, action) => {
           photoUrl: null,
         },
         selectedContact: null,
+      };
+
+    case actionTypes.UPDATE_NEW_RELATIONSHIP_FORM:
+      return {
+        ...state,
+        newRelationshipForm: {
+          ...state.newRelationshipForm,
+          ...action.payload,
+        },
+      };
+
+    case actionTypes.CLEAR_NEW_RELATIONSHIP_FORM:
+      return {
+        ...state,
+        newRelationshipForm: {
+          name: "",
+          relationshipType: "",
+          phoneNumber: "",
+          email: "",
+          notes: "",
+        },
       };
 
     // Modal controls
@@ -225,7 +310,7 @@ const globalReducer = (state, action) => {
         error: null,
       };
 
-    // Sidebar controls (new)
+    // Sidebar controls
     case actionTypes.SET_SIDEBAR_EXPANDED:
       return {
         ...state,
@@ -248,6 +333,45 @@ const globalReducer = (state, action) => {
       return {
         ...state,
         sidebarPersistent: action.payload,
+      };
+
+    // Chat actions
+    case actionTypes.SET_CURRENT_CHAT_SESSION:
+      return {
+        ...state,
+        currentChatSession: action.payload,
+      };
+
+    case actionTypes.ADD_CHAT_MESSAGE:
+      return {
+        ...state,
+        chatHistory: [...state.chatHistory, action.payload],
+      };
+
+    case actionTypes.CLEAR_CHAT_HISTORY:
+      return {
+        ...state,
+        chatHistory: [],
+      };
+
+    // Analysis actions
+    case actionTypes.SET_CURRENT_ANALYSIS:
+      return {
+        ...state,
+        currentAnalysis: action.payload,
+      };
+
+    case actionTypes.SET_ANALYSIS_PROGRESS:
+      return {
+        ...state,
+        analysisProgress: action.payload,
+      };
+
+    case actionTypes.CLEAR_ANALYSIS:
+      return {
+        ...state,
+        currentAnalysis: null,
+        analysisProgress: 0,
       };
 
     default:
@@ -284,6 +408,17 @@ export const GlobalProvider = ({ children }) => {
       dispatch({ type: actionTypes.SET_RELATIONSHIPS, payload: relationships });
     }, []),
 
+    setSelectedRelationship: useCallback((relationship) => {
+      dispatch({
+        type: actionTypes.SET_SELECTED_RELATIONSHIP,
+        payload: relationship,
+      });
+    }, []),
+
+    clearSelectedRelationship: useCallback(() => {
+      dispatch({ type: actionTypes.CLEAR_SELECTED_RELATIONSHIP });
+    }, []),
+
     // Contact system
     setContactPermission: useCallback((granted) => {
       dispatch({ type: actionTypes.SET_CONTACT_PERMISSION, payload: granted });
@@ -312,6 +447,17 @@ export const GlobalProvider = ({ children }) => {
 
     resetFormData: useCallback(() => {
       dispatch({ type: actionTypes.RESET_FORM_DATA });
+    }, []),
+
+    updateNewRelationshipForm: useCallback((formData) => {
+      dispatch({
+        type: actionTypes.UPDATE_NEW_RELATIONSHIP_FORM,
+        payload: formData,
+      });
+    }, []),
+
+    clearNewRelationshipForm: useCallback(() => {
+      dispatch({ type: actionTypes.CLEAR_NEW_RELATIONSHIP_FORM });
     }, []),
 
     // Modal controls
@@ -348,7 +494,7 @@ export const GlobalProvider = ({ children }) => {
       dispatch({ type: actionTypes.CLEAR_ERROR });
     }, []),
 
-    // Sidebar controls (new)
+    // Sidebar controls
     setSidebarExpanded: useCallback((expanded) => {
       dispatch({ type: actionTypes.SET_SIDEBAR_EXPANDED, payload: expanded });
     }, []),
@@ -367,6 +513,35 @@ export const GlobalProvider = ({ children }) => {
         payload: persistent,
       });
     }, []),
+
+    // Chat actions
+    setCurrentChatSession: useCallback((session) => {
+      dispatch({
+        type: actionTypes.SET_CURRENT_CHAT_SESSION,
+        payload: session,
+      });
+    }, []),
+
+    addChatMessage: useCallback((message) => {
+      dispatch({ type: actionTypes.ADD_CHAT_MESSAGE, payload: message });
+    }, []),
+
+    clearChatHistory: useCallback(() => {
+      dispatch({ type: actionTypes.CLEAR_CHAT_HISTORY });
+    }, []),
+
+    // Analysis actions
+    setCurrentAnalysis: useCallback((analysis) => {
+      dispatch({ type: actionTypes.SET_CURRENT_ANALYSIS, payload: analysis });
+    }, []),
+
+    setAnalysisProgress: useCallback((progress) => {
+      dispatch({ type: actionTypes.SET_ANALYSIS_PROGRESS, payload: progress });
+    }, []),
+
+    clearAnalysis: useCallback(() => {
+      dispatch({ type: actionTypes.CLEAR_ANALYSIS });
+    }, []),
   };
 
   // Enhanced actions for complex operations
@@ -382,10 +557,7 @@ export const GlobalProvider = ({ children }) => {
 
           let photoUrl = null;
 
-          // Handle photo upload if provided
           if (photoFile) {
-            // In a real app, you'd upload to a server/cloud storage
-            // For now, we'll use a local object URL
             photoUrl = URL.createObjectURL(photoFile);
           }
 
@@ -441,7 +613,6 @@ export const GlobalProvider = ({ children }) => {
         ) {
           actions.showContactPermission();
         } else {
-          // Show appropriate message for desktop or unsupported browsers
           const message = isMobile
             ? "Contact access is only available on mobile devices with supported browsers."
             : "Contact access is not available on desktop. Please use 'Manually enter Name' option.";
@@ -457,12 +628,10 @@ export const GlobalProvider = ({ children }) => {
     handleSidebarInteraction: useCallback(
       (action, isMobile = false) => {
         if (isMobile) {
-          // Mobile: Use traditional toggle behavior
           if (action === "toggle") {
             actions.toggleSidebar();
           }
         } else {
-          // Desktop: Use hover-based expansion
           switch (action) {
             case "hover_enter":
               actions.setSidebarHovered(true);
@@ -473,7 +642,6 @@ export const GlobalProvider = ({ children }) => {
               actions.setSidebarExpanded(false);
               break;
             case "click_toggle":
-              // Optional: Allow clicking to pin/unpin sidebar
               actions.toggleSidebar();
               break;
             default:
@@ -497,9 +665,23 @@ export const GlobalProvider = ({ children }) => {
     ),
   };
 
+  // NEW: Avatar utilities as part of context
+  const avatarUtils = useMemo(
+    () => ({
+      getUserInitials,
+      getUserPhoto,
+      getContactInitials,
+      getContactPhoto,
+      getAvatarData,
+    }),
+    []
+  );
+
   const contextValue = {
     state,
     actions: enhancedActions,
+    // NEW: Include avatar utilities in context
+    avatarUtils,
   };
 
   return (
@@ -516,6 +698,12 @@ export const useGlobal = () => {
     throw new Error("useGlobal must be used within a GlobalProvider");
   }
   return context;
+};
+
+// NEW: Specific hook for avatar utilities
+export const useAvatar = () => {
+  const { avatarUtils } = useGlobal();
+  return avatarUtils;
 };
 
 export default GlobalContext;
