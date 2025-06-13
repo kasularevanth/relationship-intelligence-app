@@ -574,59 +574,67 @@ const OnboardingScreens = ({ onComplete, onSkip }) => {
     >
       <BackgroundEllipses />
 
-      {/* Logo */}
-      <Typography
+      {/* Header - Logo and Skip on same line for mobile */}
+      <Box
         sx={{
           position: "absolute",
-          top: isMobile ? "61px" : "84px",
-          left: isMobile ? "28px" : "100px",
-          fontFamily: '"DM Sans", sans-serif',
-          fontWeight: 700,
-          fontSize: isMobile ? "20px" : "36px",
-          lineHeight: isMobile ? "26px" : "47px",
-          letterSpacing: isMobile ? "-0.165px" : "-0.310588px",
-          color: "#F5F5F5",
-          zIndex: 10,
-        }}
-      >
-        SoulSync
-      </Typography>
-
-      {/* Skip Button */}
-      <Button
-        onClick={onSkip}
-        sx={{
-          position: "absolute",
-          top: isMobile ? "61px" : "84px",
-          right: isMobile ? "28px" : "100px",
-          zIndex: 10,
+          top: isMobile ? "40px" : "84px",
+          left: isMobile ? "20px" : "100px",
+          right: isMobile ? "20px" : "100px",
           display: "flex",
-          flexDirection: "row",
-          justifyContent: "center",
+          justifyContent: "space-between",
           alignItems: "center",
-          padding: "3.72414px 37.2414px",
-          width: "137px",
-          height: "58px",
-          background: "rgba(255, 255, 255, 0.18)",
-          borderRadius: "27.931px",
-          color: "#F5F5F5",
-          fontFamily: '"DM Sans", sans-serif',
-          fontWeight: 500,
-          fontSize: isMobile ? "16px" : "18px",
-          textTransform: "none",
-          "&:hover": {
-            background: "rgba(255, 255, 255, 0.25)",
-          },
+          zIndex: 10,
+          height: isMobile ? "60px" : "auto", // Fixed height for mobile alignment
         }}
       >
-        Skip
-      </Button>
+        {/* Logo */}
+        <Typography
+          sx={{
+            fontFamily: '"DM Sans", sans-serif',
+            fontWeight: 700,
+            fontSize: isMobile ? "20px" : "36px",
+            lineHeight: isMobile ? "26px" : "47px",
+            letterSpacing: isMobile ? "-0.165px" : "-0.310588px",
+            color: "#F5F5F5",
+          }}
+        >
+          SoulSync
+        </Typography>
+
+        {/* Skip Button */}
+        <Button
+          onClick={onSkip}
+          sx={{
+            display: "flex",
+            flexDirection: "row",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: isMobile ? "8px 24px" : "3.72414px 37.2414px",
+            width: isMobile ? "auto" : "137px",
+            height: isMobile ? "40px" : "58px",
+            minWidth: isMobile ? "80px" : "137px",
+            background: "rgba(255, 255, 255, 0.18)",
+            borderRadius: isMobile ? "20px" : "27.931px",
+            color: "#F5F5F5",
+            fontFamily: '"DM Sans", sans-serif',
+            fontWeight: 500,
+            fontSize: isMobile ? "16px" : "18px",
+            textTransform: "none",
+            "&:hover": {
+              background: "rgba(255, 255, 255, 0.25)",
+            },
+          }}
+        >
+          Skip
+        </Button>
+      </Box>
 
       {/* Main Content - Scrollable Area */}
       <Box
         sx={{
           position: "absolute",
-          top: isMobile ? "150px" : "180px", // Below header
+          top: isMobile ? "120px" : "180px", // Adjusted for new header height
           left: 0,
           right: 0,
           bottom: isMobile ? "120px" : "140px", // Above navigation
@@ -634,10 +642,10 @@ const OnboardingScreens = ({ onComplete, onSkip }) => {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: isMobile ? "25px" : "60px",
+          gap: isMobile ? "20px" : "60px",
           zIndex: 10,
           overflow: "auto",
-          padding: isMobile ? "20px" : "40px",
+          padding: isMobile ? "15px" : "40px",
         }}
       >
         {/* Icon */}
@@ -664,15 +672,15 @@ const OnboardingScreens = ({ onComplete, onSkip }) => {
             fontWeight: currentScreen === 0 ? 500 : 600,
             fontSize: isMobile
               ? currentScreen === 0
-                ? "40px"
-                : "22px"
+                ? "36px"
+                : "20px"
               : currentScreen === 0
               ? "36px"
               : "28px",
             lineHeight: isMobile
               ? currentScreen === 0
-                ? "55px"
-                : "33px"
+                ? "48px"
+                : "30px"
               : currentScreen === 0
               ? "55px"
               : "42px",
@@ -690,7 +698,7 @@ const OnboardingScreens = ({ onComplete, onSkip }) => {
           sx={{
             fontFamily: '"Poppins", sans-serif',
             fontWeight: 300,
-            fontSize: isMobile ? "26px" : "22px",
+            fontSize: isMobile ? "24px" : "22px",
             lineHeight: "140%",
             letterSpacing: "-0.165px",
             color: "#D1D1D1",
