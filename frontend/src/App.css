@@ -114,6 +114,142 @@
   --modal-content-bg: linear-gradient(180deg, #101c44 0%, #172556 100%);
   --modal-backdrop: rgba(0, 8, 30, 0.8);
 
+  /* ============ PROFILE PAGE SPECIFIC VARIABLES ============ */
+
+  /* Profile Colors */
+  --profile-stats-bg: #2057e7;
+  --profile-stats-text: #e6e8ff;
+  --profile-avatar-border: 3px solid #ffffff;
+  --profile-edit-button-bg: #366eff;
+  --profile-blur-bg: linear-gradient(
+    180deg,
+    rgba(20, 35, 84, 0.4) 0%,
+    rgba(38, 54, 110, 0.4) 100%
+  );
+
+  /* Relationship Type Gradients */
+  --relationship-professional-gradient: linear-gradient(
+    151.07deg,
+    #d80051 13.14%,
+    #ff8774 85.75%
+  );
+  --relationship-family-gradient: linear-gradient(
+    151.07deg,
+    #d5382c 13.14%,
+    #f57e0b 85.75%
+  );
+  --relationship-romantic-gradient: linear-gradient(
+    151.07deg,
+    #af40ff 13.14%,
+    #fb3a83 85.75%
+  );
+  --relationship-friends-gradient: linear-gradient(
+    275.48deg,
+    #aa00ff -5.24%,
+    #4a74ff 101.68%
+  );
+  --relationship-mentor-gradient: linear-gradient(
+    151.07deg,
+    #024afb 13.14%,
+    #06abf0 85.75%
+  );
+  --relationship-others-gradient: linear-gradient(
+    151.07deg,
+    #d61563 13.14%,
+    #1e76de 85.75%
+  );
+
+  /* Profile Layout Dimensions */
+  --profile-container-width-desktop: 1340px;
+  --profile-container-width-mobile: 375px;
+  --profile-header-height-desktop: 101px;
+  --profile-header-height-mobile: 92px;
+  --profile-avatar-size-desktop: 120px;
+  --profile-avatar-size-mobile: 78px;
+  --profile-edit-button-size-desktop: 42px;
+  --profile-edit-button-size-mobile: 30px;
+  --profile-stats-container-width: 733px;
+  --profile-stats-container-width-mobile: 325px;
+  --profile-stats-card-height: 139px;
+  --profile-relationship-card-width: 328px;
+  --profile-relationship-card-width-mobile: 157.5px;
+  --profile-relationship-card-height: 93px;
+  --profile-logout-button-width: 500px;
+  --profile-logout-button-width-mobile: 325px;
+  --profile-logout-button-height: 58px;
+
+  /* Profile Blur Background */
+  --profile-blur-width-desktop: 1099px;
+  --profile-blur-height-desktop: 719px;
+  --profile-blur-right-desktop: -487px;
+  --profile-blur-top-desktop: -180px;
+  --profile-blur-width-mobile: 672px;
+  --profile-blur-height-mobile: 496px;
+  --profile-blur-left-mobile: 11px;
+  --profile-blur-top-mobile: -128px;
+  --profile-blur-filter-desktop: blur(151.688px);
+  --profile-blur-filter-mobile: blur(97.6382px);
+
+  /* ============ SETTINGS PAGE SPECIFIC VARIABLES ============ */
+
+  /* Settings Colors */
+  --settings-bg: #00081e;
+  --settings-header-bg: transparent;
+  --settings-section-bg: linear-gradient(
+    180deg,
+    rgba(20, 35, 84, 0.4) 0%,
+    rgba(38, 54, 110, 0.4) 100%
+  );
+  --settings-menu-item-bg: linear-gradient(180deg, #101c44 0%, #172556 100%);
+  --settings-menu-item-hover-bg: linear-gradient(
+    180deg,
+    #1a2654 0%,
+    #243166 100%
+  );
+  --settings-delete-button-bg: #cb034b;
+  --settings-delete-button-hover-bg: #b8032c;
+  --settings-input-bg: linear-gradient(
+    180deg,
+    rgba(20, 35, 84, 0.4) 0%,
+    rgba(38, 54, 110, 0.4) 100%
+  );
+  --settings-input-border: rgba(255, 255, 255, 0.18);
+  --settings-divider-color: #929292;
+
+  /* Settings Layout Dimensions */
+  --settings-container-width-desktop: 1340px;
+  --settings-container-width-mobile: 375px;
+  --settings-header-height-desktop: 60px;
+  --settings-header-height-mobile: 64px;
+  --settings-content-width-desktop: 907px;
+  --settings-content-width-mobile: 328px;
+  --settings-section-padding-desktop: 30px;
+  --settings-section-padding-mobile: 20px;
+  --settings-field-width-desktop: 400px;
+  --settings-field-height-desktop: 58px;
+  --settings-field-height-mobile: 48px;
+  --settings-menu-item-width-desktop: 837px;
+  --settings-menu-item-height-desktop: 69px;
+  --settings-avatar-size-desktop: 38px;
+  --settings-toggle-width-desktop: 90.1px;
+  --settings-toggle-height-desktop: 39px;
+  --settings-toggle-width-mobile: 35px;
+  --settings-toggle-height-mobile: 19.44px;
+
+  /* Settings Typography */
+  --settings-title-size-desktop: 22px;
+  --settings-title-size-mobile: 16px;
+  --settings-section-title-size-desktop: 22px;
+  --settings-section-title-size-mobile: 16px;
+  --settings-field-label-size-desktop: 22px;
+  --settings-field-label-size-mobile: 12px;
+  --settings-field-value-size-desktop: 16px;
+  --settings-field-value-size-mobile: 14px;
+  --settings-menu-text-size-desktop: 22px;
+  --settings-menu-text-size-mobile: 14px;
+  --settings-delete-button-text-size-desktop: 22px;
+  --settings-delete-button-text-size-mobile: 16px;
+
   /* ============ RESPONSIVE DIMENSIONS ============ */
 
   /* Border Radius */
@@ -127,6 +263,8 @@
   --border-radius-chat: 15.771px;
   --border-radius-modal: 24px;
   --border-radius-modal-button: 30px;
+  --border-radius-profile-section: 20px;
+  --border-radius-profile-section-mobile: 16px;
 
   /* Input Heights */
   --input-height-mobile: 48px;
@@ -139,6 +277,9 @@
   --font-family-secondary: "Poppins", -apple-system, BlinkMacSystemFont,
     "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans",
     "Droid Sans", "Helvetica Neue", sans-serif;
+  --font-family-outfit: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
 
   /* Font Sizes - Responsive */
   --font-size-title-mobile: 20px;
@@ -245,6 +386,81 @@
   --upload-area-border-hover: 2px dashed rgba(255, 255, 255, 0.4);
   --upload-success-bg: rgba(74, 222, 128, 0.1);
   --upload-success-border: 1px solid rgba(74, 222, 128, 0.3);
+
+  /* Profile Page Specific Variables */
+  --profile-stats-bg: #2057e7;
+  --profile-stats-text: #e6e8ff;
+  --profile-avatar-border: 3px solid #ffffff;
+  --profile-edit-button-bg: var(--sidebar-item-active);
+
+  /* Relationship Type Gradients */
+  --relationship-professional-gradient: linear-gradient(
+    151.07deg,
+    #d80051 13.14%,
+    #ff8774 85.75%
+  );
+  --relationship-family-gradient: linear-gradient(
+    151.07deg,
+    #d5382c 13.14%,
+    #f57e0b 85.75%
+  );
+  --relationship-romantic-gradient: var(--topic-affection-gradient);
+  --relationship-friends-gradient: var(--topic-logistics-gradient);
+  --relationship-mentor-gradient: linear-gradient(
+    151.07deg,
+    #024afb 13.14%,
+    #06abf0 85.75%
+  );
+  --relationship-others-gradient: linear-gradient(
+    151.07deg,
+    #d61563 13.14%,
+    #1e76de 85.75%
+  );
+
+  /* Profile Layout Dimensions */
+  --profile-avatar-size-desktop: 120px;
+  --profile-avatar-size-mobile: 80px;
+  --profile-edit-button-size-desktop: 42px;
+  --profile-edit-button-size-mobile: 32px;
+  --profile-stats-card-radius: 12px;
+  --profile-relationship-card-width: 328px;
+  --profile-relationship-card-width-mobile: calc(50% - 7.5px);
+
+  /* Profile Typography */
+  --profile-name-size-desktop: 26px;
+  --profile-name-size-mobile: 22px;
+  --profile-stat-value-size: 24px;
+  --profile-stat-label-size: 12px;
+  --profile-type-name-size: 14px;
+  --profile-type-count-size: 24px;
+
+  /* Profile Spacing */
+  --profile-header-gap-desktop: 65px;
+  --profile-header-gap-mobile: 40px;
+  --profile-stats-gap-desktop: 15px;
+  --profile-stats-gap-mobile: 12px;
+  --profile-section-padding-desktop: 50px 20px;
+  --profile-section-padding-mobile: 25px 20px;
+
+  /* Profile Blur Background */
+  --profile-blur-width-desktop: 1099px;
+  --profile-blur-height-desktop: 719px;
+  --profile-blur-right-desktop: -487px;
+  --profile-blur-top-desktop: -180px;
+  --profile-blur-width-mobile: 672px;
+  --profile-blur-height-mobile: 496px;
+  --profile-blur-left-mobile: 11px;
+  --profile-blur-top-mobile: -128px;
+  --profile-blur-filter-desktop: blur(151.688px);
+  --profile-blur-filter-mobile: blur(97.6382px);
+
+  /* Profile Action Button */
+  --profile-logout-width-desktop: 500px;
+  --profile-logout-width-mobile: 100%;
+  --profile-logout-max-width-mobile: 300px;
+  --profile-logout-height: 58px;
+  --profile-logout-text-size-desktop: 22px;
+  --profile-logout-text-size-mobile: 18px;
 }
 
 /* ============ LIGHT MODE OVERRIDES ============ */

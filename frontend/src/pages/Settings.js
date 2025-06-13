@@ -1,17 +1,14 @@
 // frontend/src/pages/Settings.js
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 import {
   Box,
   Typography,
-  Container,
-  Grid,
-  Switch,
-  FormControlLabel,
-  Divider,
   Button,
+  IconButton,
+  Switch,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -19,179 +16,557 @@ import {
   useMediaQuery,
   useTheme as useMuiTheme,
   Alert,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import DarkModeIcon from "@mui/icons-material/DarkMode";
-import LightModeIcon from "@mui/icons-material/LightMode";
 import NotificationsIcon from "@mui/icons-material/Notifications";
-import SecurityIcon from "@mui/icons-material/Security";
-import PrivacyTipIcon from "@mui/icons-material/PrivacyTip";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import DescriptionIcon from "@mui/icons-material/Description";
-import DeleteIcon from "@mui/icons-material/Delete";
-import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import InfoIcon from "@mui/icons-material/Info";
+import PrivacyTipIcon from "@mui/icons-material/PrivacyTip";
 
-// Styled components using CSS variables
+// Main Settings Container
 const SettingsContainer = styled(Box)({
+  position: "relative",
+  width: "100%",
   minHeight: "100vh",
-  backgroundColor: "var(--primary-bg)",
-  color: "var(--text-primary)",
-  padding: "20px 0",
+  background: "#00081E",
+  color: "#F5F5F5",
+  "@media (max-width: 768px)": {
+    width: "375px",
+    margin: "0 auto",
+  },
 });
 
-const SettingsCard = styled(Box)({
-  background: "var(--analysis-card-bg)",
-  backdropFilter: "blur(2.5px)",
-  borderRadius: "var(--border-radius-sidebar)",
-  padding: "25px",
-  marginBottom: "20px",
-});
-
+// Settings Header - Desktop: 1340x60px, Mobile: 375x64px
 const SettingsHeader = styled(Box)({
-  background: "var(--analysis-card-bg)",
-  borderRadius: "var(--border-radius-sidebar)",
-  padding: "20px 30px",
-  marginBottom: "30px",
-  backdropFilter: "blur(2.5px)",
+  display: "flex",
+  alignItems: "center",
+  padding: "0px 50px",
+  gap: "19px",
+  width: "1340px",
+  height: "60px",
+  margin: "0 auto",
+  "@media (max-width: 768px)": {
+    width: "375px",
+    height: "64px",
+    padding: "10px 25px",
+  },
+});
+
+// Back Button Container
+const BackButtonContainer = styled(Box)({
+  display: "flex",
+  alignItems: "center",
+  gap: "28.24px",
+  width: "34px",
+  height: "34px",
+});
+
+// Back Button - 34x34px
+const BackButton = styled(IconButton)({
+  width: "34px",
+  height: "34px",
+  color: "#FFFFFF",
+  padding: "0px",
+  "&:hover": {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: "50%",
+  },
+});
+
+// Settings Title - 22px DM Sans 600
+const SettingsTitle = styled(Typography)({
+  fontFamily: "DM Sans",
+  fontWeight: 600,
+  fontSize: "22px",
+  lineHeight: "29px",
+  letterSpacing: "-0.165px",
+  color: "#F5F5F5",
+  "@media (max-width: 768px)": {
+    fontSize: "16px",
+    lineHeight: "21px",
+  },
+});
+
+// Profile Avatar in Header - 38x38px
+const HeaderProfileAvatar = styled(Box)({
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  width: "38px",
+  height: "38px",
+  background: "#FFFCFC",
+  borderRadius: "53.2px",
+  marginLeft: "auto",
+  "@media (max-width: 768px)": {
+    display: "none",
+  },
+});
+
+// Profile Avatar Text - 18.24px DM Sans 700
+const ProfileAvatarText = styled(Typography)({
+  fontFamily: "DM Sans",
+  fontWeight: 700,
+  fontSize: "18.24px",
+  lineHeight: "24px",
+  textAlign: "center",
+  letterSpacing: "-0.2508px",
+  background: "linear-gradient(273.89deg, #0046FF -12.54%, #A9C1FF 108.58%)",
+  WebkitBackgroundClip: "text",
+  WebkitTextFillColor: "transparent",
+  backgroundClip: "text",
+});
+
+// Settings Content Container - Desktop: 907x1031px, Mobile: 328x adjustable
+const SettingsContentContainer = styled(Box)({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  gap: "40px",
+  width: "907px",
+  margin: "168px auto 0",
+  "@media (max-width: 768px)": {
+    width: "328px",
+    margin: "32px auto 0",
+    gap: "20px",
+  },
+});
+
+// Profile Information Section - 907x339px
+const ProfileInformationSection = styled(Box)({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  padding: "30px",
+  gap: "15px",
+  width: "907px",
+  background:
+    "linear-gradient(180deg, rgba(20, 35, 84, 0.4) 0%, rgba(38, 54, 110, 0.4) 100%)",
+  borderRadius: "20px",
+  "@media (max-width: 768px)": {
+    width: "328px",
+    padding: "20px",
+    borderRadius: "16px",
+  },
+});
+
+// Section Title - 22px DM Sans 500
+const SectionTitle = styled(Typography)({
+  fontFamily: "DM Sans",
+  fontWeight: 500,
+  fontSize: "22px",
+  lineHeight: "29px",
+  letterSpacing: "-0.165px",
+  color: "#D1D1D1",
+  "@media (max-width: 768px)": {
+    fontSize: "16px",
+    lineHeight: "21px",
+  },
+});
+
+// Form Fields Container
+const FormFieldsContainer = styled(Box)({
+  display: "flex",
+  alignItems: "center",
+  gap: "47px",
+  width: "100%",
+  "@media (max-width: 768px)": {
+    flexDirection: "column",
+    gap: "20px",
+  },
+});
+
+// Form Field Group - 400x105px
+const FormFieldGroup = styled(Box)({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  gap: "8px",
+  width: "400px",
+  "@media (max-width: 768px)": {
+    width: "100%",
+  },
+});
+
+// Field Label - 22px DM Sans 500
+const FieldLabel = styled(Typography)({
+  fontFamily: "DM Sans",
+  fontWeight: 500,
+  fontSize: "22px",
+  lineHeight: "29px",
+  letterSpacing: "-0.165px",
+  color: "#D1D1D1",
+  "@media (max-width: 768px)": {
+    fontSize: "12px",
+    lineHeight: "16px",
+  },
+});
+
+// Field Input - 400x58px
+const FieldInput = styled(Box)({
+  display: "flex",
+  alignItems: "center",
+  padding: "12px 20px",
+  width: "400px",
+  height: "58px",
+  background:
+    "linear-gradient(180deg, rgba(20, 35, 84, 0.4) 0%, rgba(38, 54, 110, 0.4) 100%)",
+  border: "1px solid rgba(255, 255, 255, 0.18)",
+  borderRadius: "12px",
+  "@media (max-width: 768px)": {
+    width: "100%",
+    height: "48px",
+    padding: "12px 16px",
+    borderRadius: "8px",
+  },
+});
+
+// Field Value - 16px DM Sans 500
+const FieldValue = styled(Typography)({
+  fontFamily: "DM Sans",
+  fontWeight: 500,
+  fontSize: "16px",
+  lineHeight: "21px",
+  letterSpacing: "-0.165px",
+  color: "#DADADA",
+  "@media (max-width: 768px)": {
+    fontSize: "14px",
+    lineHeight: "21px",
+  },
+});
+
+// Support & Legal Section - 907x361px
+const SupportLegalSection = styled(Box)({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  padding: "30px",
+  gap: "15px",
+  width: "907px",
+  background:
+    "linear-gradient(180deg, rgba(20, 35, 84, 0.4) 0%, rgba(38, 54, 110, 0.4) 100%)",
+  borderRadius: "20px",
+  "@media (max-width: 768px)": {
+    width: "328px",
+    padding: "20px",
+    borderRadius: "16px",
+  },
+});
+
+// Menu Items Container
+const MenuItemsContainer = styled(Box)({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  padding: "0px 5px",
+  gap: "20px",
+  width: "100%",
+  "@media (max-width: 768px)": {
+    gap: "13px",
+  },
+});
+
+// Menu Item - 837x69px
+const MenuItem = styled(Box)({
+  display: "flex",
+  alignItems: "center",
+  padding: "20px",
+  gap: "13px",
+  width: "837px",
+  height: "69px",
+  background: "linear-gradient(180deg, #101C44 0%, #172556 100%)",
+  border: "1px solid rgba(255, 255, 255, 0.18)",
+  borderRadius: "12px",
+  cursor: "pointer",
+  transition: "all 0.2s ease",
+  "&:hover": {
+    background: "linear-gradient(180deg, #1a2654 0%, #243166 100%)",
+    transform: "translateY(-1px)",
+  },
+  "@media (max-width: 768px)": {
+    width: "100%",
+    height: "auto",
+    padding: "15px",
+    borderRadius: "8px",
+  },
+});
+
+// Menu Item Icon - 18.2x18.2px
+const MenuItemIcon = styled(Box)({
+  width: "18.2px",
+  height: "18.2px",
+  color: "#F5F5F5",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+});
+
+// Menu Item Text - 22px DM Sans 500
+const MenuItemText = styled(Typography)({
+  fontFamily: "DM Sans",
+  fontWeight: 500,
+  fontSize: "22px",
+  lineHeight: "29px",
+  color: "#F5F5F5",
+  "@media (max-width: 768px)": {
+    fontSize: "14px",
+    lineHeight: "18px",
+  },
+});
+
+// Preferences Section - 907x193px
+const PreferencesSection = styled(Box)({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  padding: "30px",
+  gap: "15px",
+  width: "907px",
+  background:
+    "linear-gradient(180deg, rgba(20, 35, 84, 0.4) 0%, rgba(38, 54, 110, 0.4) 100%)",
+  borderRadius: "20px",
+  "@media (max-width: 768px)": {
+    width: "328px",
+    padding: "20px",
+    borderRadius: "16px",
+    display: "none", // Hide on mobile as per design
+  },
+});
+
+// Notification Toggle Item - 847x79px
+const NotificationToggleItem = styled(Box)({
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "20px",
+  gap: "15px",
+  width: "847px",
+  height: "79px",
+  background: "linear-gradient(180deg, #101C44 0%, #172556 100%)",
+  border: "1px solid rgba(255, 255, 255, 0.18)",
+  borderRadius: "12px",
+  "@media (max-width: 768px)": {
+    width: "100%",
+    height: "auto",
+    padding: "10px 0px",
+    background: "transparent",
+    border: "none",
+
+    borderRadius: "0px",
+  },
+});
+
+// Toggle Left Section
+const ToggleLeftSection = styled(Box)({
   display: "flex",
   alignItems: "center",
   gap: "15px",
 });
 
-const SettingItem = styled(Box)({
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  padding: "15px 0",
-  borderBottom: "1px solid var(--border-color)",
-  "&:last-child": {
-    borderBottom: "none",
-  },
-});
-
-const SettingIcon = styled(Box)({
+// Toggle Icon - 14x19.6px
+const ToggleIcon = styled(Box)({
+  width: "14px",
+  height: "19.6px",
+  color: "#F5F5F5",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  width: "40px",
-  height: "40px",
-  backgroundColor: "var(--sidebar-item-active)",
-  borderRadius: "50%",
-  marginRight: "15px",
 });
 
-const ActionButton = styled(Button)({
-  background: "var(--button-gradient)",
-  color: "var(--text-primary)",
-  borderRadius: "30px",
-  padding: "10px 25px",
-  fontFamily: "var(--font-family-secondary)",
-  fontWeight: 600,
-  textTransform: "none",
-  "&:hover": {
-    background: "var(--button-gradient)",
-    opacity: 0.9,
-  },
-});
-
-const DangerButton = styled(Button)({
-  backgroundColor: "var(--input-border-error)",
-  color: "var(--text-primary)",
-  borderRadius: "30px",
-  padding: "10px 25px",
-  fontFamily: "var(--font-family-secondary)",
-  fontWeight: 600,
-  textTransform: "none",
-  "&:hover": {
-    backgroundColor: "var(--input-border-error)",
-    opacity: 0.8,
-  },
-});
-
-const SecondaryButton = styled(Button)({
-  border: "1px solid var(--border-color)",
-  color: "var(--text-primary)",
-  borderRadius: "30px",
-  padding: "10px 25px",
-  fontFamily: "var(--font-family-secondary)",
+// Toggle Text - 22px DM Sans 500
+const ToggleText = styled(Typography)({
+  fontFamily: "DM Sans",
   fontWeight: 500,
-  textTransform: "none",
-  backgroundColor: "transparent",
-  "&:hover": {
-    backgroundColor: "var(--hamburger-hover-bg)",
+  fontSize: "22px",
+  lineHeight: "29px",
+  color: "#F5F5F5",
+  "@media (max-width: 768px)": {
+    fontSize: "14px",
+    lineHeight: "18px",
   },
 });
 
+// Custom Switch - 90.1x39px
 const CustomSwitch = styled(Switch)({
-  "& .MuiSwitch-switchBase.Mui-checked": {
-    color: "var(--sidebar-item-active)",
-    "&:hover": {
-      backgroundColor: "rgba(54, 110, 255, 0.08)",
+  width: "90.1px",
+  height: "39px",
+  padding: 0,
+  "& .MuiSwitch-switchBase": {
+    margin: "3.88px",
+    padding: 0,
+    transform: "translateX(0px)",
+    "&.Mui-checked": {
+      color: "#fff",
+      transform: "translateX(51.12px)",
+      "& .MuiSwitch-thumb": {
+        backgroundColor: "#FFFFFF",
+        width: "31.08px",
+        height: "31.08px",
+      },
+      "& + .MuiSwitch-track": {
+        backgroundColor: "#366EFF",
+        opacity: 1,
+        border: 0,
+      },
     },
   },
-  "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
-    backgroundColor: "var(--sidebar-item-active)",
+  "& .MuiSwitch-thumb": {
+    backgroundColor: "#FFFFFF",
+    width: "31.08px",
+    height: "31.08px",
+    boxShadow: "0px 2px 4px rgba(39, 39, 39, 0.1)",
   },
   "& .MuiSwitch-track": {
-    backgroundColor: "var(--border-color)",
+    borderRadius: "194.253px",
+    backgroundColor: "#D2D5DA",
+    opacity: 1,
+    transition: "background-color 0.2s",
+  },
+  "@media (max-width: 768px)": {
+    width: "35px",
+    height: "19.44px",
+    "& .MuiSwitch-switchBase": {
+      margin: "1.95px",
+      "&.Mui-checked": {
+        transform: "translateX(15.5px)",
+        "& .MuiSwitch-thumb": {
+          width: "15.56px",
+          height: "15.56px",
+        },
+      },
+    },
+    "& .MuiSwitch-thumb": {
+      width: "15.56px",
+      height: "15.56px",
+    },
+    "& .MuiSwitch-track": {
+      borderRadius: "97.2222px",
+    },
   },
 });
 
+// Delete Account Button - 907x58px
+const DeleteAccountButton = styled(Button)({
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: "12px 121px",
+  gap: "10px",
+  width: "907px",
+  height: "58px",
+  background: "#CB034B",
+  borderRadius: "12px",
+  border: "none",
+  cursor: "pointer",
+  "&:hover": {
+    background: "#B8032C",
+  },
+  "@media (max-width: 768px)": {
+    width: "328px",
+    padding: "12px 121px",
+    borderRadius: "8px",
+  },
+});
+
+// Delete Button Text - 22px DM Sans 800
+const DeleteButtonText = styled(Typography)({
+  fontFamily: "DM Sans",
+  fontWeight: 800,
+  fontSize: "22px",
+  lineHeight: "23px",
+  textAlign: "center",
+  color: "#FFFFFF",
+  textTransform: "none",
+  "@media (max-width: 768px)": {
+    fontSize: "16px",
+    lineHeight: "23px",
+  },
+});
+
+// Dialog Styles
+const StyledDialog = styled(Dialog)({
+  "& .MuiPaper-root": {
+    backgroundColor: "#091024",
+    color: "#F5F5F5",
+    borderRadius: "16px",
+    minWidth: "400px",
+    "@media (max-width: 768px)": {
+      minWidth: "300px",
+      margin: "20px",
+    },
+  },
+});
+
+const DialogButton = styled(Button)(({ variant }) => ({
+  borderRadius: "30px",
+  padding: "10px 25px",
+  fontFamily: "DM Sans",
+  fontWeight: 600,
+  textTransform: "none",
+  ...(variant === "delete"
+    ? {
+        backgroundColor: "#CB034B",
+        color: "#FFFFFF",
+        "&:hover": {
+          backgroundColor: "#B8032C",
+        },
+      }
+    : {
+        border: "1px solid rgba(255, 255, 255, 0.2)",
+        color: "#F5F5F5",
+        backgroundColor: "transparent",
+        "&:hover": {
+          backgroundColor: "rgba(255, 255, 255, 0.05)",
+        },
+      }),
+}));
+
 const Settings = () => {
-  const { darkMode, toggleDarkMode } = useTheme();
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
   const muiTheme = useMuiTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("md"));
 
-  const [notifications, setNotifications] = useState({
-    email: true,
-    push: false,
-    sms: false,
-  });
-  const [privacy, setPrivacy] = useState({
-    analytics: true,
-    marketing: false,
-  });
+  const [notifications, setNotifications] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showPrivacyDialog, setShowPrivacyDialog] = useState(false);
   const [showTermsDialog, setShowTermsDialog] = useState(false);
   const [message, setMessage] = useState("");
 
-  const handleNotificationChange = (type) => (event) => {
-    setNotifications({
-      ...notifications,
-      [type]: event.target.checked,
-    });
-    setMessage(
-      `${type.charAt(0).toUpperCase() + type.slice(1)} notifications ${
-        event.target.checked ? "enabled" : "disabled"
-      }`
-    );
-    setTimeout(() => setMessage(""), 3000);
+  // Profile data from auth context
+  const profileData = {
+    name: currentUser?.displayName || currentUser?.name || "NA",
+    mobile: currentUser?.phoneNumber || "NA",
+    email: currentUser?.email || "NA",
   };
 
-  const handlePrivacyChange = (type) => (event) => {
-    setPrivacy({
-      ...privacy,
-      [type]: event.target.checked,
-    });
+  // Get user initials for avatar
+  const getInitials = useCallback((name) => {
+    if (!name) return "U";
+    return name
+      .split(" ")
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  }, []);
+
+  const userInitials = getInitials(profileData.name);
+
+  const handleBack = () => {
+    navigate(-1);
+  };
+
+  const handleNotificationToggle = (event) => {
+    setNotifications(event.target.checked);
     setMessage(
-      `${type.charAt(0).toUpperCase() + type.slice(1)} ${
-        event.target.checked ? "enabled" : "disabled"
-      }`
+      `Notifications ${event.target.checked ? "enabled" : "disabled"}`
     );
     setTimeout(() => setMessage(""), 3000);
   };
 
   const handleDeleteAccount = async () => {
     try {
-      // Add delete account logic here
       console.log("Delete account requested");
       setShowDeleteDialog(false);
       setMessage("Account deletion request submitted");
@@ -200,13 +575,19 @@ const Settings = () => {
     }
   };
 
-  const handleExportData = async () => {
-    try {
-      // Add export data logic here
-      console.log("Export data requested");
-      setMessage("Data export started. You'll receive an email when ready.");
-    } catch (error) {
-      setMessage("Failed to export data");
+  const handleMenuItemClick = (item) => {
+    switch (item) {
+      case "faq":
+        console.log("FAQ clicked");
+        break;
+      case "terms":
+        setShowTermsDialog(true);
+        break;
+      case "privacy":
+        setShowPrivacyDialog(true);
+        break;
+      default:
+        break;
     }
   };
 
@@ -270,449 +651,217 @@ For questions about these terms, contact us at legal@soulsync.com.
 
   return (
     <SettingsContainer>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Header */}
+      <SettingsHeader>
+        <BackButtonContainer>
+          <BackButton onClick={handleBack}>
+            <ArrowBackIcon sx={{ fontSize: "24px" }} />
+          </BackButton>
+        </BackButtonContainer>
+        <SettingsTitle>Settings</SettingsTitle>
+      </SettingsHeader>
+
+      {/* Content */}
+      <SettingsContentContainer>
         {message && (
           <Alert
             severity="success"
             sx={{
-              backgroundColor: "var(--alert-error-bg)",
-              color: "var(--text-primary)",
+              backgroundColor: "rgba(74, 222, 128, 0.1)",
+              color: "#4ade80",
               mb: 3,
+              width: "100%",
             }}
           >
             {message}
           </Alert>
         )}
 
-        {/* Settings Header */}
-        <SettingsHeader>
-          <Button
-            onClick={() => navigate(-1)}
-            sx={{
-              color: "var(--text-primary)",
-              minWidth: "auto",
-              padding: "8px",
-            }}
-          >
-            <ArrowBackIcon />
-          </Button>
-          <Typography
-            variant="h4"
-            sx={{
-              fontFamily: "var(--font-family-secondary)",
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              fontSize: isMobile ? "24px" : "32px",
-            }}
-          >
-            Settings
+        {/* Profile Information Section */}
+        <ProfileInformationSection>
+          <SectionTitle>
+            {isMobile ? "Profile Information" : "Profile Information"}
+          </SectionTitle>
+          <FormFieldsContainer>
+            <FormFieldGroup>
+              <FieldLabel>Name</FieldLabel>
+              <FieldInput>
+                <FieldValue>{profileData.name}</FieldValue>
+              </FieldInput>
+            </FormFieldGroup>
+            <FormFieldGroup>
+              <FieldLabel>Mobile Number</FieldLabel>
+              <FieldInput>
+                <FieldValue>{profileData.mobile}</FieldValue>
+              </FieldInput>
+            </FormFieldGroup>
+          </FormFieldsContainer>
+          {isMobile && (
+            <FormFieldGroup>
+              <FieldLabel>Email Address</FieldLabel>
+              <FieldInput>
+                <FieldValue>{profileData.email}</FieldValue>
+              </FieldInput>
+            </FormFieldGroup>
+          )}
+          {!isMobile && (
+            <FormFieldGroup>
+              <FieldLabel>Email Address</FieldLabel>
+              <FieldInput>
+                <FieldValue>{profileData.email}</FieldValue>
+              </FieldInput>
+            </FormFieldGroup>
+          )}
+        </ProfileInformationSection>
+
+        {/* Support & Legal Section */}
+        <SupportLegalSection>
+          <SectionTitle>
+            {isMobile ? "Support & Legal" : "Support & Legal"}
+          </SectionTitle>
+          <MenuItemsContainer>
+            {/* Notifications Toggle - Mobile shows in this section */}
+            {isMobile && (
+              <NotificationToggleItem>
+                <ToggleLeftSection>
+                  <ToggleIcon>
+                    <NotificationsIcon sx={{ fontSize: "10px" }} />
+                  </ToggleIcon>
+                  <ToggleText>Notifications</ToggleText>
+                </ToggleLeftSection>
+                <CustomSwitch
+                  checked={notifications}
+                  onChange={handleNotificationToggle}
+                />
+              </NotificationToggleItem>
+            )}
+
+            <MenuItem onClick={() => handleMenuItemClick("faq")}>
+              <MenuItemIcon>
+                <HelpOutlineIcon sx={{ fontSize: "18.2px" }} />
+              </MenuItemIcon>
+              <MenuItemText>FAQ</MenuItemText>
+            </MenuItem>
+
+            <MenuItem onClick={() => handleMenuItemClick("terms")}>
+              <MenuItemIcon>
+                <DescriptionIcon sx={{ fontSize: "18.2px" }} />
+              </MenuItemIcon>
+              <MenuItemText>Terms and Conditions</MenuItemText>
+            </MenuItem>
+
+            <MenuItem onClick={() => handleMenuItemClick("privacy")}>
+              <MenuItemIcon>
+                <PrivacyTipIcon sx={{ fontSize: "18.2px" }} />
+              </MenuItemIcon>
+              <MenuItemText>Privacy Policy</MenuItemText>
+            </MenuItem>
+          </MenuItemsContainer>
+        </SupportLegalSection>
+
+        {/* Preferences Section - Desktop Only */}
+        {!isMobile && (
+          <PreferencesSection>
+            <SectionTitle>Preferences</SectionTitle>
+            <NotificationToggleItem>
+              <ToggleLeftSection>
+                <ToggleIcon>
+                  <NotificationsIcon sx={{ fontSize: "14px" }} />
+                </ToggleIcon>
+                <ToggleText>Notifications</ToggleText>
+              </ToggleLeftSection>
+              <CustomSwitch
+                checked={notifications}
+                onChange={handleNotificationToggle}
+              />
+            </NotificationToggleItem>
+          </PreferencesSection>
+        )}
+
+        {/* Delete Account Button */}
+        <DeleteAccountButton onClick={() => setShowDeleteDialog(true)}>
+          <DeleteButtonText>
+            {isMobile ? "Delete My Account" : "Delete My Account"}
+          </DeleteButtonText>
+        </DeleteAccountButton>
+      </SettingsContentContainer>
+
+      {/* Delete Account Dialog */}
+      <StyledDialog
+        open={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+      >
+        <DialogTitle>Delete Account</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure? Deleting your account will erase your data permanently
           </Typography>
-        </SettingsHeader>
+        </DialogContent>
+        <DialogActions sx={{ gap: 2, padding: 3 }}>
+          <DialogButton onClick={() => setShowDeleteDialog(false)}>
+            Cancel
+          </DialogButton>
+          <DialogButton variant="delete" onClick={handleDeleteAccount}>
+            Delete My Account
+          </DialogButton>
+        </DialogActions>
+      </StyledDialog>
 
-        <Grid container spacing={3}>
-          {/* Appearance Settings */}
-          <Grid item xs={12} md={6}>
-            <SettingsCard>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontFamily: "var(--font-family-secondary)",
-                  fontWeight: 600,
-                  color: "var(--text-primary)",
-                  mb: 3,
-                }}
-              >
-                Appearance
-              </Typography>
-
-              <SettingItem>
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  <SettingIcon>
-                    {darkMode ? (
-                      <DarkModeIcon sx={{ color: "var(--text-primary)" }} />
-                    ) : (
-                      <LightModeIcon sx={{ color: "var(--text-primary)" }} />
-                    )}
-                  </SettingIcon>
-                  <Box>
-                    <Typography
-                      variant="body1"
-                      sx={{ color: "var(--text-primary)", fontWeight: 500 }}
-                    >
-                      Dark Mode
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "var(--text-tertiary)" }}
-                    >
-                      Switch between light and dark themes
-                    </Typography>
-                  </Box>
-                </Box>
-                <CustomSwitch checked={darkMode} onChange={toggleDarkMode} />
-              </SettingItem>
-            </SettingsCard>
-
-            {/* Notification Settings */}
-            <SettingsCard>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontFamily: "var(--font-family-secondary)",
-                  fontWeight: 600,
-                  color: "var(--text-primary)",
-                  mb: 3,
-                }}
-              >
-                Notifications
-              </Typography>
-
-              <SettingItem>
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  <SettingIcon>
-                    <NotificationsIcon sx={{ color: "var(--text-primary)" }} />
-                  </SettingIcon>
-                  <Box>
-                    <Typography
-                      variant="body1"
-                      sx={{ color: "var(--text-primary)", fontWeight: 500 }}
-                    >
-                      Email Notifications
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "var(--text-tertiary)" }}
-                    >
-                      Receive updates via email
-                    </Typography>
-                  </Box>
-                </Box>
-                <CustomSwitch
-                  checked={notifications.email}
-                  onChange={handleNotificationChange("email")}
-                />
-              </SettingItem>
-
-              <SettingItem>
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  <SettingIcon>
-                    <NotificationsIcon sx={{ color: "var(--text-primary)" }} />
-                  </SettingIcon>
-                  <Box>
-                    <Typography
-                      variant="body1"
-                      sx={{ color: "var(--text-primary)", fontWeight: 500 }}
-                    >
-                      Push Notifications
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "var(--text-tertiary)" }}
-                    >
-                      Receive push notifications
-                    </Typography>
-                  </Box>
-                </Box>
-                <CustomSwitch
-                  checked={notifications.push}
-                  onChange={handleNotificationChange("push")}
-                />
-              </SettingItem>
-            </SettingsCard>
-          </Grid>
-
-          {/* Privacy & Security */}
-          <Grid item xs={12} md={6}>
-            <SettingsCard>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontFamily: "var(--font-family-secondary)",
-                  fontWeight: 600,
-                  color: "var(--text-primary)",
-                  mb: 3,
-                }}
-              >
-                Privacy & Security
-              </Typography>
-
-              <SettingItem>
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  <SettingIcon>
-                    <SecurityIcon sx={{ color: "var(--text-primary)" }} />
-                  </SettingIcon>
-                  <Box>
-                    <Typography
-                      variant="body1"
-                      sx={{ color: "var(--text-primary)", fontWeight: 500 }}
-                    >
-                      Analytics
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "var(--text-tertiary)" }}
-                    >
-                      Help improve our service
-                    </Typography>
-                  </Box>
-                </Box>
-                <CustomSwitch
-                  checked={privacy.analytics}
-                  onChange={handlePrivacyChange("analytics")}
-                />
-              </SettingItem>
-
-              <SettingItem>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    cursor: "pointer",
-                  }}
-                  onClick={() => setShowPrivacyDialog(true)}
-                >
-                  <SettingIcon>
-                    <PrivacyTipIcon sx={{ color: "var(--text-primary)" }} />
-                  </SettingIcon>
-                  <Box>
-                    <Typography
-                      variant="body1"
-                      sx={{ color: "var(--text-primary)", fontWeight: 500 }}
-                    >
-                      Privacy Policy
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "var(--text-tertiary)" }}
-                    >
-                      View our privacy policy
-                    </Typography>
-                  </Box>
-                </Box>
-              </SettingItem>
-
-              <SettingItem>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    cursor: "pointer",
-                  }}
-                  onClick={() => setShowTermsDialog(true)}
-                >
-                  <SettingIcon>
-                    <DescriptionIcon sx={{ color: "var(--text-primary)" }} />
-                  </SettingIcon>
-                  <Box>
-                    <Typography
-                      variant="body1"
-                      sx={{ color: "var(--text-primary)", fontWeight: 500 }}
-                    >
-                      Terms of Service
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "var(--text-tertiary)" }}
-                    >
-                      View terms and conditions
-                    </Typography>
-                  </Box>
-                </Box>
-              </SettingItem>
-            </SettingsCard>
-
-            {/* Data Management */}
-            <SettingsCard>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontFamily: "var(--font-family-secondary)",
-                  fontWeight: 600,
-                  color: "var(--text-primary)",
-                  mb: 3,
-                }}
-              >
-                Data Management
-              </Typography>
-
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <ActionButton
-                  onClick={handleExportData}
-                  startIcon={<CloudDownloadIcon />}
-                  fullWidth
-                >
-                  Export My Data
-                </ActionButton>
-
-                <DangerButton
-                  onClick={() => setShowDeleteDialog(true)}
-                  startIcon={<DeleteIcon />}
-                  fullWidth
-                >
-                  Delete Account
-                </DangerButton>
-              </Box>
-            </SettingsCard>
-          </Grid>
-        </Grid>
-
-        {/* App Information */}
-        <SettingsCard>
+      {/* Privacy Policy Dialog */}
+      <StyledDialog
+        open={showPrivacyDialog}
+        onClose={() => setShowPrivacyDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Privacy Policy</DialogTitle>
+        <DialogContent>
           <Typography
-            variant="h6"
+            component="pre"
             sx={{
-              fontFamily: "var(--font-family-secondary)",
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              mb: 3,
+              whiteSpace: "pre-wrap",
+              fontFamily: "DM Sans",
+              fontSize: "14px",
+              lineHeight: 1.6,
             }}
           >
-            About SoulSync
+            {privacyPolicyContent}
           </Typography>
+        </DialogContent>
+        <DialogActions>
+          <DialogButton onClick={() => setShowPrivacyDialog(false)}>
+            Close
+          </DialogButton>
+        </DialogActions>
+      </StyledDialog>
 
-          <Accordion
+      {/* Terms of Service Dialog */}
+      <StyledDialog
+        open={showTermsDialog}
+        onClose={() => setShowTermsDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Terms of Service</DialogTitle>
+        <DialogContent>
+          <Typography
+            component="pre"
             sx={{
-              backgroundColor: "transparent",
-              color: "var(--text-primary)",
-              boxShadow: "none",
-              "&:before": { display: "none" },
+              whiteSpace: "pre-wrap",
+              fontFamily: "DM Sans",
+              fontSize: "14px",
+              lineHeight: 1.6,
             }}
           >
-            <AccordionSummary
-              expandIcon={
-                <ExpandMoreIcon sx={{ color: "var(--text-primary)" }} />
-              }
-              sx={{ padding: 0 }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center" }}>
-                <InfoIcon sx={{ mr: 2, color: "var(--text-tertiary)" }} />
-                <Typography>App Information</Typography>
-              </Box>
-            </AccordionSummary>
-            <AccordionDetails sx={{ padding: "16px 0 0 0" }}>
-              <Box sx={{ pl: 5 }}>
-                <Typography
-                  variant="body2"
-                  sx={{ color: "var(--text-tertiary)", mb: 1 }}
-                >
-                  Version: 1.0.0
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{ color: "var(--text-tertiary)", mb: 1 }}
-                >
-                  Build: 2024.06.03
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{ color: "var(--text-tertiary)" }}
-                >
-                  © 2024 SoulSync. All rights reserved.
-                </Typography>
-              </Box>
-            </AccordionDetails>
-          </Accordion>
-        </SettingsCard>
-
-        {/* Delete Account Dialog */}
-        <Dialog
-          open={showDeleteDialog}
-          onClose={() => setShowDeleteDialog(false)}
-          PaperProps={{
-            sx: {
-              backgroundColor: "var(--content-bg)",
-              color: "var(--text-primary)",
-            },
-          }}
-        >
-          <DialogTitle>Delete Account</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to delete your account? This action cannot
-              be undone. All your data, including relationships and
-              conversations, will be permanently deleted.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <SecondaryButton onClick={() => setShowDeleteDialog(false)}>
-              Cancel
-            </SecondaryButton>
-            <DangerButton onClick={handleDeleteAccount}>
-              Delete Account
-            </DangerButton>
-          </DialogActions>
-        </Dialog>
-
-        {/* Privacy Policy Dialog */}
-        <Dialog
-          open={showPrivacyDialog}
-          onClose={() => setShowPrivacyDialog(false)}
-          maxWidth="md"
-          fullWidth
-          PaperProps={{
-            sx: {
-              backgroundColor: "var(--content-bg)",
-              color: "var(--text-primary)",
-              maxHeight: "80vh",
-            },
-          }}
-        >
-          <DialogTitle>Privacy Policy</DialogTitle>
-          <DialogContent>
-            <Typography
-              component="pre"
-              sx={{
-                whiteSpace: "pre-wrap",
-                fontFamily: "var(--font-family-secondary)",
-                fontSize: "14px",
-                lineHeight: 1.6,
-              }}
-            >
-              {privacyPolicyContent}
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <SecondaryButton onClick={() => setShowPrivacyDialog(false)}>
-              Close
-            </SecondaryButton>
-          </DialogActions>
-        </Dialog>
-
-        {/* Terms of Service Dialog */}
-        <Dialog
-          open={showTermsDialog}
-          onClose={() => setShowTermsDialog(false)}
-          maxWidth="md"
-          fullWidth
-          PaperProps={{
-            sx: {
-              backgroundColor: "var(--content-bg)",
-              color: "var(--text-primary)",
-              maxHeight: "80vh",
-            },
-          }}
-        >
-          <DialogTitle>Terms of Service</DialogTitle>
-          <DialogContent>
-            <Typography
-              component="pre"
-              sx={{
-                whiteSpace: "pre-wrap",
-                fontFamily: "var(--font-family-secondary)",
-                fontSize: "14px",
-                lineHeight: 1.6,
-              }}
-            >
-              {termsOfServiceContent}
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <SecondaryButton onClick={() => setShowTermsDialog(false)}>
-              Close
-            </SecondaryButton>
-          </DialogActions>
-        </Dialog>
-      </Container>
+            {termsOfServiceContent}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <DialogButton onClick={() => setShowTermsDialog(false)}>
+            Close
+          </DialogButton>
+        </DialogActions>
+      </StyledDialog>
     </SettingsContainer>
   );
 };

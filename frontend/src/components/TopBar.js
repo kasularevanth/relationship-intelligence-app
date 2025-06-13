@@ -1,6 +1,6 @@
 // frontend/src/components/TopBar.js
 import React, { useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { styled } from "@mui/material/styles";
 import {
   Box,
@@ -10,6 +10,7 @@ import {
   useTheme,
   useMediaQuery,
 } from "@mui/material";
+import SettingsIcon from "@mui/icons-material/Settings";
 import { useAuth } from "../contexts/AuthContext";
 
 const TopBarContainer = styled(Box)(({ isMobile }) => ({
@@ -73,18 +74,41 @@ const ProfileAvatar = styled(Avatar)(({ isMobile }) => ({
   },
 }));
 
+const SettingsIconButton = styled(IconButton)(({ isMobile }) => ({
+  width: isMobile ? "36px" : "44px",
+  height: isMobile ? "36px" : "44px",
+  backgroundColor: "transparent",
+  color: "#FFFFFF",
+  border: "2px solid rgba(255, 255, 255, 0.1)",
+  transition: "all 0.2s ease",
+  "&:hover": {
+    transform: "scale(1.05)",
+    border: "2px solid #366EFF",
+    backgroundColor: "rgba(54, 110, 255, 0.1)",
+  },
+}));
+
 const TopBar = ({ showProfile = true }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentUser } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
+  // Check if we're on profile or settings page
+  const isOnProfilePage = location.pathname === "/profile";
+  const isOnSettingsPage = location.pathname === "/settings";
 
   const handleLogoClick = () => {
     navigate("/");
   };
 
-  const handleProfileClick = () => {
-    navigate("/profile");
+  const handleRightIconClick = () => {
+    if (isOnProfilePage) {
+      navigate("/settings");
+    } else {
+      navigate("/profile");
+    }
   };
 
   // Memoized helper function for getting initials
@@ -135,25 +159,42 @@ const TopBar = ({ showProfile = true }) => {
 
       <RightSection>
         {showProfile && currentUser && (
-          <IconButton onClick={handleProfileClick} sx={{ padding: 0 }}>
-            <ProfileAvatar isMobile={isMobile}>
-              {profilePhoto ? (
-                <img
-                  src={profilePhoto}
-                  alt="Profile"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    borderRadius: "50%",
+          <>
+            {/* Show Settings icon when on Profile page, Profile icon otherwise */}
+            {isOnProfilePage ? (
+              <SettingsIconButton
+                isMobile={isMobile}
+                onClick={handleRightIconClick}
+              >
+                <SettingsIcon
+                  sx={{
+                    fontSize: isMobile ? "20px" : "24px",
+                    color: "#FFFFFF",
                   }}
-                  onError={handleImageError}
                 />
-              ) : (
-                userInitials
-              )}
-            </ProfileAvatar>
-          </IconButton>
+              </SettingsIconButton>
+            ) : (
+              <IconButton onClick={handleRightIconClick} sx={{ padding: 0 }}>
+                <ProfileAvatar isMobile={isMobile}>
+                  {profilePhoto ? (
+                    <img
+                      src={profilePhoto}
+                      alt="Profile"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        borderRadius: "50%",
+                      }}
+                      onError={handleImageError}
+                    />
+                  ) : (
+                    userInitials
+                  )}
+                </ProfileAvatar>
+              </IconButton>
+            )}
+          </>
         )}
       </RightSection>
     </TopBarContainer>
