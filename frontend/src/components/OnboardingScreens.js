@@ -407,19 +407,8 @@ const AnimatedHeartIcon = ({ size = 40 }) => {
 
 const OnboardingScreens = ({ onComplete, onSkip }) => {
   const [currentScreen, setCurrentScreen] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-
-  // Handle viewport height changes (especially important for mobile)
-  useEffect(() => {
-    const handleResize = () => {
-      setViewportHeight(window.innerHeight);
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   const screens = [
     {
@@ -577,90 +566,78 @@ const OnboardingScreens = ({ onComplete, onSkip }) => {
         top: 0,
         left: 0,
         width: "100vw",
-        height: `${viewportHeight}px`, // Use actual viewport height instead of 100vh
-        minHeight: "100vh", // Fallback
+        height: "100vh",
         background: "#00081E",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "space-between", // Changed from center to space-between
-        zIndex: 9998,
         overflow: "hidden",
-        // Add safe area padding for iOS devices
-        paddingBottom: isMobile ? "env(safe-area-inset-bottom, 20px)" : "0px",
+        zIndex: 9998,
       }}
     >
       <BackgroundEllipses />
 
-      {/* Top Section - Logo and Skip */}
-      <Box
+      {/* Logo */}
+      <Typography
         sx={{
-          width: "100%",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: isMobile ? "61px 28px 0 28px" : "84px 100px 0 100px",
+          position: "absolute",
+          top: isMobile ? "61px" : "84px",
+          left: isMobile ? "28px" : "100px",
+          fontFamily: '"DM Sans", sans-serif',
+          fontWeight: 700,
+          fontSize: isMobile ? "20px" : "36px",
+          lineHeight: isMobile ? "26px" : "47px",
+          letterSpacing: isMobile ? "-0.165px" : "-0.310588px",
+          color: "#F5F5F5",
           zIndex: 10,
-          position: "relative",
         }}
       >
-        {/* Logo */}
-        <Typography
-          sx={{
-            fontFamily: '"DM Sans", sans-serif',
-            fontWeight: 700,
-            fontSize: isMobile ? "20px" : "36px",
-            lineHeight: isMobile ? "26px" : "47px",
-            letterSpacing: isMobile ? "-0.165px" : "-0.310588px",
-            color: "#F5F5F5",
-          }}
-        >
-          SoulSync
-        </Typography>
+        SoulSync
+      </Typography>
 
-        {/* Skip Button */}
-        <Button
-          onClick={onSkip}
-          sx={{
-            display: "flex",
-            flexDirection: "row",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: "3.72414px 37.2414px",
-            width: "137px",
-            height: "58px",
-            background: "rgba(255, 255, 255, 0.18)",
-            borderRadius: "27.931px",
-            color: "#F5F5F5",
-            fontFamily: '"DM Sans", sans-serif',
-            fontWeight: 500,
-            fontSize: isMobile ? "16px" : "18px",
-            textTransform: "none",
-            "&:hover": {
-              background: "rgba(255, 255, 255, 0.25)",
-            },
-          }}
-        >
-          Skip
-        </Button>
-      </Box>
+      {/* Skip Button */}
+      <Button
+        onClick={onSkip}
+        sx={{
+          position: "absolute",
+          top: isMobile ? "61px" : "84px",
+          right: isMobile ? "28px" : "100px",
+          zIndex: 10,
+          display: "flex",
+          flexDirection: "row",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "3.72414px 37.2414px",
+          width: "137px",
+          height: "58px",
+          background: "rgba(255, 255, 255, 0.18)",
+          borderRadius: "27.931px",
+          color: "#F5F5F5",
+          fontFamily: '"DM Sans", sans-serif',
+          fontWeight: 500,
+          fontSize: isMobile ? "16px" : "18px",
+          textTransform: "none",
+          "&:hover": {
+            background: "rgba(255, 255, 255, 0.25)",
+          },
+        }}
+      >
+        Skip
+      </Button>
 
-      {/* Main Content - Centered and Scrollable */}
+      {/* Main Content - Scrollable Area */}
       <Box
         sx={{
+          position: "absolute",
+          top: isMobile ? "150px" : "180px", // Below header
+          left: 0,
+          right: 0,
+          bottom: isMobile ? "120px" : "140px", // Above navigation
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
+          justifyContent: "center",
           gap: isMobile ? "25px" : "60px",
-          width: isMobile ? "323px" : "1030px",
           zIndex: 10,
-          position: "relative",
-          textAlign: "center",
-          flex: 1, // Take available space
-          justifyContent: "center", // Center content vertically
-          maxWidth: "90%", // Ensure content doesn't overflow
-          overflowY: "auto", // Allow vertical scrolling for content
-          padding: "20px 0", // Add some padding to avoid content touching edges
+          overflow: "auto",
+          padding: isMobile ? "20px" : "40px",
         }}
       >
         {/* Icon */}
@@ -714,7 +691,7 @@ const OnboardingScreens = ({ onComplete, onSkip }) => {
             fontFamily: '"Poppins", sans-serif',
             fontWeight: 300,
             fontSize: isMobile ? "26px" : "22px",
-            lineHeight: isMobile ? "140%" : "140%",
+            lineHeight: "140%",
             letterSpacing: "-0.165px",
             color: "#D1D1D1",
             maxWidth: isMobile ? "313px" : "1020px",
@@ -728,95 +705,92 @@ const OnboardingScreens = ({ onComplete, onSkip }) => {
         <ProgressDots />
       </Box>
 
-      {/* Bottom Section - Navigation */}
+      {/* Navigation - Fixed at Bottom */}
       <Box
         sx={{
-          width: "100%",
+          position: "fixed",
+          bottom: isMobile ? "40px" : "50px",
+          right: isMobile ? "25px" : "100px",
           display: "flex",
-          justifyContent:
-            currentScreen === screens.length - 1 && !isMobile
-              ? "center"
-              : "flex-end",
           alignItems: "center",
-          padding: isMobile ? "0 25px 30px 25px" : "0 100px 50px 100px", // Increased bottom padding
-          zIndex: 10,
-          position: "relative",
-          minHeight: "80px", // Ensure minimum height for buttons
+          gap: isMobile ? "17px" : "20px",
+          zIndex: 1000, // High z-index to ensure visibility
+          ...(currentScreen === screens.length - 1 &&
+            !isMobile && {
+              left: "50%",
+              right: "auto",
+              transform: "translateX(-50%)",
+            }),
         }}
       >
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: isMobile ? "17px" : "20px",
-          }}
-        >
-          {/* Previous Button */}
-          {currentScreen > 0 && (
-            <IconButton
-              onClick={handlePrevious}
-              sx={{
-                width: isMobile ? "52px" : "48px",
-                height: isMobile ? "52px" : "48px",
-                border: isMobile
-                  ? "2px solid #AFAFAF"
-                  : "1.84615px solid #AFAFAF",
-                borderRadius: "50%",
-                color: "#AFAFAF",
-                backgroundColor: "transparent",
-                "&:hover": {
-                  backgroundColor: "rgba(175, 175, 175, 0.1)",
-                },
-              }}
-            >
-              <ArrowBack sx={{ fontSize: isMobile ? "24px" : "20px" }} />
-            </IconButton>
-          )}
+        {/* Previous Button */}
+        {currentScreen > 0 && (
+          <IconButton
+            onClick={handlePrevious}
+            sx={{
+              width: isMobile ? "52px" : "48px",
+              height: isMobile ? "52px" : "48px",
+              border: isMobile
+                ? "2px solid #AFAFAF"
+                : "1.84615px solid #AFAFAF",
+              borderRadius: "50%",
+              color: "#AFAFAF",
+              backgroundColor: "rgba(0, 8, 30, 0.8)", // Semi-transparent background
+              backdropFilter: "blur(10px)",
+              "&:hover": {
+                backgroundColor: "rgba(175, 175, 175, 0.1)",
+              },
+            }}
+          >
+            <ArrowBack sx={{ fontSize: isMobile ? "24px" : "20px" }} />
+          </IconButton>
+        )}
 
-          {/* Next/Get Started Button */}
-          {currentScreen === screens.length - 1 ? (
-            <Button
-              onClick={handleNext}
-              variant="contained"
-              sx={{
-                width: isMobile ? "256px" : "200px",
-                height: isMobile ? "52px" : "48px",
-                backgroundColor: "#F5F5F5",
-                color: "#000000",
-                borderRadius: isMobile ? "26px" : "24px",
-                fontFamily: '"DM Sans", sans-serif',
-                fontWeight: 500,
-                fontSize: "20px",
-                lineHeight: "26px",
-                letterSpacing: "-0.165px",
-                textTransform: "none",
-                boxShadow: "none",
-                "&:hover": {
-                  backgroundColor: "rgba(245, 245, 245, 0.9)",
-                  boxShadow: "none",
-                },
-              }}
-            >
-              Get Started
-            </Button>
-          ) : (
-            <IconButton
-              onClick={handleNext}
-              sx={{
-                width: isMobile ? "52px" : "48px",
-                height: isMobile ? "52px" : "48px",
-                backgroundColor: "#F5F5F5",
-                color: "#1D1D1D",
-                borderRadius: "50%",
-                "&:hover": {
-                  backgroundColor: "rgba(245, 245, 245, 0.9)",
-                },
-              }}
-            >
-              <ArrowForward sx={{ fontSize: isMobile ? "24px" : "20px" }} />
-            </IconButton>
-          )}
-        </Box>
+        {/* Next/Get Started Button */}
+        {currentScreen === screens.length - 1 ? (
+          <Button
+            onClick={handleNext}
+            variant="contained"
+            sx={{
+              width: isMobile ? "256px" : "200px",
+              height: isMobile ? "52px" : "48px",
+              backgroundColor: "#F5F5F5",
+              color: "#000000",
+              borderRadius: isMobile ? "26px" : "24px",
+              fontFamily: '"DM Sans", sans-serif',
+              fontWeight: 500,
+              fontSize: "20px",
+              lineHeight: "26px",
+              letterSpacing: "-0.165px",
+              textTransform: "none",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+              "&:hover": {
+                backgroundColor: "rgba(245, 245, 245, 0.9)",
+                boxShadow: "0 6px 25px rgba(0, 0, 0, 0.4)",
+              },
+            }}
+          >
+            Get Started
+          </Button>
+        ) : (
+          <IconButton
+            onClick={handleNext}
+            sx={{
+              width: isMobile ? "52px" : "48px",
+              height: isMobile ? "52px" : "48px",
+              backgroundColor: "#F5F5F5",
+              color: "#1D1D1D",
+              borderRadius: "50%",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+              "&:hover": {
+                backgroundColor: "rgba(245, 245, 245, 0.9)",
+                boxShadow: "0 6px 25px rgba(0, 0, 0, 0.4)",
+              },
+            }}
+          >
+            <ArrowForward sx={{ fontSize: isMobile ? "24px" : "20px" }} />
+          </IconButton>
+        )}
       </Box>
     </Box>
   );
