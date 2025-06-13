@@ -645,7 +645,7 @@ const OnboardingScreens = ({ onComplete, onSkip }) => {
         </Button>
       </Box>
 
-      {/* Main Content - Centered */}
+      {/* Main Content - Centered and Scrollable */}
       <Box
         sx={{
           display: "flex",
@@ -659,6 +659,8 @@ const OnboardingScreens = ({ onComplete, onSkip }) => {
           flex: 1, // Take available space
           justifyContent: "center", // Center content vertically
           maxWidth: "90%", // Ensure content doesn't overflow
+          overflowY: "auto", // Allow vertical scrolling for content
+          padding: "20px 0", // Add some padding to avoid content touching edges
         }}
       >
         {/* Icon */}
