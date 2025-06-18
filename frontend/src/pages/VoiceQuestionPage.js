@@ -82,6 +82,7 @@ const VoiceQuestionPage = () => {
   const mediaRecorderRef = React.useRef(null);
   const audioChunksRef = React.useRef([]);
   const speechVisualizerRef = React.useRef();
+  const recordingTimeoutRef = React.useRef(null); // Add ref for timeout management
 
   // Import progress polling ref
   const importPollingRef = React.useRef(null);
@@ -124,6 +125,10 @@ const VoiceQuestionPage = () => {
       // Cleanup import polling on unmount
       if (importPollingRef.current) {
         clearInterval(importPollingRef.current);
+      }
+      // Cleanup recording timeout on unmount
+      if (recordingTimeoutRef.current) {
+        clearTimeout(recordingTimeoutRef.current);
       }
     };
   }, []);
@@ -429,15 +434,25 @@ const VoiceQuestionPage = () => {
 
       mediaRecorder.start();
 
-      // Auto-stop after 10 seconds (to prevent too long recordings)
-      setTimeout(() => {
+      // FIXED: Increased timeout to 3 minutes (180 seconds) as a safety net only
+      // Recording will only stop when user manually clicks the stop button
+      // or after 3 minutes to prevent extremely long recordings
+      recordingTimeoutRef.current = setTimeout(() => {
         if (
           mediaRecorderRef.current &&
           mediaRecorderRef.current.state === "recording"
         ) {
+          console.log(
+            "Recording automatically stopped after 3 minutes (safety timeout)"
+          );
           stopListening();
+          setError(
+            "Recording stopped after 3 minutes. Please record shorter messages for better processing."
+          );
+          setErrorType("audio");
+          setShowRetryButton(true);
         }
-      }, 10000);
+      }, 180000); // 3 minutes (180 seconds)
     } catch (error) {
       console.error("Error starting recording:", error);
       setIsListening(false);
@@ -465,6 +480,12 @@ const VoiceQuestionPage = () => {
   };
 
   const stopListening = () => {
+    // Clear the timeout when manually stopping
+    if (recordingTimeoutRef.current) {
+      clearTimeout(recordingTimeoutRef.current);
+      recordingTimeoutRef.current = null;
+    }
+
     if (
       mediaRecorderRef.current &&
       mediaRecorderRef.current.state === "recording"
@@ -1298,14 +1319,11 @@ const VoiceQuestionPage = () => {
           sx={{
             width: "100%",
             maxWidth: "1000px",
-
             display: "flex",
             flexDirection: "column",
             gap: "15px",
             mb: 4,
-
             overflowY: "auto",
-
             paddingBottom: "200px",
           }}
         >
@@ -1587,9 +1605,7 @@ const VoiceQuestionPage = () => {
           maxHeight: "400px",
           overflowY: "auto",
           padding: "20px",
-
           backdropFilter: "blur(10px)",
-
           mb: 4,
         }}
       >
