@@ -155,6 +155,27 @@ router.post(
   memoryController.createMemory
 );
 
+// ========== UPDATED QUESTION ROUTES ==========
+
+// Structured Questions Routes (NEW)
+router.get(
+  "/relationships/:relationshipId/structured-questions",
+  auth,
+  questionController.getStructuredQuestions
+);
+
+router.post(
+  "/relationships/:relationshipId/structured-answer",
+  auth,
+  questionController.submitStructuredAnswer
+);
+
+router.get(
+  "/relationships/:relationshipId/profile-status",
+  auth,
+  questionController.getProfileStatus
+);
+
 // Question routes
 router.post("/relationships/question", auth, questionController.askQuestion);
 router.get(
@@ -162,12 +183,16 @@ router.get(
   auth,
   questionController.getQuestionHistory
 );
+
+// Voice Question Route (UPDATED)
 router.post(
   "/relationships/:relationshipId/voice-question",
   auth,
   upload.single("audio"),
   questionController.askQuestionVoice
 );
+
+// ========== END QUESTION ROUTES ==========
 
 // Conversation routes
 router.post("/conversations", auth, conversationController.startConversation);

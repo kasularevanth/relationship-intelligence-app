@@ -23,6 +23,7 @@ import PeopleIcon from "@mui/icons-material/People";
 import PersonIcon from "@mui/icons-material/Person";
 import SchoolIcon from "@mui/icons-material/School";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
+import { navigateToVoiceQuestion } from "../utils/navigationUtils";
 
 // Styled Components - Exact design matching the images
 const StyledContainer = styled(Container)({
@@ -499,14 +500,11 @@ const RelationshipCircle = () => {
     navigate(`/relationship-circle/${relationshipId}/import`);
   };
 
+  // UPDATED: Navigate to voice question page instead of demo chat
   const handleAnalyzeWithoutChats = () => {
-    if (isMobile) {
-      actions.showDemoChat();
-    } else {
-      navigate("/demo/chat");
-    }
+    // Simple navigation to questions page - no parameters needed since no conversations
+    navigate(`/relationships/${relationshipId}/questions`);
   };
-
   const handleBackClick = () => {
     navigate("/dashboard");
   };

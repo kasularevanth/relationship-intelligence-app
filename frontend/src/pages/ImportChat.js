@@ -51,8 +51,6 @@ import { styled } from "@mui/material/styles";
 
 import { importService, relationshipService } from "../services/api";
 
-// ... (Keep all the existing styled components and PLATFORMS config - unchanged)
-
 const HeaderContainer = styled(Box)(({ theme }) => ({
   display: "flex",
   alignItems: "center",
@@ -243,9 +241,7 @@ const ImportChat = () => {
 
   const allowedFileTypes = [".txt", ".csv", ".json", ".zip", ".html"];
 
-  // ... (Keep all the existing useEffect hooks and other functions - unchanged until we get to navigation functions)
-
-  // Cleanup and status checking effects (keeping existing logic)
+  // Cleanup and status checking effects
   useEffect(() => {
     return () => {
       if (pollingIntervalRef.current) {
@@ -294,7 +290,7 @@ const ImportChat = () => {
     }
   }, [topicsProcessed]);
 
-  // Keep existing backend integration functions
+  // Backend integration functions
   const checkImportStatus = async () => {
     try {
       if (!conversationId) return;
@@ -542,7 +538,7 @@ const ImportChat = () => {
     try {
       setLoading(true);
       setError("");
-      setImportProgress(40);
+      setImportProgress(30); // Start with 30% to show immediate progress
 
       const formData = new FormData();
       formData.append("chatFile", file);
@@ -557,10 +553,11 @@ const ImportChat = () => {
         messageCount: response.data.messageCount || 0,
       });
       setImportStatus("processing");
-      setImportProgress(40);
+      setImportProgress(40); // Set to 40% after successful upload
     } catch (err) {
       console.error("Import error:", err);
       setError(err.response?.data?.message || "Error importing chat history");
+      setImportProgress(0); // Reset progress on error
     } finally {
       setLoading(false);
     }
@@ -593,7 +590,7 @@ const ImportChat = () => {
     }
   };
 
-  // FIXED: Navigate to analysis page
+  // Navigate to analysis page
   const goToAnalysis = async () => {
     try {
       await forceUpdateRelationshipMetrics();
@@ -613,8 +610,27 @@ const ImportChat = () => {
     }
   };
 
+  // ENHANCED: Navigate to voice question page with proper import progress tracking
   const handleReflectWithAI = () => {
-    navigate(`/relationships/${relationshipId}/questions`);
+    console.log("Navigating to AI with progress:", {
+      progress: importProgress,
+      importing: importProgress < 100,
+      status: importStatus,
+    });
+
+    // Navigate with proper progress parameters
+    const params = new URLSearchParams({
+      progress: importProgress.toString(),
+      importing: (importProgress < 100).toString(),
+      from_import: "true",
+      // Add conversation ID to help with progress tracking
+      ...(conversationId && { conversation_id: conversationId }),
+    });
+
+    const url = `/relationships/${relationshipId}/questions?${params.toString()}`;
+    console.log("Navigation URL:", url);
+
+    navigate(url);
   };
 
   const toggleInstructions = (platform, device) => {
@@ -625,8 +641,7 @@ const ImportChat = () => {
     }));
   };
 
-  // ... (Keep all the render functions for platform selection, file upload - unchanged until processing and analysis)
-
+  // Render functions for different steps
   const renderPlatformSelection = () => (
     <Box className="import-step">
       {/* Desktop Title */}
@@ -1455,7 +1470,7 @@ const ImportChat = () => {
             flexDirection: "column",
           }}
         >
-          {/* Desktop Header - Hidden since we have header above */}
+          {/* Desktop Header */}
           <Box sx={{ display: { xs: "none", sm: "block" } }}>
             <Typography
               variant="body1"
@@ -1471,7 +1486,7 @@ const ImportChat = () => {
             <Divider sx={{ my: 3 }} />
           </Box>
 
-          {/* Mobile Header Content - Hidden since we have header above */}
+          {/* Mobile Header Content */}
           <Box sx={{ display: { xs: "block", sm: "none" }, mb: 2 }}>
             <Typography
               variant="body2"

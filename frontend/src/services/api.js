@@ -67,7 +67,6 @@ export const relationshipService = {
     api.post(`/relationships/${id}/recalculate-metrics`),
   getTypeAnalysis: (relationshipId) =>
     api.get(`/relationships/${relationshipId}/type-analysis`),
-  // In relationshipService.js
   getProfileById: (id) => {
     return api.get(`/relationships/${id}/profile`);
   },
@@ -150,19 +149,47 @@ export const relationshipAnalysisService = {
   },
 };
 
-// Add this to your frontend/src/services/api.js under a new questionService section
+// ========== UPDATED QUESTION SERVICES ==========
 
 // Question Services
 export const questionService = {
+  // ===== STRUCTURED QUESTIONS =====
+
+  // Get structured questions for relationship profiling
+  getStructuredQuestions: (relationshipId) =>
+    api.get(`/relationships/${relationshipId}/structured-questions`),
+
+  // Submit structured question answer
+  submitStructuredAnswer: (relationshipId, data) =>
+    api.post(`/relationships/${relationshipId}/structured-answer`, data),
+
+  // Get profile status (conversations vs structured questions)
+  getProfileStatus: (relationshipId) =>
+    api.get(`/relationships/${relationshipId}/profile-status`),
+
+  // ===== REGULAR QUESTIONS =====
+
+  // Ask a text question
   askQuestion: (relationshipId, question) =>
     api.post("/relationships/question", { relationshipId, question }),
 
+  // Get question history (excluding structured questions)
   getQuestionHistory: (relationshipId) =>
     api.get(`/relationships/${relationshipId}/questions`),
 
-  askVoiceQuestion: (relationshipId, audioBlob) => {
+  // ===== VOICE QUESTIONS =====
+
+  // Ask a voice question (supports both structured and open-ended)
+  askVoiceQuestion: (relationshipId, audioBlob, additionalData = {}) => {
     const formData = new FormData();
     formData.append("audio", audioBlob, "question.webm");
+
+    // Add structured question data if provided
+    if (additionalData.isStructured) {
+      formData.append("isStructured", "true");
+      formData.append("questionIndex", additionalData.questionIndex.toString());
+      formData.append("currentQuestion", additionalData.currentQuestion);
+    }
 
     return api.post(
       `/relationships/${relationshipId}/voice-question`,
@@ -174,7 +201,47 @@ export const questionService = {
       }
     );
   },
+
+  // ===== TRANSCRIPT & TEXT MODES =====
+
+  // Submit text answer for structured question
+  submitTextAnswer: (relationshipId, questionIndex, question, answer) =>
+    api.post(`/relationships/${relationshipId}/structured-answer`, {
+      questionIndex,
+      question,
+      answer,
+    }),
+
+  // ===== UTILITY METHODS =====
+
+  // Check if user can ask open-ended questions
+  canAskOpenQuestions: async (relationshipId) => {
+    try {
+      const response = await api.get(
+        `/relationships/${relationshipId}/profile-status`
+      );
+      return response.data.canAskOpenQuestions || false;
+    } catch (error) {
+      console.error("Error checking question permissions:", error);
+      return false;
+    }
+  },
+
+  // Get combined question history (structured + open-ended)
+  getAllQuestions: async (relationshipId) => {
+    try {
+      const response = await api.get(
+        `/relationships/${relationshipId}/questions`
+      );
+      return response.data.questions || [];
+    } catch (error) {
+      console.error("Error getting all questions:", error);
+      return [];
+    }
+  },
 };
+
+// ========== END QUESTION SERVICES ==========
 
 // Conversation Services
 export const conversationService = {

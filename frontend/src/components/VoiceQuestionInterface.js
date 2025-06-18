@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Box, Typography, CircularProgress, Fade, Paper } from "@mui/material";
 import { styled } from "@mui/system";
 import LottieVoiceAssistant from "./LottieVoiceAssistant";
+import { questionService } from "../services/api";
 import { useTheme } from "../contexts/ThemeContext";
 
 const ProcessingIndicator = styled(Box)(({ theme }) => ({
@@ -35,7 +36,14 @@ const ResponsePaper = styled(Paper)(({ theme, darkMode }) => ({
   },
 }));
 
-const VoiceQuestionInterface = ({ relationshipId, onQuestionAnswered }) => {
+const VoiceQuestionInterface = ({
+  relationshipId,
+  onQuestionAnswered,
+  currentQuestion = null,
+  isStructured = false,
+  questionIndex = 0,
+  mode = "voice", // voice | integrated | minimal
+}) => {
   // Get theme context
   const { darkMode } = useTheme();
 
@@ -65,8 +73,6 @@ const VoiceQuestionInterface = ({ relationshipId, onQuestionAnswered }) => {
     };
 
     speechSynthesisRef.current.onvoiceschanged = loadVoices;
-
-    // Initial load attempt
     loadVoices();
   }, []);
 
@@ -120,7 +126,7 @@ const VoiceQuestionInterface = ({ relationshipId, onQuestionAnswered }) => {
       const animationFrameId = requestAnimationFrame(updateAnimation);
 
       // Store this for cleanup
-      const audioAnalysis = {
+      audioAnalysisRef.current = {
         audioContext,
         animationFrameId,
         cleanUp: () => {
@@ -174,55 +180,80 @@ const VoiceQuestionInterface = ({ relationshipId, onQuestionAnswered }) => {
         type: "audio/webm",
       });
 
-      // Create form data for the API request
-      const formData = new FormData();
-      formData.append("audio", audioBlob, "question.webm");
+      // Prepare additional data for structured questions
+      const additionalData = isStructured
+        ? {
+            isStructured: true,
+            questionIndex,
+            currentQuestion,
+          }
+        : {};
 
-      // Make a direct API call to the new endpoint
-      const response = await fetch(
-        `${
-          process.env.REACT_APP_API_URL || "http://localhost:5000/api"
-        }/relationships/${relationshipId}/voice-question`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: formData,
-        }
+      // Use the questionService to submit voice question
+      const response = await questionService.askVoiceQuestion(
+        relationshipId,
+        audioBlob,
+        additionalData
       );
 
-      const data = await response.json();
+      const data = response.data;
 
       if (data.success) {
         // Update transcript and response
         setTranscript(data.transcription);
-        setResponse(data.answer);
 
-        // Notify parent component
-        if (onQuestionAnswered) {
-          onQuestionAnswered({
-            question: data.transcription,
-            answer: data.answer,
-          });
+        if (isStructured) {
+          // For structured questions, we just need the transcription
+          setResponse("");
+
+          // Notify parent component with structured data
+          if (onQuestionAnswered) {
+            onQuestionAnswered({
+              transcription: data.transcription,
+              answer: data.transcription, // For structured, the transcription IS the answer
+              isStructured: true,
+              questionIndex: data.questionIndex,
+              isComplete: data.isComplete,
+              nextQuestionIndex: data.nextQuestionIndex,
+            });
+          }
+        } else {
+          // For open-ended questions, we get both question and AI response
+          setResponse(data.answer);
+
+          // Notify parent component
+          if (onQuestionAnswered) {
+            onQuestionAnswered({
+              question: data.transcription,
+              answer: data.answer,
+              transcription: data.transcription,
+              aiResponse: data.answer,
+              isStructured: false,
+            });
+          }
+
+          // Start speaking the response for open-ended questions
+          speakResponse(data.answer);
         }
 
-        // Start speaking the response
-        speakResponse(data.answer);
+        // For structured questions, go back to idle immediately
+        if (isStructured) {
+          setStatus("idle");
+        }
       } else {
-        setError(data.message || "Failed to process your question");
+        setError(data.message || "Failed to process your input");
         setStatus("idle");
       }
     } catch (error) {
-      console.error("Error processing voice question:", error);
-      setError("Failed to process your question. Please try again.");
+      console.error("Error processing voice input:", error);
+      setError("Failed to process your input. Please try again.");
       setStatus("idle");
     }
   };
 
-  // Speak the response using speech synthesis
+  // Speak the response using speech synthesis (only for open-ended questions)
   const speakResponse = (text) => {
-    if (!speechSynthesisRef.current) return;
+    if (!speechSynthesisRef.current || isStructured) return;
 
     // Cancel any ongoing speech
     speechSynthesisRef.current.cancel();
@@ -296,21 +327,106 @@ const VoiceQuestionInterface = ({ relationshipId, onQuestionAnswered }) => {
     };
   }, [status]);
 
-  // Helper text based on status
+  // Helper text based on status and mode
   const getStatusText = () => {
-    switch (status) {
-      case "idle":
-        return "Tap to ask a question by voice";
-      case "listening":
-        return "Listening... Click again to stop";
-      case "processing":
-        return "Processing your question...";
-      case "speaking":
-        return "Speaking...";
-      default:
-        return "";
+    if (isStructured) {
+      switch (status) {
+        case "idle":
+          return "Tap to answer by voice";
+        case "listening":
+          return "Listening... Click again to stop";
+        case "processing":
+          return "Processing your answer...";
+        default:
+          return "";
+      }
+    } else {
+      switch (status) {
+        case "idle":
+          return "Tap to ask a question by voice";
+        case "listening":
+          return "Listening... Click again to stop";
+        case "processing":
+          return "Processing your question...";
+        case "speaking":
+          return "Speaking...";
+        default:
+          return "";
+      }
     }
   };
+
+  const getInstructionText = () => {
+    if (isStructured) {
+      return "Answer the question by voice or text. Your answers help us understand your relationship better.";
+    } else {
+      return "You can ask questions by voice or text. The AI will use your relationship data to provide personalized responses.";
+    }
+  };
+
+  if (mode === "integrated" || mode === "minimal") {
+    // Minimal integration for use within other components
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          width: "100%",
+          minHeight: mode === "minimal" ? "160px" : "200px",
+          justifyContent: "center",
+          gap: 2,
+        }}
+      >
+        <LottieVoiceAssistant
+          status={status}
+          onActivate={handleActivateVoice}
+          size={mode === "minimal" ? 120 : 140}
+          speechVisualizerRef={speechVisualizerRef}
+          mode={mode === "minimal" ? "minimal" : "full"}
+          showStatusText={mode !== "minimal"}
+          customStatusText={getStatusText()}
+        />
+
+        {mode !== "minimal" && (
+          <Typography
+            variant="body2"
+            sx={{
+              textAlign: "center",
+              opacity: 0.8,
+              color: "#60a5fa",
+              fontSize: "16px",
+              fontWeight: 500,
+              fontFamily: "DM Sans",
+            }}
+          >
+            {getStatusText()}
+          </Typography>
+        )}
+
+        {status === "processing" && (
+          <ProcessingIndicator>
+            <CircularProgress size={24} sx={{ mr: 1.5, color: "#4a6bf5" }} />
+            <Typography variant="body2" color="white">
+              {isStructured
+                ? "Processing your answer..."
+                : "Analyzing your question..."}
+            </Typography>
+          </ProcessingIndicator>
+        )}
+
+        {error && (
+          <Typography
+            color="error"
+            variant="body2"
+            sx={{ mt: 2, textAlign: "center", fontSize: "14px" }}
+          >
+            {error}
+          </Typography>
+        )}
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -325,41 +441,115 @@ const VoiceQuestionInterface = ({ relationshipId, onQuestionAnswered }) => {
         p: 2,
       }}
     >
-      {/* The 3D Voice Assistant */}
+      {/* Show current question for structured mode */}
+      {isStructured && currentQuestion && (
+        <Box sx={{ mb: 4, textAlign: "center", maxWidth: "600px" }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontFamily: "Poppins",
+              fontWeight: 600,
+              fontSize: "22px",
+              color: "#FFFFFF",
+              mb: 2,
+            }}
+          >
+            {isStructured ? "Answer the question" : "Ask your question"}
+          </Typography>
+          <Typography
+            variant="body1"
+            sx={{
+              fontFamily: "DM Sans",
+              fontSize: "16px",
+              color: "#D1D1D1",
+              mb: 3,
+            }}
+          >
+            {getInstructionText()}
+          </Typography>
+          <Paper
+            sx={{
+              p: 3,
+              background: "rgba(255, 255, 255, 0.08)",
+              borderRadius: "12px",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+            }}
+          >
+            <Typography
+              variant="body1"
+              sx={{
+                fontFamily: "DM Sans",
+                fontSize: "18px",
+                color: "#FFFFFF",
+                fontWeight: 500,
+              }}
+            >
+              {currentQuestion}
+            </Typography>
+          </Paper>
+        </Box>
+      )}
+
+      {/* The Voice Assistant */}
       <LottieVoiceAssistant
         status={status}
         onActivate={handleActivateVoice}
         size={240}
         speechVisualizerRef={speechVisualizerRef}
+        mode="full"
+        showStatusText={true}
+        customStatusText={getStatusText()}
       />
-
-      {/* Status text */}
-      <Typography
-        variant="body1"
-        color="text.secondary"
-        fontWeight={500}
-        sx={{
-          mt: 1,
-          textAlign: "center",
-          minHeight: "24px",
-          opacity: 0.8,
-        }}
-      >
-        {/* {getStatusText()} */}
-      </Typography>
 
       {/* Processing indicator */}
       {status === "processing" && (
         <ProcessingIndicator>
           <CircularProgress size={24} sx={{ mr: 1.5, color: "#4a6bf5" }} />
           <Typography variant="body2" color="white">
-            Analyzing your question...
+            {isStructured
+              ? "Processing your answer..."
+              : "Analyzing your question..."}
           </Typography>
         </ProcessingIndicator>
       )}
 
-      {/* Transcript and response display */}
-      {(transcript || response) && (
+      {/* Transcript display for structured questions */}
+      {transcript && isStructured && (
+        <Box sx={{ mt: 3, textAlign: "center", maxWidth: "600px" }}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: "bold",
+              color: "#60a5fa",
+              mb: 1,
+              fontFamily: "DM Sans",
+            }}
+          >
+            Your answer:
+          </Typography>
+          <Paper
+            sx={{
+              p: 2,
+              background: "rgba(255, 255, 255, 0.08)",
+              borderRadius: "8px",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+            }}
+          >
+            <Typography
+              variant="body1"
+              sx={{
+                color: "#FFFFFF",
+                fontFamily: "DM Sans",
+              }}
+            >
+              {transcript}
+            </Typography>
+          </Paper>
+        </Box>
+      )}
+
+      {/* Transcript and response display for open-ended questions */}
+      {(transcript || response) && !isStructured && mode === "voice" && (
         <Fade in={responseVisible}>
           <ResponsePaper
             className={responseVisible ? "visible" : ""}
@@ -381,7 +571,7 @@ const VoiceQuestionInterface = ({ relationshipId, onQuestionAnswered }) => {
                   color={darkMode ? "white" : "text.primary"}
                   sx={{ mb: 2 }}
                 >
-                  {transcript || "No data available"}
+                  {transcript}
                 </Typography>
               </>
             )}

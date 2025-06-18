@@ -192,7 +192,7 @@ const RelationshipSelectionPage = () => {
     }
   };
 
-  const options = [
+  const allOptions = [
     {
       id: "contacts",
       text: "Upload from contacts",
@@ -212,6 +212,10 @@ const RelationshipSelectionPage = () => {
       onClick: handleDemoCouple,
     },
   ];
+  // Only show 'Upload from contacts' on mobile
+  const options = isMobile
+    ? allOptions
+    : allOptions.filter(option => option.id !== "contacts");
 
   return (
     <PageContainer>
