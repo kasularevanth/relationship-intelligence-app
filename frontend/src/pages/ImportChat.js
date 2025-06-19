@@ -793,7 +793,16 @@ const ImportChat = () => {
 
           {Object.entries(PLATFORMS[selectedPlatform].instructions).map(
             ([device, steps]) => (
-              <Card key={device} className="instruction-card" sx={{ mb: 2 }}>
+              <Card
+                key={device}
+                className="instruction-card"
+                sx={{
+                  mb: 2,
+                  background:
+                    "linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05))",
+                  boxShadow: "none",
+                }}
+              >
                 <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
                   <Box
                     display="flex"

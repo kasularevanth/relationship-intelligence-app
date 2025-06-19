@@ -178,21 +178,6 @@ export const getTheme = (darkMode) => {
           },
         },
       },
-      MuiAccordion: {
-        styleOverrides: {
-          root: {
-            backgroundColor: darkMode ? 'transparent' : '#ffffff',
-            backgroundImage: 'none',
-            boxShadow: 'none',
-            '&:before': {
-              display: 'none',
-            },
-            '&.Mui-expanded': {
-              margin: 0,
-            },
-          },
-        },
-      },
     },
   });
 
