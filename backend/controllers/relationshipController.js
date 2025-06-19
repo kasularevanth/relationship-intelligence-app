@@ -4,83 +4,101 @@ const Relationship = require("../models/Relationship");
 const User = require("../models/User");
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
+const cloudinary = require("cloudinary").v2;
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
 
-// Set up multer storage configuration
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, "../uploads/relationships");
-
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    // Format: relationshipId-timestamp.extension
-    const extension = path.extname(file.originalname);
-    const fileName = `${req.params.id}-${Date.now()}${extension}`;
-    cb(null, fileName);
-  },
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// File filter to ensure only images are uploaded
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith("image/")) {
-    cb(null, true);
-  } else {
-    cb(new Error("Only image files are allowed"), false);
-  }
-};
-
-// Configure multer upload
+// Configure multer for memory storage (we'll upload to Cloudinary instead of disk)
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
-  fileFilter: fileFilter,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed"), false);
+    }
+  },
 });
 
-// Helper function to save base64 image
-const saveBase64Image = (base64Data, relationshipId) => {
+// Helper function to upload base64 image to Cloudinary
+const uploadBase64ToCloudinary = async (base64Data, relationshipId) => {
   try {
     // Check if it's a base64 image
     if (!base64Data.startsWith("data:image/")) {
       return base64Data; // Return as-is if not base64
     }
 
-    // Extract the image type and data
-    const matches = base64Data.match(/^data:image\/([a-zA-Z]+);base64,(.+)$/);
-    if (!matches) {
-      throw new Error("Invalid base64 image format");
-    }
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(base64Data, {
+      folder: "relationship-app/profiles",
+      public_id: `relationship-${relationshipId}-${Date.now()}`,
+      transformation: [
+        { width: 400, height: 400, crop: "fill" },
+        { quality: "auto" },
+      ],
+    });
 
-    const imageType = matches[1];
-    const imageData = matches[2];
-
-    // Create upload directory if it doesn't exist
-    const uploadDir = path.join(__dirname, "../uploads/relationships");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    // Generate filename
-    const fileName = `${relationshipId}-${Date.now()}.${imageType}`;
-    const filePath = path.join(uploadDir, fileName);
-
-    // Save the file
-    fs.writeFileSync(filePath, imageData, "base64");
-
-    // Return the relative path for storing in database
-    return `/uploads/relationships/${fileName}`;
+    return result.secure_url;
   } catch (error) {
-    console.error("Error saving base64 image:", error);
+    console.error("Error uploading image to Cloudinary:", error);
     return null;
+  }
+};
+
+// Helper function to upload buffer to Cloudinary (for file uploads)
+const uploadBufferToCloudinary = async (buffer, relationshipId) => {
+  try {
+    return new Promise((resolve, reject) => {
+      cloudinary.uploader
+        .upload_stream(
+          {
+            folder: "relationship-app/profiles",
+            public_id: `relationship-${relationshipId}-${Date.now()}`,
+            transformation: [
+              { width: 400, height: 400, crop: "fill" },
+              { quality: "auto" },
+            ],
+          },
+          (error, result) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(result.secure_url);
+            }
+          }
+        )
+        .end(buffer);
+    });
+  } catch (error) {
+    console.error("Error uploading buffer to Cloudinary:", error);
+    return null;
+  }
+};
+
+// Helper function to delete image from Cloudinary
+const deleteFromCloudinary = async (imageUrl) => {
+  try {
+    if (!imageUrl || !imageUrl.includes("cloudinary.com")) {
+      return;
+    }
+
+    // Extract public_id from Cloudinary URL
+    const parts = imageUrl.split("/");
+    const filename = parts[parts.length - 1];
+    const publicId = `relationship-app/profiles/${filename.split(".")[0]}`;
+
+    await cloudinary.uploader.destroy(publicId);
+  } catch (error) {
+    console.error("Error deleting image from Cloudinary:", error);
   }
 };
 
@@ -139,37 +157,36 @@ exports.createRelationship = async (req, res) => {
     }
 
     // Create relationship with ONLY the 4 fields
-    // DO NOT set any other fields, including interactionFrequency
     const relationshipData = {
       user: userId,
       contactName: contactName.trim(),
       relationshipType: relationshipType,
     };
 
-    // Only add photo if provided
-    if (photoUrl) {
-      relationshipData.photo = photoUrl;
-    }
-
     console.log("Final relationship data for creation:", relationshipData);
 
     const relationship = new Relationship(relationshipData);
-
-    // Save without triggering validation on other fields
     await relationship.save();
 
-    // Handle photo upload if provided (base64 conversion)
+    // Handle photo upload if provided (upload to Cloudinary)
     if (photoUrl && photoUrl.startsWith("data:image/")) {
       try {
-        const savedPhotoPath = saveBase64Image(photoUrl, relationship._id);
-        if (savedPhotoPath) {
-          relationship.photo = savedPhotoPath;
+        const cloudinaryUrl = await uploadBase64ToCloudinary(
+          photoUrl,
+          relationship._id
+        );
+        if (cloudinaryUrl) {
+          relationship.photo = cloudinaryUrl;
           await relationship.save();
         }
       } catch (photoError) {
-        console.error("Error saving photo:", photoError);
-        // Continue even if photo save fails
+        console.error("Error uploading photo to Cloudinary:", photoError);
+        // Continue even if photo upload fails
       }
+    } else if (photoUrl) {
+      // If it's already a URL (not base64), save as-is
+      relationship.photo = photoUrl;
+      await relationship.save();
     }
 
     // Add relationship to user's relationships array
@@ -272,36 +289,25 @@ exports.updateRelationship = async (req, res) => {
 
     if (photoUrl !== undefined) {
       if (photoUrl) {
-        // Delete old photo if exists
-        if (relationship.photo && relationship.photo.startsWith("/uploads/")) {
-          try {
-            const oldPhotoPath = path.join(__dirname, "..", relationship.photo);
-            if (fs.existsSync(oldPhotoPath)) {
-              fs.unlinkSync(oldPhotoPath);
-            }
-          } catch (err) {
-            console.error("Error deleting old photo:", err);
-          }
+        // Delete old photo if exists and it's a Cloudinary URL
+        if (relationship.photo) {
+          await deleteFromCloudinary(relationship.photo);
         }
 
-        // Save new photo
+        // Upload new photo
         if (photoUrl.startsWith("data:image/")) {
-          const savedPhotoPath = saveBase64Image(photoUrl, relationshipId);
-          relationship.photo = savedPhotoPath;
+          const cloudinaryUrl = await uploadBase64ToCloudinary(
+            photoUrl,
+            relationshipId
+          );
+          relationship.photo = cloudinaryUrl;
         } else {
           relationship.photo = photoUrl;
         }
       } else {
         // Remove photo if photoUrl is empty/null
-        if (relationship.photo && relationship.photo.startsWith("/uploads/")) {
-          try {
-            const oldPhotoPath = path.join(__dirname, "..", relationship.photo);
-            if (fs.existsSync(oldPhotoPath)) {
-              fs.unlinkSync(oldPhotoPath);
-            }
-          } catch (err) {
-            console.error("Error deleting photo:", err);
-          }
+        if (relationship.photo) {
+          await deleteFromCloudinary(relationship.photo);
         }
         relationship.photo = null;
       }
@@ -333,169 +339,126 @@ exports.updateRelationship = async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
-// Update relationship - WITH PHOTO HANDLING
-exports.updateRelationship = async (req, res) => {
-  try {
-    const relationshipId = req.params.id;
-
-    // Extract only the fields that can be updated from frontend
-    const { contactName, relationshipType, photoUrl } = req.body;
-
-    console.log("Updating relationship with data:", req.body);
-
-    // Find the relationship
-    const relationship = await Relationship.findById(relationshipId);
-
-    if (!relationship) {
-      return res.status(404).json({ message: "Relationship not found" });
-    }
-
-    // Check if user has permission to update this relationship
-    if (relationship.user.toString() !== req.user.id) {
-      return res
-        .status(403)
-        .json({ message: "Not authorized to update this relationship" });
-    }
-
-    // Update only provided fields
-    if (contactName !== undefined) {
-      if (!contactName.trim()) {
-        return res
-          .status(400)
-          .json({ message: "Contact name cannot be empty" });
-      }
-      relationship.contactName = contactName.trim();
-    }
-
-    if (relationshipType !== undefined) {
-      const allowedTypes = ["partner", "family", "friendship", "colleague"];
-      if (!allowedTypes.includes(relationshipType)) {
-        return res.status(400).json({ message: "Invalid relationship type" });
-      }
-      relationship.relationshipType = relationshipType;
-    }
-
-    if (photoUrl !== undefined) {
-      if (photoUrl) {
-        // Delete old photo if exists
-        if (relationship.photo && relationship.photo.startsWith("/uploads/")) {
-          try {
-            const oldPhotoPath = path.join(__dirname, "..", relationship.photo);
-            if (fs.existsSync(oldPhotoPath)) {
-              fs.unlinkSync(oldPhotoPath);
-            }
-          } catch (err) {
-            console.error("Error deleting old photo:", err);
-          }
-        }
-
-        // Save new photo
-        const savedPhotoPath = saveBase64Image(photoUrl, relationshipId);
-        relationship.photo = savedPhotoPath;
-      } else {
-        // Remove photo if photoUrl is empty/null
-        if (relationship.photo && relationship.photo.startsWith("/uploads/")) {
-          try {
-            const oldPhotoPath = path.join(__dirname, "..", relationship.photo);
-            if (fs.existsSync(oldPhotoPath)) {
-              fs.unlinkSync(oldPhotoPath);
-            }
-          } catch (err) {
-            console.error("Error deleting photo:", err);
-          }
-        }
-        relationship.photo = null;
-      }
-    }
-
-    await relationship.save();
-
-    console.log("Relationship updated successfully:", relationship);
-
-    res.json(relationship);
-  } catch (err) {
-    console.error("Error updating relationship:", err);
-
-    // Handle validation errors
-    if (err.name === "ValidationError") {
-      const validationErrors = Object.values(err.errors).map((e) => e.message);
-      return res.status(400).json({
-        message: "Validation error",
-        errors: validationErrors,
-      });
-    }
-
-    res.status(500).json({ message: "Server error", error: err.message });
-  }
-};
 
 // Upload photo controller (for existing relationships)
 exports.uploadPhoto = async (req, res) => {
   try {
-    // Multer middleware handles the file upload
-    upload.single("photo")(req, res, async function (err) {
-      if (err) {
-        return res.status(400).json({ success: false, message: err.message });
-      }
-
-      if (!req.file) {
-        return res
-          .status(400)
-          .json({ success: false, message: "No file uploaded" });
-      }
-
+    // Handle both file upload and base64 data
+    if (req.file) {
+      // File upload via multer
       const relationshipId = req.params.id;
 
       // Find the relationship
       const relationship = await Relationship.findById(relationshipId);
 
       if (!relationship) {
-        // Remove uploaded file if relationship not found
-        fs.unlinkSync(req.file.path);
-        return res
-          .status(404)
-          .json({ success: false, message: "Relationship not found" });
+        return res.status(404).json({
+          success: false,
+          message: "Relationship not found",
+        });
       }
 
-      // Check if user has permission (relationship belongs to user)
+      // Check if user has permission
       if (relationship.user.toString() !== req.user.id) {
-        // Remove uploaded file if unauthorized
-        fs.unlinkSync(req.file.path);
-        return res
-          .status(403)
-          .json({ success: false, message: "Not authorized" });
+        return res.status(403).json({
+          success: false,
+          message: "Not authorized",
+        });
       }
 
       // Delete old photo if exists
       if (relationship.photo) {
-        try {
-          const oldPhotoPath = path.join(__dirname, "..", relationship.photo);
-          if (fs.existsSync(oldPhotoPath)) {
-            fs.unlinkSync(oldPhotoPath);
-          }
-        } catch (err) {
-          console.error("Error deleting old photo:", err);
-          // Continue even if old photo deletion fails
-        }
+        await deleteFromCloudinary(relationship.photo);
       }
 
-      // Create photo URL path that will be stored in the database
-      // The path should be relative to the server root
-      const photoPath = `/uploads/relationships/${path.basename(req.file.path)}`;
+      // Upload new photo to Cloudinary
+      const cloudinaryUrl = await uploadBufferToCloudinary(
+        req.file.buffer,
+        relationshipId
+      );
 
-      // Update relationship with new photo path
-      relationship.photo = photoPath;
+      if (!cloudinaryUrl) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload photo",
+        });
+      }
+
+      // Update relationship with new photo URL
+      relationship.photo = cloudinaryUrl;
       await relationship.save();
 
       return res.status(200).json({
         success: true,
         message: "Photo uploaded successfully",
-        photo: photoPath,
+        photo: cloudinaryUrl,
       });
-    });
+    } else {
+      // Base64 upload
+      const relationshipId = req.params.id;
+      const { photoUrl } = req.body;
+
+      if (!photoUrl) {
+        return res.status(400).json({
+          success: false,
+          message: "No photo data provided",
+        });
+      }
+
+      // Find the relationship
+      const relationship = await Relationship.findById(relationshipId);
+
+      if (!relationship) {
+        return res.status(404).json({
+          success: false,
+          message: "Relationship not found",
+        });
+      }
+
+      // Check if user has permission
+      if (relationship.user.toString() !== req.user.id) {
+        return res.status(403).json({
+          success: false,
+          message: "Not authorized",
+        });
+      }
+
+      // Delete old photo if exists
+      if (relationship.photo) {
+        await deleteFromCloudinary(relationship.photo);
+      }
+
+      // Upload new photo to Cloudinary
+      let newPhotoUrl;
+      if (photoUrl.startsWith("data:image/")) {
+        newPhotoUrl = await uploadBase64ToCloudinary(photoUrl, relationshipId);
+      } else {
+        newPhotoUrl = photoUrl;
+      }
+
+      if (!newPhotoUrl) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload photo",
+        });
+      }
+
+      // Update relationship with new photo URL
+      relationship.photo = newPhotoUrl;
+      await relationship.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Photo uploaded successfully",
+        photo: newPhotoUrl,
+      });
+    }
   } catch (error) {
     console.error("Error uploading photo:", error);
-    return res.status(500).json({ success: false, message: "Server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
 
@@ -508,46 +471,45 @@ exports.deletePhoto = async (req, res) => {
     const relationship = await Relationship.findById(relationshipId);
 
     if (!relationship) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Relationship not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Relationship not found",
+      });
     }
 
     // Check if user has permission
     if (relationship.user.toString() !== req.user.id) {
-      return res
-        .status(403)
-        .json({ success: false, message: "Not authorized" });
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized",
+      });
     }
 
     // Check if relationship has a photo
     if (!relationship.photo) {
-      return res
-        .status(400)
-        .json({ success: false, message: "No photo to delete" });
+      return res.status(400).json({
+        success: false,
+        message: "No photo to delete",
+      });
     }
 
-    // Delete photo file from server
-    try {
-      const photoPath = path.join(__dirname, "..", relationship.photo);
-      if (fs.existsSync(photoPath)) {
-        fs.unlinkSync(photoPath);
-      }
-    } catch (err) {
-      console.error("Error deleting photo file:", err);
-      // Continue even if file deletion fails
-    }
+    // Delete photo from Cloudinary
+    await deleteFromCloudinary(relationship.photo);
 
     // Update relationship to remove photo reference
     relationship.photo = null;
     await relationship.save();
 
-    return res
-      .status(200)
-      .json({ success: true, message: "Photo deleted successfully" });
+    return res.status(200).json({
+      success: true,
+      message: "Photo deleted successfully",
+    });
   } catch (error) {
     console.error("Error deleting photo:", error);
-    return res.status(500).json({ success: false, message: "Server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
 
