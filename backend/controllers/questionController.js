@@ -620,7 +620,7 @@ exports.askQuestion = async (req, res) => {
     if (!hasConversations && !hasStructuredProfile) {
       return res.status(200).json({
         success: true,
-        answer: `I need more information about your relationship with ${relationship.contactName}. Please complete the 7 questions or import your chat history so I can provide helpful insights.`,
+        answer: `I need more information about your relationship with ${relationship.contactName}. Import your chat history so I can provide helpful insights.`,
       });
     }
 
@@ -887,7 +887,7 @@ exports.askQuestionVoice = async (req, res) => {
         return res.status(200).json({
           success: true,
           transcription: userInput,
-          answer: `I need more information about your relationship with ${relationship.contactName}. Please complete the 7 questions or import your chat history so I can provide helpful insights.`,
+          answer: `I need more information about your relationship with ${relationship.contactName}. Import your chat history so I can provide helpful insights.`,
         });
       }
 

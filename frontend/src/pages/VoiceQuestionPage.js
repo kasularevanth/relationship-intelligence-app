@@ -178,6 +178,30 @@ const VoiceQuestionPage = () => {
     }
   }, [currentQuestionIndex, structuredQuestions, currentMode]);
 
+  // Show initial question in text mode when data loads
+  useEffect(() => {
+    if (
+      isStructuredMode() &&
+      getCurrentQuestion() &&
+      currentMode === "text" &&
+      questionHistory.length === 0
+    ) {
+      console.log("Adding initial question to text mode");
+      const currentQuestion = getCurrentQuestion();
+      const questionMessage = {
+        question: currentQuestion,
+        answer: null,
+        createdAt: new Date().toISOString(),
+        _id: `question-${currentQuestionIndex}-${Date.now()}`,
+        isStructured: true,
+        questionIndex: currentQuestionIndex,
+        isQuestionOnly: true,
+      };
+
+      setQuestionHistory([questionMessage]);
+    }
+  }, [structuredQuestions, currentQuestionIndex, currentMode, profileStatus]);
+
   // Clear error after 10 seconds
   useEffect(() => {
     if (error) {
@@ -442,9 +466,6 @@ const VoiceQuestionPage = () => {
           mediaRecorderRef.current &&
           mediaRecorderRef.current.state === "recording"
         ) {
-          console.log(
-            "Recording automatically stopped after 3 minutes (safety timeout)"
-          );
           stopListening();
           setError(
             "Recording stopped after 3 minutes. Please record shorter messages for better processing."
@@ -537,6 +558,17 @@ const VoiceQuestionPage = () => {
         setRetryCount(0);
 
         if (isStructuredMode()) {
+          // Clean up: Remove any question-only messages for the current question
+          setQuestionHistory((prev) =>
+            prev.filter(
+              (item) =>
+                !(
+                  item.isQuestionOnly &&
+                  item.questionIndex === currentQuestionIndex
+                )
+            )
+          );
+
           const newEntry = {
             question: getCurrentQuestion(),
             answer: data.transcription,
@@ -558,8 +590,30 @@ const VoiceQuestionPage = () => {
               canAskOpenQuestions: true,
             }));
           } else {
-            setCurrentQuestionIndex((prev) => prev + 1);
+            const nextIndex = currentQuestionIndex + 1;
+            setCurrentQuestionIndex(nextIndex);
             setCurrentQuestionSpoken(false);
+
+            // If in text mode, add the next question as AI message
+            if (
+              currentMode === "text" &&
+              nextIndex < structuredQuestions.length
+            ) {
+              const nextQuestion = structuredQuestions[nextIndex];
+              const questionMessage = {
+                question: nextQuestion,
+                answer: null,
+                createdAt: new Date().toISOString(),
+                _id: `question-${nextIndex}-${Date.now()}`,
+                isStructured: true,
+                questionIndex: nextIndex,
+                isQuestionOnly: true,
+              };
+
+              setTimeout(() => {
+                setQuestionHistory((prev) => [questionMessage, ...prev]);
+              }, 500);
+            }
           }
         } else {
           // Handle open-ended question
@@ -629,6 +683,17 @@ const VoiceQuestionPage = () => {
         // Reset retry count on success
         setRetryCount(0);
 
+        // Clean up: Remove any question-only messages for the current question
+        setQuestionHistory((prev) =>
+          prev.filter(
+            (item) =>
+              !(
+                item.isQuestionOnly &&
+                item.questionIndex === currentQuestionIndex
+              )
+          )
+        );
+
         const newEntry = {
           question: currentQuestion,
           answer: answer.trim(),
@@ -640,7 +705,10 @@ const VoiceQuestionPage = () => {
 
         setQuestionHistory((prev) => [newEntry, ...prev]);
 
-        if (response.data.isComplete) {
+        if (
+          response.data.isComplete ||
+          currentQuestionIndex >= structuredQuestions.length - 1
+        ) {
           setProfileStatus((prev) => ({
             ...prev,
             hasStructuredProfile: true,
@@ -648,8 +716,31 @@ const VoiceQuestionPage = () => {
           }));
           setCurrentQuestionIndex(structuredQuestions.length);
         } else {
-          setCurrentQuestionIndex(response.data.nextQuestionIndex);
+          // Consistently increment the question index
+          const nextIndex = currentQuestionIndex + 1;
+          setCurrentQuestionIndex(nextIndex);
           setCurrentQuestionSpoken(false);
+
+          // If in text mode, immediately add the next question as AI message
+          if (
+            currentMode === "text" &&
+            nextIndex < structuredQuestions.length
+          ) {
+            const nextQuestion = structuredQuestions[nextIndex];
+            const questionMessage = {
+              question: nextQuestion,
+              answer: null,
+              createdAt: new Date().toISOString(),
+              _id: `question-${nextIndex}-${Date.now()}`,
+              isStructured: true,
+              questionIndex: nextIndex,
+              isQuestionOnly: true,
+            };
+
+            setTimeout(() => {
+              setQuestionHistory((prev) => [questionMessage, ...prev]);
+            }, 500); // Small delay to show progression
+          }
         }
 
         setTextInput("");
@@ -752,6 +843,40 @@ const VoiceQuestionPage = () => {
     setIsUserTyping(false);
     setShowAITyping(false);
     clearError(); // Clear errors when switching modes
+
+    // When switching to text mode, ensure current question is shown as AI message
+    if (mode === "text" && isStructuredMode() && getCurrentQuestion()) {
+      const currentQuestion = getCurrentQuestion();
+
+      // Check if current question is already displayed (either as question-only or completed Q&A)
+      const questionExists = questionHistory.some(
+        (item) =>
+          item.isStructured &&
+          item.questionIndex === currentQuestionIndex &&
+          (item.isQuestionOnly || item.question === currentQuestion)
+      );
+
+      console.log(
+        `Question ${currentQuestionIndex + 1} exists in history:`,
+        questionExists
+      );
+
+      if (!questionExists) {
+        console.log(`Adding question ${currentQuestionIndex + 1} to text mode`);
+        // Add current question as AI message for text mode
+        const questionMessage = {
+          question: currentQuestion,
+          answer: null, // No answer yet
+          createdAt: new Date().toISOString(),
+          _id: `question-${currentQuestionIndex}-${Date.now()}`,
+          isStructured: true,
+          questionIndex: currentQuestionIndex,
+          isQuestionOnly: true, // Flag to indicate this is just the question
+        };
+
+        setQuestionHistory((prev) => [questionMessage, ...prev]);
+      }
+    }
   };
 
   const handleBack = () => {
@@ -1332,10 +1457,10 @@ const VoiceQuestionPage = () => {
               key={item._id}
               sx={{ display: "flex", flexDirection: "column", gap: "10px" }}
             >
-              {/* For structured questions: Show AI question first, then user answer */}
+              {/* For structured questions */}
               {item.isStructured && (
                 <>
-                  {/* AI Question - LEFT SIDE */}
+                  {/* AI Question - LEFT SIDE (always show the question) */}
                   <Box sx={{ display: "flex", justifyContent: "flex-start" }}>
                     <Box
                       sx={{
@@ -1358,30 +1483,32 @@ const VoiceQuestionPage = () => {
                     </Box>
                   </Box>
 
-                  {/* User Answer - RIGHT SIDE */}
-                  <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-                    <Box
-                      sx={{
-                        padding: "10px 20px",
-                        background:
-                          "linear-gradient(90.81deg, #4E7FFF 4.7%, #0047FF 96.51%)",
-                        borderRadius: "15.771px 15.771px 0px 15.771px",
-                        maxWidth: "70%",
-                        wordWrap: "break-word",
-                      }}
-                    >
-                      <Typography
+                  {/* User Answer - RIGHT SIDE (only show if answer exists) */}
+                  {item.answer && (
+                    <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                      <Box
                         sx={{
-                          fontFamily: "DM Sans",
-                          fontSize: "16px",
-                          fontWeight: 500,
-                          color: "#F5F5F5",
+                          padding: "10px 20px",
+                          background:
+                            "linear-gradient(90.81deg, #4E7FFF 4.7%, #0047FF 96.51%)",
+                          borderRadius: "15.771px 15.771px 0px 15.771px",
+                          maxWidth: "70%",
+                          wordWrap: "break-word",
                         }}
                       >
-                        {item.answer}
-                      </Typography>
+                        <Typography
+                          sx={{
+                            fontFamily: "DM Sans",
+                            fontSize: "16px",
+                            fontWeight: 500,
+                            color: "#F5F5F5",
+                          }}
+                        >
+                          {item.answer}
+                        </Typography>
+                      </Box>
                     </Box>
-                  </Box>
+                  )}
                 </>
               )}
 
