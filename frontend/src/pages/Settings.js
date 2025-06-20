@@ -720,13 +720,13 @@ For questions about these terms, contact us at legal@soulsync.com.
           <SectionTitle>
             {isMobile ? "Support & Legal" : "Support & Legal"}
           </SectionTitle>
-          <MenuItemsContainer>
-            {/* Notifications Toggle - Mobile shows in this section */}
-            {isMobile && (
+          {/* Toggles - Mobile shows in this section */}
+          {isMobile && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: '13px', width: '100%', padding: '0 5px', marginBottom: '13px' }}>
               <NotificationToggleItem>
                 <ToggleLeftSection>
                   <ToggleIcon>
-                    <NotificationsIcon sx={{ fontSize: "10px" }} />
+                    <NotificationsIcon sx={{ fontSize: "14px" }} />
                   </ToggleIcon>
                   <ToggleText>Notifications</ToggleText>
                 </ToggleLeftSection>
@@ -735,8 +735,16 @@ For questions about these terms, contact us at legal@soulsync.com.
                   onChange={handleNotificationToggle}
                 />
               </NotificationToggleItem>
-            )}
-
+              <NotificationToggleItem>
+                <ToggleLeftSection>
+                  <ToggleIcon />
+                  <ToggleText>Dark Mode</ToggleText>
+                </ToggleLeftSection>
+                <CustomSwitch checked={darkMode} onChange={toggleDarkMode} />
+              </NotificationToggleItem>
+            </Box>
+          )}
+          <MenuItemsContainer>
             <MenuItem onClick={() => handleMenuItemClick("faq")}>
               <MenuItemIcon>
                 <HelpOutlineIcon sx={{ fontSize: "18.2px" }} />
@@ -785,6 +793,7 @@ For questions about these terms, contact us at legal@soulsync.com.
             </NotificationToggleItem>
           </PreferencesSection>
         )}
+
 
         {/* Delete Account Button */}
         <DeleteAccountButton onClick={() => setShowDeleteDialog(true)}>

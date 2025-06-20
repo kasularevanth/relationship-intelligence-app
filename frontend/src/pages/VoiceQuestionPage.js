@@ -1343,24 +1343,7 @@ const VoiceQuestionPage = () => {
               </Box>
             </Box>
 
-            {/* Show only the latest answer if available */}
-            {questionHistory.length > 0 &&
-              questionHistory[0].questionIndex === currentQuestionIndex - 1 && (
-                <Box className="answer-right">
-                  <Box className="answer-bubble">
-                    <Typography
-                      sx={{
-                        fontFamily: "DM Sans",
-                        fontSize: "16px",
-                        fontWeight: 500,
-                        color: "#F5F5F5",
-                      }}
-                    >
-                      {questionHistory[0].answer}
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
+            
           </Box>
 
           <Typography className="question-progress">
@@ -1737,90 +1720,136 @@ const VoiceQuestionPage = () => {
         }}
       >
         {/* Chat Messages */}
-        {questionHistory.map((item, index) => (
-          <Box
-            key={item._id}
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "15px",
-              mb: 3,
-            }}
-          >
-            {/* AI Question */}
-            <Box sx={{ display: "flex", justifyContent: "flex-start" }}>
-              <Box
-                sx={{
-                  padding: "10px 20px",
-                  background: "#2A3441",
-                  borderRadius: "15.771px 15.771px 15.771px 0px",
-                  maxWidth: "70%",
-                  wordWrap: "break-word",
-                }}
-              >
-                <Typography
-                  sx={{
-                    fontFamily: "DM Sans",
-                    fontSize: "16px",
-                    color: "#F5F5F5",
-                  }}
-                >
-                  {item.question}
-                </Typography>
-              </Box>
-            </Box>
-
-            {/* User Answer */}
-            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-              <Box
-                sx={{
-                  padding: "10px 20px",
-                  background:
-                    "linear-gradient(90.81deg, #4E7FFF 4.7%, #0047FF 96.51%)",
-                  borderRadius: "15.771px 15.771px 0px 15.771px",
-                  maxWidth: "70%",
-                  wordWrap: "break-word",
-                }}
-              >
-                <Typography
-                  sx={{
-                    fontFamily: "DM Sans",
-                    fontSize: "16px",
-                    fontWeight: 500,
-                    color: "#F5F5F5",
-                  }}
-                >
-                  {item.isStructured ? item.answer : item.question}
-                </Typography>
-              </Box>
-            </Box>
-
-            {/* AI Response (for open-ended questions) */}
-            {!item.isStructured && item.answer && (
-              <Box sx={{ display: "flex", justifyContent: "flex-start" }}>
+        {questionHistory.map((item, index) => {
+            if (item.isStructured) {
+              return (
                 <Box
+                  key={item._id || index}
                   sx={{
-                    padding: "10px 20px",
-                    background: "#2A3441",
-                    borderRadius: "15.771px 15.771px 15.771px 0px",
-                    maxWidth: "70%",
-                    wordWrap: "break-word",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "15px",
+                    mb: 3,
                   }}
                 >
-                  <Typography
-                    sx={{
-                      fontFamily: "DM Sans",
-                      fontSize: "16px",
-                      color: "#F5F5F5",
-                    }}
-                  >
-                    {item.answer}
-                  </Typography>
+                  {/* AI Question */}
+                  <Box sx={{ display: "flex", justifyContent: "flex-start" }}>
+                    <Box
+                      sx={{
+                        padding: "10px 20px",
+                        background: "#2A3441",
+                        borderRadius: "15.771px 15.771px 15.771px 0px",
+                        maxWidth: "70%",
+                        wordWrap: "break-word",
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontFamily: "DM Sans",
+                          fontSize: "16px",
+                          color: "#F5F5F5",
+                        }}
+                      >
+                        {item.question}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {/* User Answer */}
+                  {item.answer && (
+                    <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                      <Box
+                        sx={{
+                          padding: "10px 20px",
+                          background:
+                            "linear-gradient(90.81deg, #4E7FFF 4.7%, #0047FF 96.51%)",
+                          borderRadius: "15.771px 15.771px 0px 15.771px",
+                          maxWidth: "70%",
+                          wordWrap: "break-word",
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontFamily: "DM Sans",
+                            fontSize: "16px",
+                            fontWeight: 500,
+                            color: "#F5F5F5",
+                          }}
+                        >
+                          {item.answer}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
                 </Box>
-              </Box>
-            )}
-          </Box>
-        ))}
+              );
+            } else {
+              // Open-ended conversation
+              return (
+                <Box
+                  key={item._id || index}
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "15px",
+                    mb: 3,
+                  }}
+                >
+                  {/* User's statement */}
+                  <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                    <Box
+                      sx={{
+                        padding: "10px 20px",
+                        background:
+                          "linear-gradient(90.81deg, #4E7FFF 4.7%, #0047FF 96.51%)",
+                        borderRadius: "15.771px 15.771px 0px 15.771px",
+                        maxWidth: "70%",
+                        wordWrap: "break-word",
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontFamily: "DM Sans",
+                          fontSize: "16px",
+                          fontWeight: 500,
+                          color: "#F5F5F5",
+                        }}
+                      >
+                        {item.question}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {/* AI's response */}
+                  {item.answer && (
+                    <Box
+                      sx={{ display: "flex", justifyContent: "flex-start" }}
+                    >
+                      <Box
+                        sx={{
+                          padding: "10px 20px",
+                          background: "#2A3441",
+                          borderRadius: "15.771px 15.771px 15.771px 0px",
+                          maxWidth: "70%",
+                          wordWrap: "break-word",
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontFamily: "DM Sans",
+                            fontSize: "16px",
+                            color: "#F5F5F5",
+                          }}
+                        >
+                          {item.answer}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+                </Box>
+              );
+            }
+          })}
       </Box>
 
       {/* Keep all buttons with same functionality */}
