@@ -14,10 +14,10 @@ import {
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import HomeIcon from "@mui/icons-material/Home";
-import FavoriteIcon from "@mui/icons-material/Favorite";
+import CircleIcon from "@mui/icons-material/Circle";
 import SettingsIcon from "@mui/icons-material/Settings";
 import CloseIcon from "@mui/icons-material/Close";
-import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+// import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
 import KeyboardDoubleArrowLeftIcon from "@mui/icons-material/KeyboardDoubleArrowLeft";
 import { useAuth } from "../contexts/AuthContext";
@@ -68,26 +68,28 @@ const SidebarNavigation = styled(Box)(({ expanded }) => ({
 
 // Collapse/Expand Icon Button - Special styling
 const ExpandButton = styled(IconButton)(({ theme, expanded }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: expanded ? 'auto' : '44px', // Approx from 43.82px
-  height: expanded ? 'auto' : '42px', // Approx from 41.56px. Note: MUI IconButton might enforce square aspect if only one dimension is 'auto'
-  padding: expanded ? '5px 4px' : '9px', // Approx from 9.41177px
-  borderRadius: '16px',
-  backgroundColor: 'transparent',
-  border: '1px solid transparent',
-  minWidth: expanded ? '200px' : '44px',
-  transition: 'width 0.3s ease, min-width 0.3s ease, height 0.3s ease, padding 0.3s ease',
-  position: 'relative', // For icon positioning
-  '&:hover': {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: expanded ? "auto" : "44px", // Approx from 43.82px
+  height: expanded ? "auto" : "42px", // Approx from 41.56px. Note: MUI IconButton might enforce square aspect if only one dimension is 'auto'
+  padding: expanded ? "5px 4px" : "9px", // Approx from 9.41177px
+  borderRadius: "16px",
+  backgroundColor: "transparent",
+  border: "1px solid transparent",
+  minWidth: expanded ? "200px" : "44px",
+  transition:
+    "width 0.3s ease, min-width 0.3s ease, height 0.3s ease, padding 0.3s ease",
+  position: "relative", // For icon positioning
+  "&:hover": {
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     // transform: 'translateY(-2px)', // Removed to simplify transition during expand/collapse
   },
-  '& .MuiSvgIcon-root': { // Targeting the SVG icon directly
-    fontSize: expanded ? '19px' : '22px', // Adjusted collapsed size
-    color: '#FFFFFF',
-    transition: 'font-size 0.3s ease', // Removed transform transition as we swap icons
+  "& .MuiSvgIcon-root": {
+    // Targeting the SVG icon directly
+    fontSize: expanded ? "19px" : "22px", // Adjusted collapsed size
+    color: "#FFFFFF",
+    transition: "font-size 0.3s ease", // Removed transform transition as we swap icons
     // transformOrigin: 'center center', // Good practice but may not be needed if not rotating
   },
 }));
@@ -290,18 +292,18 @@ const HamburgerMenu = ({ showMenuButton = true }) => {
     },
     {
       text: "My Circle",
-      icon: <FavoriteIcon />,
+      icon: <CircleIcon />,
       path: "/dashboard",
       protected: true,
       id: "circle",
     },
-    {
-      text: "Reflect",
-      icon: <AutoAwesomeIcon />,
-      path: "/reflect",
-      protected: true,
-      id: "reflect",
-    },
+    // {
+    //   text: "Reflect",
+    //   icon: <AutoAwesomeIcon />,
+    //   path: "/reflect",
+    //   protected: true,
+    //   id: "reflect",
+    // },
     {
       text: "Settings",
       icon: <SettingsIcon />,
@@ -315,7 +317,8 @@ const HamburgerMenu = ({ showMenuButton = true }) => {
     <MobileSidebarContent>
       <MobileSidebarHeader>
         {/* SoulSync Typography removed to match design */}
-        <Box sx={{ flexGrow: 1 }} /> {/* This will push the close icon to the right */}
+        <Box sx={{ flexGrow: 1 }} />{" "}
+        {/* This will push the close icon to the right */}
         <IconButton onClick={() => setDrawerOpen(false)}>
           <CloseIcon sx={{ color: "var(--text-primary)" }} />
         </IconButton>
@@ -390,11 +393,7 @@ const HamburgerMenu = ({ showMenuButton = true }) => {
           onClick={handleSidebarToggle}
           title={sidebarExpanded ? "Collapse" : "Expand"}
         >
-          {sidebarExpanded ? (
-            <KeyboardDoubleArrowLeftIcon />
-          ) : (
-            <MenuIcon />
-          )}
+          {sidebarExpanded ? <KeyboardDoubleArrowLeftIcon /> : <MenuIcon />}
           {sidebarExpanded && (
             <ExpandText expanded={sidebarExpanded}>Collapse</ExpandText>
           )}
