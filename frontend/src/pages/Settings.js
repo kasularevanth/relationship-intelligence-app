@@ -523,6 +523,7 @@ const DialogButton = styled(Button)(({ variant }) => ({
 
 const Settings = () => {
   const { currentUser, logout } = useAuth();
+  const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
   const muiTheme = useMuiTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("md"));
@@ -774,6 +775,13 @@ For questions about these terms, contact us at legal@soulsync.com.
                 checked={notifications}
                 onChange={handleNotificationToggle}
               />
+            </NotificationToggleItem>
+            <NotificationToggleItem>
+              <ToggleLeftSection>
+                <ToggleIcon />
+                <ToggleText>Dark Mode</ToggleText>
+              </ToggleLeftSection>
+              <CustomSwitch checked={darkMode} onChange={toggleDarkMode} />
             </NotificationToggleItem>
           </PreferencesSection>
         )}

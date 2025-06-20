@@ -614,11 +614,10 @@ const RelationshipCircle = () => {
 
       {/* Action Section - CENTERED BUTTONS */}
       <ActionSection>
-        <UploadButton onClick={handleUploadChats}>Upload My Chats</UploadButton>
-
         <AnalyzeButton onClick={handleAnalyzeWithoutChats}>
-          Analyze without chats
+          Tell CLO About this Person
         </AnalyzeButton>
+        <UploadButton onClick={handleUploadChats}>Upload My Chats</UploadButton>
       </ActionSection>
     </StyledContainer>
   );
